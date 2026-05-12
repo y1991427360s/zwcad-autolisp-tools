@@ -1,0 +1,14 @@
+# Preserve CAD-related GBK files byte-for-byte.
+*.lsp -text
+*.LSP -text
+*.dcl -text
+*.scr -text
+*.mnl -text
+*.lin -text
+*.pat -text
+
+# Normal project text files.
+*.md text eol=crlf
+.gitignore text eol=crlf
+.gitattributes text eol=crlf
+

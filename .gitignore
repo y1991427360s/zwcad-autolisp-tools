@@ -1,0 +1,12 @@
+# Timestamped local backups
+*.bak-*
+*.bak_*
+
+# CAD/editor temporary files
+*.tmp
+*.log
+*.err
+*.sv$
+*.dwl
+*.dwl2
+
