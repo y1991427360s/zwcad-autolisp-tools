@@ -1,37 +1,37 @@
-ï»¿;;; è‡ªåŠ¨ç›®å½•ZDML.lsp
-;;; ä¸­æœ› CAD / AutoCAD å›¾æ¡†å¢å¼ºå±æ€§æ‰¹é‡ç»Ÿè®¡ç›®å½•
-;;; å‘½ä»¤:
-;;;   ZDML      - é€‰æ‹©å¤šä¸ªå›¾æ¡†å—ï¼Œç”Ÿæˆç›®å½•æ–‡å­—
-;;;   ZDMLDEBUG - é€‰æ‹©ä¸€ä¸ªå›¾æ¡†å—ï¼Œæ‰“å°æ‰€æœ‰å¢å¼ºå±æ€§
+;;; ×Ô¶¯Ä¿Â¼ZDML.lsp
+;;; ÖĞÍû CAD / AutoCAD Í¼¿òÔöÇ¿ÊôĞÔÅúÁ¿Í³¼ÆÄ¿Â¼
+;;; ÃüÁî:
+;;;   ZDML      - Ñ¡Ôñ¶à¸öÍ¼¿ò¿é£¬Éú³ÉÄ¿Â¼ÎÄ×Ö
+;;;   ZDMLDEBUG - Ñ¡ÔñÒ»¸öÍ¼¿ò¿é£¬´òÓ¡ËùÓĞÔöÇ¿ÊôĞÔ
 
 (vl-load-com)
 
-;;; ---------------- ç”¨æˆ·å¯ä¿®æ”¹å‚æ•° ----------------
+;;; ---------------- ÓÃ»§¿ÉĞŞ¸Ä²ÎÊı ----------------
 (setq *TKTJ-COL-OFFSETS* '(0.0 7.5 57.5))
 (setq *TKTJ-ROW-GAP* 9.0)
 (setq *TKTJ-TEXT-HEIGHT* 4.0)
-(setq *TKTJ-TEXT-STYLE* "å®‹ä½“")
+(setq *TKTJ-TEXT-STYLE* "ËÎÌå")
 (setq *TKTJ-TEXT-FONTFILE* "simsun.ttc")
 (setq *TKTJ-TEXT-WIDTH-FACTOR* 0.8)
 (setq *TKTJ-OUTPUT-HEADER* T)
 (setq *TKTJ-SORT-BY-POSITION* T)
-(setq *TKTJ-ROW-SORT-TOL* 5.0)
+(setq *TKTJ-ROW-SORT-TOL* 500.0)
 (setq *TKTJ-SORT-BY-PAGE* nil)
 
-;;; ---------------- å­—æ®µå€™é€‰æ˜ å°„ ----------------
+;;; ---------------- ×Ö¶ÎºòÑ¡Ó³Éä ----------------
 (setq *TKTJ-SHEETNO-TAGS*
-       '("æ¡£æ¡ˆå·"))
+       '("Í¼ºÅ"))
 
 (setq *TKTJ-SHEETNAME-TAGS*
-       '("å›¾çº¸åç§°"))
+       '("Í¼Ãû"))
 
 (setq *TKTJ-PAGE-TAGS*
-       '("é¡µç " "é¡µå·" "PAGE" "SHEET"))
+       '("Ò³Âë" "Ò³ºÅ" "PAGE" "SHEET"))
 
 (setq *TKTJ-ARCHIVE-TAGS*
-       '("æ¡£æ¡ˆå·" "æ¡£å·" "æ–‡ä»¶å·" "DWGNO" "DRAWINGNO"))
+       '("Í¼ºÅ" "µµºÅ" "ÎÄ¼şºÅ" "DWGNO" "DRAWINGNO"))
 
-;;; ---------------- åŸºç¡€å·¥å…·å‡½æ•° ----------------
+;;; ---------------- »ù´¡¹¤¾ßº¯Êı ----------------
 (defun tktj:trim (s)
   (if s
     (vl-string-trim " \t\r\n" (vl-princ-to-string s))
@@ -40,12 +40,12 @@
 )
 
 (defun tktj:norm-tag (s)
-  ;; strcase å¯å¤„ç†è‹±æ–‡å¤§å°å†™ï¼›ä¸­æ–‡ä¼šä¿æŒå¯åŒ¹é…çŠ¶æ€ã€‚
+  ;; strcase ¿É´¦ÀíÓ¢ÎÄ´óĞ¡Ğ´£»ÖĞÎÄ»á±£³Ö¿ÉÆ¥Åä×´Ì¬¡£
   (strcase (tktj:trim s))
 )
 
 (defun tktj:current-space (/ doc)
-  ;; åœ¨æ¨¡å‹ç©ºé—´ã€å¸ƒå±€å›¾çº¸ç©ºé—´ã€å¸ƒå±€è§†å£å†…åˆ†åˆ«å†™å…¥å½“å‰å·¥ä½œç©ºé—´ã€‚
+  ;; ÔÚÄ£ĞÍ¿Õ¼ä¡¢²¼¾ÖÍ¼Ö½¿Õ¼ä¡¢²¼¾ÖÊÓ¿ÚÄÚ·Ö±ğĞ´Èëµ±Ç°¹¤×÷¿Õ¼ä¡£
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (cond
     ((= 1 (getvar "TILEMODE")) (vla-get-ModelSpace doc))
@@ -55,7 +55,7 @@
 )
 
 (defun tktj:ensure-text-style (/ doc styles style)
-  ;; ä¼˜å…ˆä½¿ç”¨â€œå®‹ä½“â€æ–‡å­—æ ·å¼ï¼›ä¸å­˜åœ¨æ—¶åˆ›å»ºï¼Œå¹¶å°½é‡ç»‘å®šå®‹ä½“å­—ä½“æ–‡ä»¶ã€‚
+  ;; ÓÅÏÈÊ¹ÓÃ¡°ËÎÌå¡±ÎÄ×ÖÑùÊ½£»²»´æÔÚÊ±´´½¨£¬²¢¾¡Á¿°ó¶¨ËÎÌå×ÖÌåÎÄ¼ş¡£
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq styles (vla-get-TextStyles doc))
   (setq style (vl-catch-all-apply 'vla-Item (list styles *TKTJ-TEXT-STYLE*)))
@@ -72,6 +72,22 @@
   )
 )
 
+(defun tktj:safe-vla-object (ent / r)
+  (setq r (vl-catch-all-apply 'vlax-ename->vla-object (list ent)))
+  (if (vl-catch-all-error-p r)
+    nil
+    r
+  )
+)
+
+(defun tktj:safe-property (obj prop / r)
+  (setq r (vl-catch-all-apply 'vlax-get-property (list obj prop)))
+  (if (vl-catch-all-error-p r)
+    nil
+    r
+  )
+)
+
 (defun tktj:safe-getattributes (blk / r)
   (setq r (vl-catch-all-apply 'vlax-invoke (list blk 'GetAttributes)))
   (if (vl-catch-all-error-p r)
@@ -85,8 +101,17 @@
 )
 
 (defun tktj:block-point (blockObj / p)
-  (setq p (vlax-safearray->list (vlax-variant-value (vla-get-InsertionPoint blockObj))))
-  (list (car p) (cadr p) (if (caddr p) (caddr p) 0.0))
+  (setq p (tktj:safe-property blockObj 'InsertionPoint))
+  (if p
+    (progn
+      (setq p (vl-catch-all-apply 'vlax-safearray->list (list (vlax-variant-value p))))
+      (if (vl-catch-all-error-p p)
+        nil
+        (list (car p) (cadr p) (if (caddr p) (caddr p) 0.0))
+      )
+    )
+    nil
+  )
 )
 
 (defun tktj:all-digits-p (s)
@@ -105,16 +130,19 @@
   )
 )
 
-;;; ---------------- å±æ€§è¯»å–ä¸å­—æ®µæå– ----------------
-(defun tktj:get-attributes (blockObj / atts att tag val result)
-  ;; è¿”å›åŸå§‹ TagString å…³è”è¡¨ï¼Œä¾‹å¦‚ (("å›¾çº¸åç§°" . "xxx") ("é¡µç " . "3"))ã€‚
+;;; ---------------- ÊôĞÔ¶ÁÈ¡Óë×Ö¶ÎÌáÈ¡ ----------------
+(defun tktj:get-attributes (blockObj / atts att tag val result hasAtts)
+  ;; ·µ»ØÔ­Ê¼ TagString ¹ØÁª±í£¬ÀıÈç (("Í¼Ãû" . "xxx") ("Ò³Âë" . "3"))¡£
   (setq result nil)
-  (if (= :vlax-true (vla-get-HasAttributes blockObj))
+  (setq hasAtts (tktj:safe-property blockObj 'HasAttributes))
+  (if (= :vlax-true hasAtts)
     (progn
       (setq atts (tktj:safe-getattributes blockObj))
       (foreach att atts
-        (setq tag (tktj:trim (vla-get-TagString att)))
-        (setq val (tktj:trim (vla-get-TextString att)))
+        (setq tag (tktj:safe-property att 'TagString))
+        (setq val (tktj:safe-property att 'TextString))
+        (setq tag (tktj:trim tag))
+        (setq val (tktj:trim val))
         (if (> (strlen tag) 0)
           (setq result (append result (list (cons tag val))))
         )
@@ -125,7 +153,7 @@
 )
 
 (defun tktj:get-first-pair (attrs candidates skipTags / cand found pair tag val)
-  ;; æŒ‰å€™é€‰å­—æ®µä¼˜å…ˆçº§è¿”å› (åŸå§‹Tag . å€¼)ï¼Œå¯é€šè¿‡ skipTags é¿å…å¤ç”¨åŒä¸€å­—æ®µã€‚
+  ;; °´ºòÑ¡×Ö¶ÎÓÅÏÈ¼¶·µ»Ø (Ô­Ê¼Tag . Öµ)£¬¿ÉÍ¨¹ı skipTags ±ÜÃâ¸´ÓÃÍ¬Ò»×Ö¶Î¡£
   (setq found nil)
   (foreach cand candidates
     (if (not found)
@@ -148,13 +176,13 @@
 )
 
 (defun tktj:get-first-value (attrs candidates / pair)
-  ;; æ ¹æ®å€™é€‰å­—æ®µåˆ—è¡¨ï¼Œä»å±æ€§è¡¨ä¸­å–ç¬¬ä¸€ä¸ªéç©ºå€¼ã€‚
+  ;; ¸ù¾İºòÑ¡×Ö¶ÎÁĞ±í£¬´ÓÊôĞÔ±íÖĞÈ¡µÚÒ»¸ö·Ç¿ÕÖµ¡£
   (setq pair (tktj:get-first-pair attrs candidates nil))
   (if pair (cdr pair) "")
 )
 
 (defun tktj:collect-one-block (blockObj / attrs namePair noPair page archive insPt)
-  ;; åªæœ‰åŒä¸€ä¸ªå—å†…åŒæ—¶æ‰¾åˆ°â€œæ¡£æ¡ˆå·â€å’Œâ€œå›¾çº¸åç§°â€æ—¶ï¼Œæ‰è¿”å›ä¸€æ¡ç›®å½•æ•°æ®ã€‚
+  ;; Ö»ÓĞÍ¬Ò»¸ö¿éÄÚÍ¬Ê±ÕÒµ½¡°Í¼ºÅ¡±ºÍ¡°Í¼Ãû¡±Ê±£¬²Å·µ»ØÒ»ÌõÄ¿Â¼Êı¾İ¡£
   (setq attrs (tktj:get-attributes blockObj))
   (if attrs
     (progn
@@ -163,7 +191,7 @@
       (setq noPair (tktj:get-first-pair attrs *TKTJ-SHEETNO-TAGS* nil))
       (setq page (tktj:get-first-value attrs *TKTJ-PAGE-TAGS*))
       (setq archive (tktj:get-first-value attrs *TKTJ-ARCHIVE-TAGS*))
-      (if (and noPair namePair)
+      (if (and noPair namePair insPt)
         (list
           (cons 'sheetNo (cdr noPair))
           (cons 'sheetName (cdr namePair))
@@ -179,9 +207,9 @@
   )
 )
 
-;;; ---------------- æ–‡å­—è¾“å‡º ----------------
+;;; ---------------- ÎÄ×ÖÊä³ö ----------------
 (defun tktj:add-text (pt txt / obj)
-  ;; åœ¨å½“å‰ç©ºé—´æ’å…¥å·¦å¯¹é½å•è¡Œæ–‡å­—ï¼Œå›¾å±‚/é¢œè‰²é»˜è®¤ ByLayerã€‚
+  ;; ÔÚµ±Ç°¿Õ¼ä²åÈë×ó¶ÔÆëµ¥ĞĞÎÄ×Ö£¬Í¼²ã/ÑÕÉ«Ä¬ÈÏ ByLayer¡£
   (setq obj
         (vla-AddText
           (tktj:current-space)
@@ -218,11 +246,11 @@
 )
 
 (defun tktj:draw-table (dataList basePt / rowIndex item values)
-  ;; æ ¹æ®æ•°æ®åˆ—è¡¨å’ŒåŸºç‚¹ç”Ÿæˆä¸‰åˆ—ç›®å½•æ–‡å­—ã€‚
+  ;; ¸ù¾İÊı¾İÁĞ±íºÍ»ùµãÉú³ÉÈıÁĞÄ¿Â¼ÎÄ×Ö¡£
   (setq rowIndex 0)
   (if *TKTJ-OUTPUT-HEADER*
     (progn
-      (tktj:draw-row basePt rowIndex '("åºå·" "æ¡£æ¡ˆå·" "å›¾çº¸åç§°"))
+      (tktj:draw-row basePt rowIndex '("ĞòºÅ" "Í¼ºÅ" "Í¼Ãû"))
       (setq rowIndex (1+ rowIndex))
     )
   )
@@ -240,9 +268,9 @@
   dataList
 )
 
-;;; ---------------- æ’åº ----------------
+;;; ---------------- ÅÅĞò ----------------
 (defun tktj:sort-by-page (dataList)
-  ;; æ•°å­—é¡µç ä»å°åˆ°å¤§ï¼›éæ•°å­—é¡µç æ’åˆ°æœ€åã€‚
+  ;; Êı×ÖÒ³Âë´ÓĞ¡µ½´ó£»·ÇÊı×ÖÒ³ÂëÅÅµ½×îºó¡£
   (vl-sort
     dataList
     '(lambda (a b)
@@ -252,46 +280,76 @@
   )
 )
 
-(defun tktj:sort-by-position (dataList)
-  ;; å›¾é¢é˜…è¯»é¡ºåºï¼šåŒä¸€è¡Œå…ˆå·¦åˆ°å³ï¼Œä¸åŒè¡Œå†ä»ä¸Šåˆ°ä¸‹ã€‚
-  (vl-sort
-    dataList
-    '(lambda (a b / ax ay bx by)
-       (setq ax (tktj:assoc-data 'x a))
-       (setq ay (tktj:assoc-data 'y a))
-       (setq bx (tktj:assoc-data 'x b))
-       (setq by (tktj:assoc-data 'y b))
-       (if (<= (abs (- ay by)) *TKTJ-ROW-SORT-TOL*)
-         (< ax bx)
-         (> ay by)
-       )
-     )
+(defun tktj:sort-by-position (dataList / sorted rows row rowY item y result)
+  ;; Í¼ÃæÔÄ¶ÁË³Ğò£ºÏÈ°´ÉÏ·½ÓÅÏÈ·ÖĞĞ£¬Y Ïà²îÈİ²îÄÚÊÓÎªÍ¬Ò»ĞĞ£»ĞĞÄÚ×ó²àÓÅÏÈ¡£
+  (setq sorted
+        (vl-sort
+          dataList
+          '(lambda (a b / ay by)
+             (setq ay (tktj:assoc-data 'y a))
+             (setq by (tktj:assoc-data 'y b))
+             (if (= ay by)
+               (< (tktj:assoc-data 'x a)
+                  (tktj:assoc-data 'x b))
+               (> ay by)
+             )
+           )
+        )
   )
+  (foreach item sorted
+    (setq y (tktj:assoc-data 'y item))
+    (if (or (not rowY) (> (abs (- rowY y)) *TKTJ-ROW-SORT-TOL*))
+      (progn
+        (if row (setq rows (append rows (list row))))
+        (setq row (list item))
+        (setq rowY y)
+      )
+      (setq row (append row (list item)))
+    )
+  )
+  (if row (setq rows (append rows (list row))))
+  (foreach row rows
+    (setq result
+          (append
+            result
+            (vl-sort
+              row
+              '(lambda (a b)
+                 (< (tktj:assoc-data 'x a)
+                    (tktj:assoc-data 'x b))
+               )
+            )
+          )
+    )
+  )
+  result
 )
 
-;;; ---------------- ä¸»å‘½ä»¤ ----------------
-(defun C:ZDML (/ ss i ent obj one data basePt)
+;;; ---------------- Ö÷ÃüÁî ----------------
+(defun C:ZDML (/ ss i ent obj one data basePt skipped)
   (vl-load-com)
-  (princ "\nè¯·é€‰æ‹©éœ€è¦ç»Ÿè®¡çš„å›¾æ¡†å—: ")
+  (princ "\nÇëÑ¡ÔñĞèÒªÍ³¼ÆµÄÍ¼¿ò¿é: ")
   (setq ss (ssget '((0 . "INSERT"))))
   (cond
     ((not ss)
-     (princ "\nå·²å–æ¶ˆã€‚")
+     (princ "\nÒÑÈ¡Ïû¡£")
     )
     (T
      (setq i 0)
      (setq data nil)
+     (setq skipped 0)
      (while (< i (sslength ss))
        (setq ent (ssname ss i))
-       (setq obj (vlax-ename->vla-object ent))
-       (setq one (tktj:collect-one-block obj))
+       (setq obj (tktj:safe-vla-object ent))
+       (setq one (if obj (tktj:collect-one-block obj) nil))
        (if one
          (setq data (append data (list one)))
+         (setq skipped (1+ skipped))
        )
        (setq i (1+ i))
      )
      (if (not data)
-       (princ "\næœªé€‰æ‹©æœ‰æ•ˆå›¾æ¡†å—")
+       (princ "\nÎ´Ñ¡ÔñÓĞĞ§Í¼¿ò¿é")
        (progn
          (cond
            (*TKTJ-SORT-BY-PAGE*
@@ -301,19 +359,21 @@
             (setq data (tktj:sort-by-position data))
            )
          )
-         (setq basePt (getpoint "\næŒ‡å®šç›®å½•è¡¨å·¦ä¸Šè§’åŸºç‚¹: "))
+         (setq basePt (getpoint "\nÖ¸¶¨Ä¿Â¼±í×óÉÏ½Ç»ùµã: "))
          (if basePt
            (progn
              (tktj:draw-table data basePt)
              (princ
                (strcat
-                 "\nå·²æå– "
+                 "\nÒÑÌáÈ¡ "
                  (itoa (length data))
-                 " ä¸ªå›¾æ¡†å±æ€§ï¼Œå¹¶ç”Ÿæˆç›®å½•ã€‚"
+                 " ¸öÍ¼¿òÊôĞÔ£¬²¢Éú³ÉÄ¿Â¼¡£Ìø¹ı "
+                 (itoa skipped)
+                 " ¸öÎŞĞ§»ò²»¼æÈİÍ¼¿ò¡£"
                )
              )
            )
-           (princ "\nå·²å–æ¶ˆã€‚")
+           (princ "\nÒÑÈ¡Ïû¡£")
          )
        )
      )
@@ -322,40 +382,40 @@
   (princ)
 )
 
-;;; ---------------- è°ƒè¯•å‘½ä»¤ ----------------
+;;; ---------------- µ÷ÊÔÃüÁî ----------------
 (defun C:ZDMLDEBUG (/ ent obj attrs pair)
   (vl-load-com)
-  (setq ent (car (entsel "\nè¯·é€‰æ‹©ä¸€ä¸ªå›¾æ¡†å—: ")))
+  (setq ent (car (entsel "\nÇëÑ¡ÔñÒ»¸öÍ¼¿ò¿é: ")))
   (cond
     ((not ent)
-     (princ "\nå·²å–æ¶ˆã€‚")
+     (princ "\nÒÑÈ¡Ïû¡£")
     )
     ((/= "INSERT" (cdr (assoc 0 (entget ent))))
-     (princ "\né€‰æ‹©å¯¹è±¡ä¸æ˜¯å—å‚ç…§ã€‚")
+     (princ "\nÑ¡Ôñ¶ÔÏó²»ÊÇ¿é²ÎÕÕ¡£")
     )
     (T
      (setq obj (vlax-ename->vla-object ent))
      (setq attrs (tktj:get-attributes obj))
      (if attrs
        (progn
-         (princ "\nè¯¥å—å¢å¼ºå±æ€§å¦‚ä¸‹:")
+         (princ "\n¸Ã¿éÔöÇ¿ÊôĞÔÈçÏÂ:")
          (foreach pair attrs
            (princ
              (strcat
-               "\nå±æ€§æ ‡è®°: "
+               "\nÊôĞÔ±ê¼Ç: "
                (car pair)
-               "  å€¼: "
+               "  Öµ: "
                (cdr pair)
              )
            )
          )
        )
-       (princ "\nè¯¥å—æ²¡æœ‰å¢å¼ºå±æ€§ã€‚")
+       (princ "\n¸Ã¿éÃ»ÓĞÔöÇ¿ÊôĞÔ¡£")
      )
     )
   )
   (princ)
 )
 
-(princ "\nè‡ªåŠ¨ç›®å½•ZDML.lsp å·²åŠ è½½ã€‚è¾“å…¥ ZDML ç”Ÿæˆç›®å½•ï¼Œè¾“å…¥ ZDMLDEBUG æŸ¥çœ‹å—å±æ€§ã€‚")
+(princ "\n×Ô¶¯Ä¿Â¼ZDML.lsp ÒÑ¼ÓÔØ¡£ÊäÈë ZDML Éú³ÉÄ¿Â¼£¬ÊäÈë ZDMLDEBUG ²é¿´¿éÊôĞÔ¡£")
 (princ)
