@@ -105,3 +105,16 @@ PowerShell 写 GBK 文件时必须显式指定 936 编码，例如：
 2. 整合版本更新完成后，必须在项目根目录运行 `python gen_命令索引.py`，同时重新生成 `命令索引.md` 和 `命令索引.html`。
 3. Markdown 与 HTML 两份命令索引必须保持内容一致，均以生成器扫描到的实际 `.lsp` 命令为准，禁止只更新其中一份。
 4. 交付前必须核对 `AA整合版本.lsp`、`命令索引.md`、`命令索引.html` 均已反映本次脚本修改。
+
+## 十、ZWCAD 文字对正兼容性
+
+1. 在 ZWCAD 2026 中统一 `TEXT` / `MTEXT` 对正方式时，优先使用 COM 属性 `Alignment` / `AttachmentPoint` 设置完整对正枚举，不要只修改 DXF 72、73 或 71 的单个方向分量。
+2. `vla-put-Alignment`、`vla-put-AttachmentPoint` 等 COM 属性写入成功时可能返回 `nil`；必须用 `vl-catch-all-error-p` 判断是否报错，不能把空返回值当成失败。
+3. 改变对正方式前后应读取外包框并补偿位置，再执行最终对齐，避免文字因锚点变化先发生跳位。
+
+## 十一、CAD 启动加载边界
+
+1. CADTools/YS-Tools 已从 ZWCAD 支持目录、启动文件和 APPLOAD 注册表中卸载，不得重新部署，以免覆盖整合版本中的同名命令。
+2. ZWCAD 启动套件只保留 `E:\366256\ZW-auto_lisp\AA整合版本.lsp` 和 `E:\366256\ZW-auto_lisp\V6\aicad_aa_loader.lsp`。
+3. AICAD 的固定目录为 `E:\366256\ZW-auto_lisp\V6`；`aicad_aa_loader.lsp`、`aicad_extension.lsp`、`acaddoc.lsp` 和 `AICADAA_BASEDIR` 不得再引用桌面旧路径。
+4. `ZJ` 的兼容源文件为 `小命令\ZJ.lsp`，主整合文件必须在开头优先加载它，避免后续遗留代码加载失败时阻断 `ZJ` 注册。

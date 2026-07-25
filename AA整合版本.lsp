@@ -20,12 +20,12 @@
 ;;;   - UU    : 将选中对象快速改为白色。
 ;;;   - GG    : 将选中对象快速改为绿色。
 ;;;   - HUI   : 将选中对象快速改为颜色 8。
-;;;   - ZHONG : 将选中的文字以最上方的文字为基准进行居中对齐。
-;;;   - ZUO   : 将选中的文字以最上方的文字为基准进行左对齐。
+;;;   - ZHONG : 将选中文字统一为中中对正，并以最上方文字为基准居中对齐。
+;;;   - ZUO   : 将选中文字统一为左中对正，并以最上方文字为基准左对齐。
 ;;;   - HP    : 将选中文字按从左到右排列，并按最左文字上边对齐。
-;;;   - YOU   : 将选中的文字以最上方的文字为基准进行右对齐。
-;;;   - SHANG : 将选中的文字以最上方的文字为基准进行上对齐。
-;;;   - XIA   : 将选中的文字以最上方的文字为基准进行下对齐。
+;;;   - YOU   : 将选中文字统一为右中对正，并以最上方文字为基准右对齐。
+;;;   - SHANG : 将选中文字统一为中上对正，并以最上方文字为基准上对齐。
+;;;   - XIA   : 将选中文字统一为中下对正，并以最左侧文字为基准下对齐。
 ;;;   - HE    : 将同一行的两个或以上文字合并。
 ;;;   - QW    : 快速修改文字高度。
 ;;;   - WI    : 修改选中文字的宽度比例。
@@ -44,6 +44,7 @@
 ;;;   - KAI   : 将 TEXT/MTEXT 中由空格分隔的内容拆分为多个独立文字。
 ;;;   - ZHENG : 将选中 TEXT/MTEXT 居中到一条水平 LINE 的中点 X。
 ;;;   - GE    : 选中同一水平行的单行文字，按文字间隙绘制单行表格。
+;;;   - UT    : 将选中的水平直线与文字按最上方一对的相对位置统一整理。
 ;;;   - HAO   : 选中图框后批量填写页码和档案号。
 ;;;   - FIVE  : 将测得高度按比例缩放为 5。
 ;;;   - CE    : 测量点序列形成的多段线总长度。
@@ -62,6 +63,9 @@
 ;;;   - ZDMLDEBUG : 选择一个图框块，打印所有增强属性。
 ;;;   - C1    : 复制文字并递增减号右侧编号，使用CAD原生捕捉连续放置。
 ;;;   - C2    : 复制文字并递减减号右侧编号，使用CAD原生捕捉连续放置。
+;;;   - ZJ    : 为多条水平直线左端补齐连接线，并在左侧生成包围矩形。
+;;;   - XU    : 将所有选中且支持线型修改的对象改为 HIDDEN2。
+;;;   - 0     : 将所选对象中的文字旋转角度统一改为 0 度。
 ;;; =======================================================================================
 
 ;;;----------------------------------------------------------------------------------------
@@ -96,6 +100,21 @@
 
 ;; 统一加载 Visual LISP COM 扩展，确保所有需要的功能都能正常运行
 (vl-load-com)
+(load "E:/366256/ZW-auto_lisp/小命令/ZJ.lsp" nil)
+
+(defun aa:set-entity-aci-color (ename color / ed)
+  (if (setq ed (entget ename))
+    (progn
+      (setq ed
+        (vl-remove-if
+          '(lambda (item) (member (car item) '(420 430)))
+          ed))
+      (if (assoc 62 ed)
+        (setq ed (subst (cons 62 color) (assoc 62 ed) ed))
+        (setq ed (append ed (list (cons 62 color)))))
+      (if (entmod ed) T nil))
+    nil)
+)
 
 (defun aa:try-get-bbox (vla_obj / min_pt max_pt result)
   (setq result
@@ -218,9 +237,10 @@
 (defun aa:align-text-horizontal-by-bbox (doc ename base-x mode / bbox current-x delta-x)
   (if (setq bbox (aa:safe-get-bbox doc ename))
     (progn
-      (setq current-x (if (= mode 3)
-                        (aa:bbox-right-x bbox)
-                        (aa:bbox-left-x bbox))
+      (setq current-x (cond
+                        ((= mode 3) (aa:bbox-right-x bbox))
+                        ((= mode 2) (aa:bbox-center-x bbox))
+                        (T (aa:bbox-left-x bbox)))
             delta-x   (- base-x current-x))
       (if (equal delta-x 0.0 1e-8)
         T
@@ -474,9 +494,10 @@
           (setq i 0)
           (repeat (sslength ss)
             (setq ename (ssname ss i))
-            (vla-put-Color (vlax-ename->vla-object ename) targetColor)
+            (aa:set-entity-aci-color ename targetColor)
             (setq i (1+ i))
           )
+          (redraw)
 
           (alert (strcat action-msg csv-path "\n\n并且所有选中的文字颜色已更改。"))
         )
@@ -549,37 +570,38 @@
   )
 )
 
-(defun txt:collect-new-ents (before after / result cur)
-  (cond
-    ((null after) nil)
-    ((null before) (list after))
-    ((eq before after) nil)
-    (t
-      (setq cur (entnext before))
-      (while cur
-        (setq result (cons cur result))
-        (if (eq cur after)
-          (setq cur nil)
-          (setq cur (entnext cur))
-        )
-      )
-      (reverse result)
-    )
-  )
-)
-
 (defun txt:modify-text (ename / edata)
   (if (and ename (= "TEXT" (cdr (assoc 0 (setq edata (entget ename))))))
     (progn
       (setq edata (txt:set-dxf 7 "HZ" edata))
       (setq edata (txt:set-dxf 40 3.0 edata))
       (setq edata (txt:set-dxf 41 0.7 edata))
-      (entmod edata)
+      (if (entmod edata) 1 0)
     )
+    0
   )
 )
 
-(defun txt:run (/ *error* oldcmdecho sel i ename etype txtss mtss mtlist before after newent)
+(defun txt:modify-new-texts (before after / cur count)
+  (setq count 0)
+  (if (and after (not (eq before after)))
+    (progn
+      (setq cur (if before (entnext before) (entnext)))
+      (while cur
+        (if (= "TEXT" (cdr (assoc 0 (entget cur))))
+          (setq count (+ count (txt:modify-text cur)))
+        )
+        (if (eq cur after)
+          (setq cur nil)
+          (setq cur (entnext cur))
+        )
+      )
+    )
+  )
+  count
+)
+
+(defun txt:process-selection (sel / *error* oldcmdecho total i ename etype mtss mtlist before after count)
   (defun *error* (msg)
     (if oldcmdecho
       (setvar "CMDECHO" oldcmdecho)
@@ -590,74 +612,68 @@
     (princ)
   )
 
+  (setq oldcmdecho (getvar "CMDECHO"))
+  (setvar "CMDECHO" 0)
+  (setq total  (sslength sel)
+        mtss   (ssadd)
+        mtlist '()
+        count  0
+        i      0)
+
+  ;; Modify TEXT immediately instead of building another large selection set.
+  (while (< i total)
+    (setq ename (ssname sel i)
+          etype (cdr (assoc 0 (entget ename))))
+    (cond
+      ((= etype "TEXT")
+       (setq count (+ count (txt:modify-text ename))))
+      ((= etype "MTEXT")
+       (ssadd ename mtss)
+       (setq mtlist (cons ename mtlist)))
+    )
+    (setq i (1+ i))
+  )
+
+  ;; Explode all MTEXT objects in one native command invocation.
+  (if (> (sslength mtss) 0)
+    (progn
+      (setq before (entlast))
+      (command "_.explode" mtss "")
+
+      ;; Retry only objects left behind by CAD versions that do not accept a
+      ;; multi-object selection set from AutoLISP EXPLODE.
+      (foreach ename mtlist
+        (if (= "MTEXT" (cdr (assoc 0 (entget ename))))
+          (command "_.explode" ename)
+        )
+      )
+
+      ;; Process the new database range directly; do not copy it into a list
+      ;; or reselect every result, both of which are costly in ZWCAD.
+      (setq after (entlast)
+            count (+ count (txt:modify-new-texts before after)))
+    )
+  )
+
+  (redraw)
+  (setvar "CMDECHO" oldcmdecho)
+  (princ (strcat "\nProcessed text count: " (itoa count)))
+  count
+)
+
+(defun txt:run (/ sel)
   (if (null (tblsearch "STYLE" "HZ"))
     (princ "\nText style HZ was not found.")
     (progn
       (setq sel (ssget '((0 . "TEXT,MTEXT"))))
       (if sel
-        (progn
-          (setq oldcmdecho (getvar "CMDECHO"))
-          (setvar "CMDECHO" 0)
-          (setq txtss (ssadd)
-                mtss  (ssadd)
-                mtlist '()
-                i     0)
-
-          (while (< i (sslength sel))
-            (setq ename (ssname sel i)
-                  etype (cdr (assoc 0 (entget ename))))
-            (cond
-              ((= etype "TEXT")
-               (ssadd ename txtss))
-              ((= etype "MTEXT")
-               (ssadd ename mtss)
-               (setq mtlist (cons ename mtlist)))
-            )
-            (setq i (1+ i))
-          )
-
-          ;; Explode all MTEXT objects in one native command invocation.
-          (if (> (sslength mtss) 0)
-            (progn
-              (setq before (entlast))
-              (command "_.explode" mtss "")
-
-              ;; Retry only objects left behind by CAD versions that do not
-              ;; accept a multi-object selection set from AutoLISP EXPLODE.
-              (foreach ename mtlist
-                (if (= "MTEXT" (cdr (assoc 0 (entget ename))))
-                  (command "_.explode" ename)
-                )
-              )
-
-              (setq after (entlast))
-              (foreach newent (txt:collect-new-ents before after)
-                (if (= "TEXT" (cdr (assoc 0 (entget newent))))
-                  (ssadd newent txtss)
-                )
-              )
-            )
-          )
-
-          (setq i 0)
-          (while (< i (sslength txtss))
-            (txt:modify-text (ssname txtss i))
-            (setq i (1+ i))
-          )
-
-          ;; Avoid an expensive entity update for every text object.
-          (command "_.redraw")
-          (sssetfirst nil txtss)
-          (setvar "CMDECHO" oldcmdecho)
-          (princ (strcat "\nProcessed text count: " (itoa (sslength txtss))))
-        )
-        (princ "\n未选择任何对象。")
+        (txt:process-selection sel)
+        (princ "\nNo objects were selected.")
       )
     )
   )
   (princ)
 )
-
 
 (defun c:T ()
   (txt:run)
@@ -793,9 +809,10 @@
       (setq i 0)
       (repeat (sslength ss)
         (setq ename (ssname ss i))
-        (vla-put-Color (vlax-ename->vla-object ename) targetColor)
+        (aa:set-entity-aci-color ename targetColor)
         (setq i (1+ i))
       )
+      (redraw)
       (princ (strcat "\n所有选中的对象颜色已更改。"))
     )
     (princ "\n没有选中任何对象。")
@@ -817,9 +834,10 @@
       (setq i 0)
       (repeat (sslength ss)
         (setq ename (ssname ss i))
-        (vla-put-Color (vlax-ename->vla-object ename) targetColor)
+        (aa:set-entity-aci-color ename targetColor)
         (setq i (1+ i))
       )
+      (redraw)
       (princ "\nAll selected objects changed to red.")
     )
     (princ "\nNo objects selected.")
@@ -841,15 +859,94 @@
       (setq i 0)
       (repeat (sslength ss)
         (setq ename (ssname ss i))
-        (vla-put-Color (vlax-ename->vla-object ename) targetColor)
+        (aa:set-entity-aci-color ename targetColor)
         (setq i (1+ i))
       )
+      (redraw)
       (princ "\nAll selected objects changed to white.")
     )
     (princ "\nNo objects selected.")
   )
   (princ)
 )
+;;; =======================================================================================
+;;; Command: XU
+;;; Function: 将所有选中且支持线型修改的对象改为 HIDDEN2。
+;;; =======================================================================================
+(defun c:XU (/ *error* doc undo-open oldcmdecho ss i ename obj
+              old-ltype result changed unchanged skipped)
+  (vl-load-com)
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
+        undo-open nil
+        oldcmdecho (getvar "CMDECHO")
+        changed 0
+        unchanged 0
+        skipped 0)
+
+  (defun *error* (msg)
+    (if oldcmdecho (setvar "CMDECHO" oldcmdecho))
+    (if undo-open
+      (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
+    (sssetfirst nil nil)
+    (if (and msg
+             (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*EXIT*,*QUIT*")))
+      (princ (strcat "\n[XU] 错误：" msg)))
+    (princ))
+
+  (setvar "CMDECHO" 0)
+  ;; 图中没有 HIDDEN2 时，先从 CAD 默认线型库加载。
+  (if (not (tblsearch "LTYPE" "HIDDEN2"))
+    (command "_.-LINETYPE" "_Load" "HIDDEN2" ""))
+
+  (if (tblsearch "LTYPE" "HIDDEN2")
+    (progn
+      ;; 不设置任何对象类型过滤，处理时再判断是否支持线型属性。
+      (setq ss (ssget "_I"))
+      (if (null ss)
+        (progn
+          (princ "\n[XU] 请选择需要改为 HIDDEN2 线型的对象：")
+          (setq ss (ssget))))
+
+      (if ss
+        (progn
+          (vl-catch-all-apply 'vla-StartUndoMark (list doc))
+          (setq undo-open T
+                i 0)
+          (repeat (sslength ss)
+            (setq ename (ssname ss i)
+                  obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+            (if (or (vl-catch-all-error-p obj)
+                    (not (vlax-property-available-p obj 'Linetype T)))
+              (setq skipped (1+ skipped))
+              (progn
+                (setq old-ltype
+                      (vl-catch-all-apply 'vla-get-Linetype (list obj)))
+                (if (and (not (vl-catch-all-error-p old-ltype))
+                         (= (strcase old-ltype) "HIDDEN2"))
+                  (setq unchanged (1+ unchanged))
+                  (progn
+                    (setq result
+                          (vl-catch-all-apply
+                            'vla-put-Linetype
+                            (list obj "HIDDEN2")))
+                    (if (vl-catch-all-error-p result)
+                      (setq skipped (1+ skipped))
+                      (setq changed (1+ changed)))))))
+            (setq i (1+ i)))
+          (redraw)
+          (vl-catch-all-apply 'vla-EndUndoMark (list doc))
+          (setq undo-open nil)
+          (princ
+            (strcat "\n[XU] 处理完成：已改为 HIDDEN2 " (itoa changed) " 个"
+                    "，原本已是该线型 " (itoa unchanged) " 个"
+                    "，无法修改 " (itoa skipped) " 个。")))
+        (princ "\n[XU] 未选择任何对象。")))
+    (princ "\n[XU] 无法加载 HIDDEN2 线型，命令已取消。"))
+
+  (setvar "CMDECHO" oldcmdecho)
+  (sssetfirst nil nil)
+  (princ))
+
 ;;; =======================================================================================
 ;;; Command: GG
 ;;; Function: Set selected objects to green color.
@@ -864,9 +961,10 @@
       (setq i 0)
       (repeat (sslength ss)
         (setq ename (ssname ss i))
-        (vla-put-Color (vlax-ename->vla-object ename) targetColor)
+        (aa:set-entity-aci-color ename targetColor)
         (setq i (1+ i))
       )
+      (redraw)
       (princ "\nAll selected objects changed to green.")
     )
     (princ "\nNo objects selected.")
@@ -894,9 +992,10 @@
       (setq i 0)
       (repeat (sslength ss)
         (setq ename (ssname ss i))
-        (vla-put-Color (vlax-ename->vla-object ename) targetColor)
+        (aa:set-entity-aci-color ename targetColor)
         (setq i (1+ i))
       )
+      (redraw)
       (princ "\n所有选中对象已改为颜色 8。")
     )
     (princ "\n没有选中任何对象。")
@@ -985,6 +1084,7 @@
     nil)
 )
 
+;;; 功能: 将选中文字统一为中中对正，并以最上方文字为基准居中对齐。
 (defun c:ZHONG (/ *error* ss doc undo-open ref i ename bbox dx changed skipped base-x)
   (vl-load-com)
   (setq doc       (vla-get-activedocument (vlax-get-acad-object))
@@ -1014,25 +1114,12 @@
               i         0)
         (repeat (sslength ss)
           (setq ename (ssname ss i))
-          (if (eq ename (car ref))
-            nil
-            (progn
-              (setq bbox (aa:safe-get-bbox doc ename))
-              (if bbox
-                (progn
-                  (setq dx (- base-x (aa:bbox-center-x bbox)))
-                  (if (equal dx 0.0 1e-8)
-                    (setq changed (1+ changed))
-                    (if (aa:safe-move-entity ename (vlax-3d-point (list dx 0.0 0.0)))
-                      (setq changed (1+ changed))
-                      (setq skipped (1+ skipped))
-                    )
-                  )
-                )
-                (setq skipped (1+ skipped))
-              )
-            )
-          )
+          (if (aa:normalize-text-horizontal-align doc ename 2)
+            (if (or (eq ename (car ref))
+                    (aa:align-text-horizontal-by-bbox doc ename base-x 2))
+              (setq changed (1+ changed))
+              (setq skipped (1+ skipped)))
+            (setq skipped (1+ skipped)))
           (setq i (1+ i))
         )
         (vla-endundomark doc)
@@ -1078,69 +1165,75 @@
   (+ h-tier (* (1- v-tier) 3))
 )
 
-(defun aa:set-text-horizontal-align (ename base-x mode / ed typ pt v ap vtier new-pt ok)
+(defun aa:set-text-horizontal-align (ename base-x mode / ed typ obj target result)
   (setq ed  (entget ename)
         typ (if ed (cdr (assoc 0 ed)) nil)
-        pt  (aa:text-anchor-point ed))
-  (if (and ed pt)
+        obj (if ed (vlax-ename->vla-object ename) nil))
+  (cond
+    ((= typ "TEXT")
+     (setq target (cond ((= mode 1) 9) ((= mode 3) 11) (T 10))
+           result (vl-catch-all-apply 'vla-put-Alignment (list obj target))))
+    ((= typ "MTEXT")
+     (setq target (cond ((= mode 1) 4) ((= mode 3) 6) (T 5))
+           result (vl-catch-all-apply 'vla-put-AttachmentPoint (list obj target))))
+    (T
+     (setq result nil))
+  )
+  (if (not (vl-catch-all-error-p result))
     (progn
-      (setq new-pt (list base-x (cadr pt) (caddr pt)))
-      (cond
-        ((= typ "TEXT")
-         (setq v  (aa:text-raw-v ed)
-               ed (aa:set-dxf-int ed 72
-                                  (cond
-                                    ((= mode 3) 2)
-                                    ((= mode 2) 1)
-                                    (T 0)))
-               ed (aa:set-dxf-int ed 73 v)
-               ed (aa:set-dxf-point ed 10 new-pt)
-               ed (aa:set-dxf-point ed 11 new-pt)))
-        ((= typ "MTEXT")
-         (setq ap    (if (assoc 71 ed) (cdr (assoc 71 ed)) 1)
-               vtier (aa:mtext-v-tier ap)
-               ed    (aa:set-dxf-int ed 71 (aa:mtext-attachment mode vtier))
-               ed    (aa:set-dxf-point ed 10 new-pt)))
-      )
-      (setq ok (entmod ed))
-      (if ok
-        (progn
-          (entupd ename)
-          T)
-        nil))
+      (vl-catch-all-apply 'vla-update (list obj))
+      (entupd ename)
+      T)
     nil)
 )
 
-(defun aa:set-text-vertical-align (ename base-y mode / ed typ pt h ap htier new-pt ok)
+(defun aa:set-text-vertical-align (ename base-y mode / ed typ obj target result)
   (setq ed  (entget ename)
         typ (if ed (cdr (assoc 0 ed)) nil)
-        pt  (aa:text-anchor-point ed))
-  (if (and ed pt)
+        obj (if ed (vlax-ename->vla-object ename) nil))
+  (cond
+    ((= typ "TEXT")
+     (setq target (if (= mode 1) 7 13)
+           result (vl-catch-all-apply 'vla-put-Alignment (list obj target))))
+    ((= typ "MTEXT")
+     (setq target (if (= mode 1) 2 8)
+           result (vl-catch-all-apply 'vla-put-AttachmentPoint (list obj target))))
+    (T
+     (setq result nil))
+  )
+  (if (not (vl-catch-all-error-p result))
     (progn
-      (setq new-pt (list (car pt) base-y (caddr pt)))
-      (cond
-        ((= typ "TEXT")
-         (setq h  (aa:text-normalized-h ed)
-               ed (aa:set-dxf-int ed 72 h)
-               ed (aa:set-dxf-int ed 73
-                                  (cond
-                                    ((= mode 1) 3)
-                                    ((= mode 2) 2)
-                                    (T 1)))
-               ed (aa:set-dxf-point ed 10 new-pt)
-               ed (aa:set-dxf-point ed 11 new-pt)))
-        ((= typ "MTEXT")
-         (setq ap    (if (assoc 71 ed) (cdr (assoc 71 ed)) 1)
-               htier (aa:mtext-h-tier ap)
-               ed    (aa:set-dxf-int ed 71 (aa:mtext-attachment htier mode))
-               ed    (aa:set-dxf-point ed 10 new-pt)))
-      )
-      (setq ok (entmod ed))
-      (if ok
-        (progn
-          (entupd ename)
-          T)
-        nil))
+      (vl-catch-all-apply 'vla-update (list obj))
+      (entupd ename)
+      T)
+    nil)
+)
+
+(defun aa:normalize-text-horizontal-align (doc ename mode / old-bbox new-bbox dx dy)
+  (setq old-bbox (aa:safe-get-bbox doc ename))
+  (if (aa:set-text-horizontal-align ename 0.0 mode)
+    (if (and old-bbox (setq new-bbox (aa:safe-get-bbox doc ename)))
+      (progn
+        (setq dx (- (aa:bbox-left-x old-bbox) (aa:bbox-left-x new-bbox))
+              dy (- (aa:bbox-bottom-y old-bbox) (aa:bbox-bottom-y new-bbox)))
+        (if (and (equal dx 0.0 1e-8) (equal dy 0.0 1e-8))
+          T
+          (aa:safe-move-entity ename (vlax-3d-point (list dx dy 0.0)))))
+      T)
+    nil)
+)
+
+(defun aa:normalize-text-vertical-align (doc ename mode / old-bbox new-bbox dx dy)
+  (setq old-bbox (aa:safe-get-bbox doc ename))
+  (if (aa:set-text-vertical-align ename 0.0 mode)
+    (if (and old-bbox (setq new-bbox (aa:safe-get-bbox doc ename)))
+      (progn
+        (setq dx (- (aa:bbox-left-x old-bbox) (aa:bbox-left-x new-bbox))
+              dy (- (aa:bbox-bottom-y old-bbox) (aa:bbox-bottom-y new-bbox)))
+        (if (and (equal dx 0.0 1e-8) (equal dy 0.0 1e-8))
+          T
+          (aa:safe-move-entity ename (vlax-3d-point (list dx dy 0.0)))))
+      T)
     nil)
 )
 
@@ -1184,6 +1277,7 @@
     (list ref-ename ref-pt))
 )
 
+;;; 功能: 将选中文字统一为左中对正，并以最上方文字为基准左对齐。
 (defun c:ZUO (/ *error* ss doc undo-open ref i ename base-x changed skipped)
   (vl-load-com)
   (setq doc       (vla-get-activedocument (vlax-get-acad-object))
@@ -1213,13 +1307,12 @@
               i         0)
         (repeat (sslength ss)
           (setq ename (ssname ss i))
-          (if (eq ename (car ref))
-            nil
-            (if (aa:align-text-horizontal-by-bbox doc ename base-x 1)
+          (if (aa:normalize-text-horizontal-align doc ename 1)
+            (if (or (eq ename (car ref))
+                    (aa:align-text-horizontal-by-bbox doc ename base-x 1))
               (setq changed (1+ changed))
-              (setq skipped (1+ skipped))
-            )
-          )
+              (setq skipped (1+ skipped)))
+            (setq skipped (1+ skipped)))
           (setq i (1+ i))
         )
         (vla-endundomark doc)
@@ -1332,6 +1425,7 @@
   (princ)
 )
 
+;;; 功能: 将选中文字统一为右中对正，并以最上方文字为基准右对齐。
 (defun c:YOU (/ *error* ss doc undo-open ref i ename base-x changed skipped)
   (vl-load-com)
   (setq doc       (vla-get-activedocument (vlax-get-acad-object))
@@ -1361,13 +1455,12 @@
               i         0)
         (repeat (sslength ss)
           (setq ename (ssname ss i))
-          (if (eq ename (car ref))
-            nil
-            (if (aa:align-text-horizontal-by-bbox doc ename base-x 3)
+          (if (aa:normalize-text-horizontal-align doc ename 3)
+            (if (or (eq ename (car ref))
+                    (aa:align-text-horizontal-by-bbox doc ename base-x 3))
               (setq changed (1+ changed))
-              (setq skipped (1+ skipped))
-            )
-          )
+              (setq skipped (1+ skipped)))
+            (setq skipped (1+ skipped)))
           (setq i (1+ i))
         )
         (vla-endundomark doc)
@@ -1389,6 +1482,7 @@
   (princ)
 )
 
+;;; 功能: 将选中文字统一为中上对正，并以最上方文字为基准上对齐。
 (defun c:SHANG (/ *error* ss doc undo-open ref i ename base-y changed skipped)
   (vl-load-com)
   (setq doc       (vla-get-activedocument (vlax-get-acad-object))
@@ -1418,13 +1512,12 @@
               i         0)
         (repeat (sslength ss)
           (setq ename (ssname ss i))
-          (if (eq ename (car ref))
-            nil
-            (if (aa:align-text-vertical-by-bbox doc ename base-y 1)
+          (if (aa:normalize-text-vertical-align doc ename 1)
+            (if (or (eq ename (car ref))
+                    (aa:align-text-vertical-by-bbox doc ename base-y 1))
               (setq changed (1+ changed))
-              (setq skipped (1+ skipped))
-            )
-          )
+              (setq skipped (1+ skipped)))
+            (setq skipped (1+ skipped)))
           (setq i (1+ i))
         )
         (vla-endundomark doc)
@@ -1446,6 +1539,7 @@
   (princ)
 )
 
+;;; 功能: 将选中文字统一为中下对正，并以最左侧文字为基准下对齐。
 (defun c:XIA (/ *error* ss doc undo-open ref i ename base-y changed skipped)
   (vl-load-com)
   (setq doc       (vla-get-activedocument (vlax-get-acad-object))
@@ -1475,13 +1569,12 @@
               i         0)
         (repeat (sslength ss)
           (setq ename (ssname ss i))
-          (if (eq ename (car ref))
-            nil
-            (if (aa:align-text-vertical-by-bbox doc ename base-y 3)
+          (if (aa:normalize-text-vertical-align doc ename 3)
+            (if (or (eq ename (car ref))
+                    (aa:align-text-vertical-by-bbox doc ename base-y 3))
               (setq changed (1+ changed))
-              (setq skipped (1+ skipped))
-            )
-          )
+              (setq skipped (1+ skipped)))
+            (setq skipped (1+ skipped)))
           (setq i (1+ i))
         )
         (vla-endundomark doc)
@@ -3599,6 +3692,7 @@
 (princ "\n  [UU]    - set selected objects to white")
 (princ "\n  [GG]    - set selected objects to green")
 (princ "\n  [HUI]   - 快速改为颜色 8")
+(princ "\n  [XU]    - 将所有可修改对象的线型改为 HIDDEN2")
 (princ "\n  [ZUO]   - 左对齐文字")
 (princ "\n  [YOU]   - 右对齐文字")
 (princ "\n  [SHANG] - 上对齐文字")
@@ -5203,7 +5297,7 @@
 (defun db:set-str (en s / e)
   (setq e (entget en))
   (entmod (subst (cons 1 s) (assoc 1 e) e))
-  (entupd en)
+  (vl-catch-all-apply 'entupd (list en))
 )
 
 ;; 选择文字对象，返回选择集（无则 nil）
@@ -6717,4 +6811,242 @@ ZI 已加载：选中文字后输入 ZI，提取全部文字用顿号连接并复制到剪贴板。")
 )
 
 (princ "\nGE 已加载: 选择同一水平行的单行文字并生成表格。")
+(princ)
+
+;;; =======================================================================================
+;;; BEGIN IMPORT: UT.lsp
+;;; =======================================================================================
+(defun ut:abs (x)
+  (if (< x 0.0) (- x) x)
+)
+
+(defun ut:horizontal-line-p (ename / ed p1 p2)
+  (setq ed (entget ename)
+        p1 (cdr (assoc 10 ed))
+        p2 (cdr (assoc 11 ed)))
+  (and p1 p2 (<= (ut:abs (- (cadr p1) (cadr p2))) 1e-8))
+)
+
+(defun ut:line-y (ename / ed p1 p2)
+  (setq ed (entget ename)
+        p1 (cdr (assoc 10 ed))
+        p2 (cdr (assoc 11 ed)))
+  (/ (+ (cadr p1) (cadr p2)) 2.0)
+)
+
+(defun ut:get-bbox (ename / obj minp maxp result)
+  (setq obj (vlax-ename->vla-object ename))
+  (setq result
+    (vl-catch-all-apply 'vla-getboundingbox (list obj 'minp 'maxp)))
+  (if (vl-catch-all-error-p result)
+    nil
+    (list (vlax-safearray->list minp)
+          (vlax-safearray->list maxp)))
+)
+
+(defun ut:bbox-left (bbox)
+  (car (car bbox))
+)
+
+(defun ut:bbox-bottom (bbox)
+  (cadr (car bbox))
+)
+
+(defun ut:insert-desc (item items / y out done)
+  (setq y (cadr item)
+        out nil
+        done nil)
+  (while items
+    (if (and (not done) (> y (cadr (car items))))
+      (progn
+        (setq out (cons item out))
+        (setq done T)))
+    (setq out (cons (car items) out)
+          items (cdr items)))
+  (if (not done)
+    (setq out (cons item out)))
+  (reverse out)
+)
+
+(defun ut:sort-desc (items / out)
+  (setq out nil)
+  (while items
+    (setq out (ut:insert-desc (car items) out)
+          items (cdr items)))
+  out
+)
+
+(defun ut:move (ename dx dy / obj result)
+  (if (and ename (or (not (equal dx 0.0 1e-10))
+                     (not (equal dy 0.0 1e-10))))
+    (progn
+      (setq obj (vlax-ename->vla-object ename)
+            result
+              (vl-catch-all-apply
+                'vla-move
+                (list obj
+                      (vlax-3d-point '(0.0 0.0 0.0))
+                      (vlax-3d-point (list dx dy 0.0)))))
+      (not (vl-catch-all-error-p result)))
+    T)
+)
+
+(defun c:UT (/ *error* doc undo-open oldcmdecho ss i en ed typ
+              lines texts line-items text-items line-count text-count
+              pair-count base-line base-text base-bbox base-left base-gap
+              line-item text-item line-y text-bbox target-left target-bottom
+              dx dy changed skipped)
+  (vl-load-com)
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
+        undo-open nil
+        oldcmdecho nil
+        lines nil
+        texts nil
+        changed 0
+        skipped 0)
+
+  (defun *error* (msg)
+    (if oldcmdecho
+      (setvar "CMDECHO" oldcmdecho))
+    (if undo-open
+      (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
+    (sssetfirst nil nil)
+    (if (and msg
+             (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*EXIT*,*QUIT*")))
+      (princ (strcat "\n[UT] 错误：" msg)))
+    (princ)
+  )
+
+  (setq ss (ssget "_I" '((0 . "LINE,TEXT,MTEXT"))))
+  (if (null ss)
+    (progn
+      (princ "\n[UT] 请选择水平直线和其上方的文字：")
+      (setq ss (ssget "_:L" '((0 . "LINE,TEXT,MTEXT"))))))
+  (if ss
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq en (ssname ss i)
+              ed (entget en)
+              typ (cdr (assoc 0 ed)))
+        (cond
+          ((and (= typ "LINE") (ut:horizontal-line-p en))
+           (setq lines (cons en lines)))
+          ((and (or (= typ "TEXT") (= typ "MTEXT"))
+                (ut:get-bbox en))
+           (setq texts (cons en texts)))
+        )
+        (setq i (1+ i)))
+
+      (setq line-items nil)
+      (foreach en lines
+        (setq line-items (cons (list en (ut:line-y en)) line-items)))
+      (setq line-items (ut:sort-desc line-items))
+
+      (setq text-items nil)
+      (foreach en texts
+        (setq text-bbox (ut:get-bbox en))
+        (if text-bbox
+          (setq text-items
+                (cons (list en (ut:bbox-bottom text-bbox) text-bbox)
+                      text-items))))
+      (setq text-items (ut:sort-desc text-items))
+
+      (setq line-count (length line-items)
+            text-count (length text-items)
+            pair-count (min line-count text-count))
+      (cond
+        ((= line-count 0)
+         (princ "\n[UT] 未找到水平直线。"))
+        ((= text-count 0)
+         (princ "\n[UT] 未找到有效的 TEXT/MTEXT 文字。"))
+        (T
+         (setq base-line (car line-items)
+               base-text (car text-items)
+               base-bbox (caddr base-text)
+               base-left (ut:bbox-left base-bbox)
+               base-gap (- (cadr base-text) (cadr base-line))
+               oldcmdecho (getvar "CMDECHO"))
+         (setvar "CMDECHO" 0)
+         (vl-catch-all-apply 'vla-StartUndoMark (list doc))
+         (setq undo-open T)
+         (repeat pair-count
+           (setq line-item (car line-items)
+                 text-item (car text-items)
+                 line-y (cadr line-item)
+                 text-bbox (caddr text-item)
+                 target-left base-left
+                 target-bottom (+ line-y base-gap)
+                 dx (- target-left (ut:bbox-left text-bbox))
+                 dy (- target-bottom (ut:bbox-bottom text-bbox)))
+           (if (ut:move (car text-item) dx dy)
+             (if (or (not (equal dx 0.0 1e-10))
+                     (not (equal dy 0.0 1e-10)))
+               (setq changed (1+ changed)))
+             (setq skipped (1+ skipped)))
+           (setq line-items (cdr line-items)
+                 text-items (cdr text-items)))
+         (redraw)
+         (vl-catch-all-apply 'vla-EndUndoMark (list doc))
+         (setq undo-open nil)
+         (setvar "CMDECHO" oldcmdecho)
+         (setq oldcmdecho nil)
+         (princ
+           (strcat
+             "\n[UT] 整理完成：处理 " (itoa pair-count) " 对，移动 "
+             (itoa changed) " 个文字。"
+             (if (/= line-count text-count)
+               (strcat " 选中的直线(" (itoa line-count) ")与文字("
+                       (itoa text-count) ")数量不一致，按较少数量配对。")
+               ""))))))
+    (princ "\n[UT] 未选择对象。"))
+  (sssetfirst nil nil)
+  (princ)
+)
+
+
+
+(princ)
+
+;;; 0.lsp
+;;; 命令 0：将所选对象中的文字旋转角度统一改为 0 度。
+
+(vl-load-com)
+
+(defun c:0 (/ ss index entity data entity-type changed failed)
+  (setq changed 0
+        failed  0)
+  (prompt "\n请选择要处理的对象：")
+  (if (setq ss (ssget))
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq entity      (ssname ss index)
+              data        (entget entity)
+              entity-type (cdr (assoc 0 data)))
+        (if (member entity-type '("TEXT" "MTEXT" "ATTRIB" "ATTDEF"))
+          (if
+            (entmod
+              (if (assoc 50 data)
+                (subst (cons 50 0.0) (assoc 50 data) data)
+                (append data (list (cons 50 0.0)))))
+            (setq changed (1+ changed))
+            (setq failed (1+ failed))))
+        (setq index (1+ index)))
+      (redraw)
+      (prompt
+        (strcat
+          "\n已将 "
+          (itoa changed)
+          " 个文字对象的旋转角度改为 0 度。"))
+      (if (> failed 0)
+        (prompt
+          (strcat
+            " 另有 "
+            (itoa failed)
+            " 个文字对象修改失败。"))))
+    (prompt "\n未选择对象。"))
+  (princ))
+
+(princ "\n命令 0 已加载：将所选文字对象的旋转角度改为 0 度。")
 (princ)
