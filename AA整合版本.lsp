@@ -84,6 +84,7 @@
 ;;;   - DAO   : 将选中文字按垂直位置上下颠倒排列（最下面的文字放到最上面）。
 ;;;   - QH    : 只选中已选文字所在行、且位于当前屏幕内、参考文字左右各 1000 内的所有文字（跨多行时逐行选择）。
 ;;;   - BK    : 选中文字后只保留最后一对括号内的内容，括号外有“至”时保留“至”。
+;;;   - ZTF   : 搜索系统字体并将选定字体写入指定文字样式。
 ;;; =======================================================================================
 
 ;;;----------------------------------------------------------------------------------------
@@ -122,6 +123,255 @@
 
 ;; 统一加载 Visual LISP COM 扩展，确保所有需要的功能都能正常运行
 (vl-load-com)
+
+;;;----------------------------------------------------------------------------------------
+;;; ZTF - 文字样式字体搜索器
+;;;----------------------------------------------------------------------------------------
+(setq *ztf-style-name* nil)
+(setq *ztf-font-records* nil)
+(setq *ztf-filtered-fonts* nil)
+(setq *ztf-selected-font* nil)
+(setq *ztf-all-styles* nil)
+(setq *ztf-filtered-styles* nil)
+(setq *ztf-project-dir* "E:/366256/ZW-auto_lisp")
+
+(defun ztf:sort-style-names (names / sorted name before tail)
+  ;; 使用简单插入排序，避免 ZWCAD 的 vl-sort/acad_strlsort 兼容差异。
+  (setq sorted nil)
+  (foreach name names
+    (if (= (type name) 'STR)
+      (progn
+        (setq before nil)
+        (while (and sorted
+                    (< (strcase (car sorted)) (strcase name)))
+          (setq before (cons (car sorted) before)
+                sorted (cdr sorted)))
+        (setq sorted (append (reverse before) (cons name sorted))))))
+  sorted)
+
+(defun ztf:locate-dcl (/ p loadPath)
+  (setq p (findfile "ZTF.dcl"))
+  (if (not p)
+    (progn
+      (setq loadPath (if (and (boundp '*load-truename*)
+                              (= (type *load-truename*) 'STR))
+                       *load-truename*
+                       nil))
+      (if loadPath
+        (setq p (strcat (vl-filename-directory loadPath) "\\ZTF.dcl")))))
+  (if (and p (findfile p))
+    (findfile p)
+    (if (findfile (strcat *ztf-project-dir* "\\ZTF.dcl"))
+      (findfile (strcat *ztf-project-dir* "\\ZTF.dcl"))
+      nil)))
+
+(defun ztf:style-names (/ item itemName out current)
+  ;; 使用样式表原始顺序，不排序；遇到中望异常返回值时立即停止。
+  (setq item (tblnext "STYLE" T))
+  (while (and item (listp item))
+    (setq itemName (cdr (assoc 2 item)))
+    (if (= (type itemName) 'STR)
+      (setq out (cons itemName out)))
+    (setq item (tblnext "STYLE")))
+  (setq current (getvar "TEXTSTYLE"))
+  (if (and (= (type current) 'STR) (not (member current out)))
+    (setq out (cons current out)))
+  (ztf:sort-style-names (reverse out)))
+
+(defun ztf:refresh-style-list (query / q style)
+  (setq q (strcase (if (= (type query) 'STR) query "")))
+  (setq *ztf-filtered-styles* nil)
+  (start_list "style_list")
+  (foreach style *ztf-all-styles*
+    (if (or (= q "") (vl-string-search q (strcase style)))
+      (progn
+        (setq *ztf-filtered-styles*
+              (append *ztf-filtered-styles* (list style)))
+        (add_list style))))
+  (end_list)
+  (if *ztf-filtered-styles*
+    (progn
+      (if (member *ztf-style-name* *ztf-filtered-styles*)
+        (set_tile "style_list"
+                  (itoa (vl-position *ztf-style-name* *ztf-filtered-styles*)))
+        (progn
+          (setq *ztf-style-name* (car *ztf-filtered-styles*))
+          (set_tile "style_list" "0")))
+      (ztf:update-style-info *ztf-style-name*))
+    (progn
+      (setq *ztf-style-name* nil)
+      (set_tile "style_info" "No matching text style"))))
+
+(defun ztf:font-file-p (name / upper)
+  (if (= (type name) 'STR)
+    (progn
+      (setq upper (strcase name))
+      (or (wcmatch upper "*.TTF")
+          (wcmatch upper "*.TTC")
+          (wcmatch upper "*.OTF")
+          (wcmatch upper "*.FON")
+          (wcmatch upper "*.SHX")))
+    nil))
+
+(defun ztf:font-label (name / upper alias)
+  (if (/= (type name) 'STR)
+    (setq name "")
+    nil)
+  (setq upper (strcase name))
+  (setq alias
+    (cond
+      ((wcmatch upper "SIMSUN*") "宋体")
+      ((wcmatch upper "SIMHEI*") "黑体")
+      ((wcmatch upper "SIMKAI*") "楷体")
+      ((wcmatch upper "SIMFANG*") "仿宋")
+      ((wcmatch upper "MSYH*") "微软雅黑")
+      ((wcmatch upper "DENGXIAN*") "等线")
+      ((wcmatch upper "MICROSOFTYAHEI*") "微软雅黑")
+      ((wcmatch upper "NSIMSUN*") "新宋体")
+      (T nil)))
+  (if alias (strcat alias " | " name) name))
+
+(defun ztf:add-font-file (file records / path)
+  (if (and (= (type file) 'STR)
+           (ztf:font-file-p file)
+           (not (assoc file records))
+           (setq path (findfile file)))
+    (cons (cons file path) records)
+    records))
+
+(defun ztf:collect-font-records (/ windir dir files item path out)
+  ;; 首版以 Windows Fonts 目录为主，同时补入当前图纸实际引用的字体文件。
+  (setq windir (getenv "WINDIR"))
+  (if (/= (type windir) 'STR) (setq windir "C:\\Windows"))
+  (setq dir (strcat windir "\\Fonts"))
+  (setq files (vl-catch-all-apply 'vl-directory-files (list dir nil 1)))
+  (if (vl-catch-all-error-p files) (setq files nil))
+  (if (/= (type files) 'LIST) (setq files nil))
+  (foreach item files
+    (if (ztf:font-file-p item)
+      (setq out (cons (cons item (strcat dir "\\" item)) out))))
+  ;; SHX 字体通常在 CAD 支持路径，不在 Windows Fonts 文件夹。
+  (foreach item '("txt.shx" "simplex.shx" "romans.shx" "romand.shx"
+                  "bigfont.shx" "gbcbig.shx")
+    (setq out (ztf:add-font-file item out)))
+  ;; 当前样式引用的 SHX 文件也加入列表。
+  (setq item (getvar "TEXTSTYLE"))
+  (if (= (type item) 'STR)
+    (progn
+      (setq path (vl-catch-all-apply 'tblsearch (list "STYLE" item)))
+      (if (vl-catch-all-error-p path) (setq path nil))
+      (if (and (listp path) (= (type (cdr (assoc 3 path))) 'STR))
+        (setq out (ztf:add-font-file (cdr (assoc 3 path)) out)))))
+  (reverse out))
+
+(defun ztf:style-object (styleName / doc styles result)
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq styles (vla-get-TextStyles doc))
+  (setq result (vl-catch-all-apply 'vla-Item (list styles styleName)))
+  (if (vl-catch-all-error-p result) nil result))
+
+(defun ztf:style-font-file (styleName / styleObj result)
+  (if (setq styleObj (ztf:style-object styleName))
+    (progn
+      (setq result (vl-catch-all-apply 'vla-get-FontFile (list styleObj)))
+      (if (and (not (vl-catch-all-error-p result)) (= (type result) 'STR))
+        result
+        ""))
+    ""))
+
+(defun ztf:style-usage-count (styleName / ss)
+  (if (setq ss (ssget "_X" (list '(0 . "TEXT,MTEXT") (cons 7 styleName))))
+    (sslength ss)
+    0))
+
+(defun ztf:refresh-font-list (query / q rec label)
+  (setq q (strcase (if query query "")))
+  (setq *ztf-filtered-fonts* nil)
+  (start_list "font_list")
+  (foreach rec *ztf-font-records*
+    (setq label (ztf:font-label (car rec)))
+    (if (or (= q "") (vl-string-search q (strcase label)))
+      (progn
+        (setq *ztf-filtered-fonts* (append *ztf-filtered-fonts* (list rec)))
+        (add_list label))))
+  (end_list)
+  (if *ztf-filtered-fonts*
+    (progn
+      (setq *ztf-selected-font* (car *ztf-filtered-fonts*))
+      (set_tile "font_list" "0")
+      (set_tile "font_path" (cdr *ztf-selected-font*)))
+    (progn
+      (setq *ztf-selected-font* nil)
+      (set_tile "font_path" "没有匹配的字体文件"))))
+
+(defun ztf:update-style-info (styleName / count)
+  (setq *ztf-style-name* styleName)
+  (setq count 0)
+  (set_tile "style_info"
+            (strcat "Style: " styleName "    Objects: " (itoa count))))
+
+(defun ztf:apply-font (/ styleObj fontPath result doc)
+  (if (and *ztf-style-name* *ztf-selected-font*)
+    (progn
+      (setq fontPath (cdr *ztf-selected-font*))
+      (setq styleObj (ztf:style-object *ztf-style-name*))
+      (if styleObj
+        (progn
+          (setq result
+            (vl-catch-all-apply 'vla-put-FontFile
+                                (list styleObj fontPath)))
+          (if (vl-catch-all-error-p result)
+            (alert (strcat "字体写入失败：\n" (vl-catch-all-error-message result)))
+            (progn
+              (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+              (vla-Regen doc 1)
+              (alert (strcat "已将样式“" *ztf-style-name*
+                             "”的字体改为：\n" (car *ztf-selected-font*))))))))
+    (alert "请先选择文字样式和字体。")))
+
+(defun ztf:run-dialog (/ dclPath dclId status styles styleIndex)
+  (setq dclPath (ztf:locate-dcl))
+  (if (not dclPath)
+    (progn
+      (alert "找不到 ZTF.dcl。请把项目目录加入 ZWCAD 的支持文件搜索路径。")
+      nil)
+    (progn
+      (setq styles (ztf:style-names)
+            *ztf-all-styles* styles)
+      (if (not (member *ztf-style-name* styles))
+        (setq *ztf-style-name* (getvar "TEXTSTYLE")))
+      (setq dclId (load_dialog dclPath))
+      (if (and (> dclId 0) (new_dialog "ztf_main" dclId))
+        (progn
+          (ztf:refresh-style-list "")
+          (ztf:refresh-font-list "")
+          (action_tile "style_search" "(ztf:refresh-style-list $value)")
+          (action_tile "style_list"
+            "(if (nth (atoi $value) *ztf-filtered-styles*) (ztf:update-style-info (nth (atoi $value) *ztf-filtered-styles*)))")
+          (action_tile "font_search" "(ztf:refresh-font-list $value)")
+          (action_tile "font_list"
+            "(if (nth (atoi $value) *ztf-filtered-fonts*) (progn (setq *ztf-selected-font* (nth (atoi $value) *ztf-filtered-fonts*)) (set_tile \"font_path\" (cdr *ztf-selected-font*))) (set_tile \"font_path\" \"\"))")
+          (action_tile "pick_style" "(done_dialog 2)")
+          (action_tile "apply" "(ztf:apply-font)")
+          (action_tile "cancel" "(done_dialog 0)")
+          (setq status (start_dialog)))
+        (setq status 0))
+      (if (> dclId 0) (unload_dialog dclId))
+      status)))
+
+(defun c:ZTF (/ ent ed status)
+  (setq *ztf-style-name* (getvar "TEXTSTYLE"))
+  (setq *ztf-font-records* (ztf:collect-font-records))
+  (while (= (setq status (ztf:run-dialog)) 2)
+    (if (setq ent (entsel "\n选择一段文字以读取其文字样式："))
+      (progn
+        (setq ed (entget (car ent)))
+        (if (member (cdr (assoc 0 ed)) '("TEXT" "MTEXT"))
+          (setq *ztf-style-name* (cdr (assoc 7 ed)))
+          (princ "\n所选对象不是 TEXT 或 MTEXT。")))
+      (princ "\n未选择文字。")))
+  (princ)
+)
 
 (defun aa:set-entity-aci-color (ename color / ed)
   (if (setq ed (entget ename))
