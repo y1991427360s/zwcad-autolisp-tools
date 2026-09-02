@@ -75,6 +75,7 @@ Multiple DLL versions exist for compatibility: `AICADRibbonHostV6.dll` (latest),
 
 ## Key Conventions
 
+- All project text files, including `.lsp`, use UTF-8 without BOM. CAD text files use CRLF. ZWCAD 2026 must run with `LISPSYS=1` and be restarted before loading these LISP files.
 - The bridge response format is flat key=value lines (not JSON), parsed by `aicad:read-kv-file` in LISP.
 - Local routing in `aicad_bridge.ps1` handles Chinese text patterns (regex with Unicode escapes for CJK characters) to avoid API round-trips for simple commands.
 - Entity filtering uses modes: `ALL`, `TEXT` (TEXT+MTEXT), `LINE` (LINE+LWPOLYLINE+POLYLINE), `STRAIGHTLINE` (LINE only).

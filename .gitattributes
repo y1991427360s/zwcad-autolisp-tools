@@ -1,14 +1,13 @@
-# Preserve CAD-related GBK files byte-for-byte.
-*.lsp -text
-*.LSP -text
-*.dcl -text
-*.scr -text
-*.mnl -text
-*.lin -text
-*.pat -text
+# CAD text is UTF-8 without BOM and uses Windows line endings.
+*.lsp text eol=crlf
+*.LSP text eol=crlf
+*.dcl text eol=crlf
+*.scr text eol=crlf
+*.mnl text eol=crlf
+*.lin text eol=crlf
+*.pat text eol=crlf
 
 # Normal project text files.
 *.md text eol=crlf
 .gitignore text eol=crlf
 .gitattributes text eol=crlf
-
