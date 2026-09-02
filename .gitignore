@@ -1,6 +1,7 @@
-# Timestamped local backups
+# Timestamped local backups（含 backups/ 下的历史归档）
 *.bak-*
 *.bak_*
+backups/
 
 # CAD/editor temporary files
 *.tmp

@@ -126,3 +126,40 @@ PowerShell 写 UTF-8 无 BOM 文件时应显式指定编码，例如：
 3. ZWCAD 2026 中不要用 `vl-sort` / `acad_strlsort` 对 ZTF 样式名排序；当前使用手写插入排序，避免出现 `stringp: T`。
 4. Windows 字体在 `Fonts` 目录，`txt.shx` 等 SHX 字体在 CAD 支持路径；SHX 必须用 `findfile` 从支持路径查找，不能只扫描 Windows Fonts。
 5. `ZTF.dcl` 不在支持路径时，代码会按支持路径、主 LISP 加载目录和项目固定目录依次定位；不要把 DCL 内容直接内嵌到 LISP。
+
+## 十三、命令公共框架（强制）
+
+`AA整合版本.lsp` 顶部定义了一套命令公共框架，新增或修改命令时必须沿用，不要各写一套。
+
+1. **常规命令**用 `aa:cmd-begin` / `aa:cmd-end`。局部变量表必须声明
+   `*error* aa:tag aa:doc aa:undo-open aa:old-cmdecho`，否则会污染全局环境：
+
+   ```lisp
+   (defun c:XXX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i)
+     (aa:cmd-begin "XXX")
+     ;; ... 命令主体 ...
+     (aa:cmd-end)
+   )
+   ```
+
+   `aa:cmd-begin` 会取文档对象、保存 `CMDECHO`、挂上统一错误处理器并开启 undo 分组；
+   `aa:cmd-end` 负责收尾。异常或用户按 Esc 时由 `aa:cmd-error` 关闭分组并恢复系统变量。
+
+2. **已有专属 `*error*` 的命令**（需要关闭文件句柄、清理选择集等）改用 `aa:undo-mark-on` /
+   `aa:undo-mark-off`：局部表声明 `aa:doc aa:undo-open`，并在自有 `*error*` 里调用
+   `(aa:undo-mark-off)`。不要用 `aa:cmd-begin` 覆盖掉这类专属清理逻辑。
+
+3. 每条会修改图形的命令都必须落在一个 undo 分组内，保证用户按一次 `U` 能整体撤销。
+   新增命令后可用递归调用链检查确认，不能只看命令自身有没有 `entmod`——
+   很多命令是通过辅助函数改图的。
+
+4. 排序一律用 `aa:merge-sort`（O(n log n) 稳定归并），**禁止使用 `vl-sort`**：
+   ZWCAD 2026 上 `vl-sort` 对带 lambda 比较器的大列表性能极差，而且会把比较器判定为
+   相等的元素当作重复项**丢弃**。`aa:merge-sort` 两者都不会，签名与 `vl-sort` 相同。
+   ZTF 样式名排序仍可用既有的 `aa:insert-sort`（列表很小）。
+
+5. 五个对齐命令 `ZHONG` / `ZUO` / `YOU` / `SHANG` / `XIA` 共用 `aa:align-text-cmd`，
+   `SYAN` / `XYAN` 共用 `aa:extend-line-cmd`。调整这类行为时改公共实现，不要把命令重新拆开复制。
+
+6. 不要在批量循环里逐对象 `entupd`。只有后续需要立刻读回包围盒或几何时才保留
+   （如 `aa:safe-get-bbox`、对正相关函数）；纯粹刷新显示的场合，改为循环结束后统一 `(redraw)`。

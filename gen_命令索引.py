@@ -67,6 +67,7 @@ def check(fs, rows):
         h=text(MAIN).split('(defun',1)[0]
         listed={m.group(1).upper() for m in re.finditer(r'^;;;\s*-\s*([A-Za-z0-9_]+)\s*:', h, re.M)}
         if main_actual-listed: errors.append('AA整合版本.lsp 头部命令清单缺少：'+', '.join(sorted(main_actual-listed)))
+        if listed-main_actual: errors.append('AA整合版本.lsp 头部命令清单残留已删除命令：'+', '.join(sorted(listed-main_actual)))
     md=ROOT/'命令索引.md'
     if not md.exists() or not (ROOT/'命令索引.html').exists(): errors.append('命令索引文件不存在，请先运行生成模式')
     elif {line.split('`')[1].split('`')[0].replace(' ⚠️', '') for line in md.read_text(encoding='utf-8').splitlines() if line.startswith('| `') and '` |' in line} != actual:

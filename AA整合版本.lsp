@@ -121,6 +121,93 @@
 (vl-load-com)
 
 ;;;----------------------------------------------------------------------------------------
+;;; 公共命令框架 - 统一 undo 分组、错误处理与系统变量保护
+;;;
+;;; 用法：命令的局部变量表必须声明 *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+;;;
+;;;   (defun c:XXX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i)
+;;;     (aa:cmd-begin "XXX")
+;;;     ... 命令主体 ...
+;;;     (aa:cmd-end)
+;;;   )
+;;;
+;;; AutoLISP 是动态作用域，下列函数直接读写调用方局部表中的同名变量；
+;;; 命令退出时这些绑定自动失效，因此不会污染全局环境。
+;;; 开分组后整条命令的所有修改在 CAD 中只需按一次 U 即可整体撤销。
+;;;----------------------------------------------------------------------------------------
+
+(defun aa:cmd-error (msg)
+  ;; 统一错误处理：关闭 undo 分组、恢复 CMDECHO，再按需打印错误信息
+  (if aa:undo-open
+    (progn
+      (vl-catch-all-apply 'vla-endundomark (list aa:doc))
+      (setq aa:undo-open nil)
+    )
+  )
+  (if aa:old-cmdecho
+    (vl-catch-all-apply 'setvar (list "CMDECHO" aa:old-cmdecho))
+  )
+  (if (and msg
+           (= (type msg) 'STR)
+           (/= (strcase msg) "FUNCTION CANCELLED")
+           (/= (strcase msg) "QUIT / EXIT ABORT")
+           (/= (strcase msg) "CONSOLE BREAK"))
+    (princ (strcat "
+[" (if (= (type aa:tag) 'STR) aa:tag "AA") "] 错误: " msg))
+  )
+  (princ)
+)
+
+(defun aa:cmd-begin (tag)
+  ;; 进入命令：记录标签、取文档对象、保存 CMDECHO、挂错误处理器并开启 undo 分组
+  (vl-load-com)
+  (setq aa:tag         tag
+        aa:doc         (vla-get-activedocument (vlax-get-acad-object))
+        aa:old-cmdecho (getvar "CMDECHO")
+        *error*        aa:cmd-error
+  )
+  (vl-catch-all-apply 'vla-startundomark (list aa:doc))
+  (setq aa:undo-open T)
+  aa:doc
+)
+
+(defun aa:cmd-end ()
+  ;; 正常退出命令：关闭 undo 分组并恢复 CMDECHO
+  (if aa:undo-open
+    (progn
+      (vl-catch-all-apply 'vla-endundomark (list aa:doc))
+      (setq aa:undo-open nil)
+    )
+  )
+  (if aa:old-cmdecho
+    (vl-catch-all-apply 'setvar (list "CMDECHO" aa:old-cmdecho))
+  )
+  (princ)
+)
+
+;;; 下面一对只负责 undo 分组，不接管错误处理器。
+;;; 供已经有自定义 *error*（需要关文件、清选择集等专属清理）的命令使用：
+;;; 局部表声明 aa:doc aa:undo-open，并在自有 *error* 中调用 (aa:undo-mark-off)。
+
+(defun aa:undo-mark-on ()
+  (vl-load-com)
+  (setq aa:doc (vla-get-activedocument (vlax-get-acad-object)))
+  (vl-catch-all-apply 'vla-startundomark (list aa:doc))
+  (setq aa:undo-open T)
+  aa:doc
+)
+
+(defun aa:undo-mark-off ()
+  (if aa:undo-open
+    (progn
+      (vl-catch-all-apply 'vla-endundomark (list aa:doc))
+      (setq aa:undo-open nil)
+    )
+  )
+  (princ)
+)
+
+;;;----------------------------------------------------------------------------------------
 ;;; ZTF - 文字样式字体搜索器
 ;;;----------------------------------------------------------------------------------------
 (setq *ztf-style-name* nil)
@@ -141,6 +228,49 @@
             sorted (cdr sorted)))
     (setq sorted (append (reverse before) (cons item sorted))))
   sorted)
+
+(defun aa:msort-merge (a b comparator / out)
+  ;; 稳定归并：只有当 b 的首元素严格排在 a 的首元素之前时才取 b，
+  ;; 两者判定相等时保留 a，从而维持原有先后顺序。
+  (setq out nil)
+  (while (and a b)
+    (if (apply comparator (list (car b) (car a)))
+      (setq out (cons (car b) out)
+            b   (cdr b))
+      (setq out (cons (car a) out)
+            a   (cdr a))
+    )
+  )
+  (while a (setq out (cons (car a) out) a (cdr a)))
+  (while b (setq out (cons (car b) out) b (cdr b)))
+  (reverse out)
+)
+
+(defun aa:merge-sort (items comparator / n half left rest i)
+  ;; O(n log n) 稳定归并排序，用于替代 vl-sort。
+  ;; ZWCAD 2026 的 vl-sort 对带 lambda 比较器的大列表性能极差，
+  ;; 而且会把比较器判定为相等的元素当作重复项丢弃；本函数两者都不会。
+  ;; 比较器同时兼容 '(lambda ...) 与 (function (lambda ...)) 两种写法。
+  (setq n (length items))
+  (if (< n 2)
+    items
+    (progn
+      (setq half (/ n 2)
+            left nil
+            rest items
+            i    0)
+      (while (< i half)
+        (setq left (cons (car rest) left)
+              rest (cdr rest)
+              i    (1+ i))
+      )
+      (aa:msort-merge
+        (aa:merge-sort (reverse left) comparator)
+        (aa:merge-sort rest comparator)
+        comparator)
+    )
+  )
+)
 
 (defun ztf:sort-style-names (names / sorted name before tail)
   ;; 使用简单插入排序，避免 ZWCAD 的 vl-sort/acad_strlsort 兼容差异。
@@ -277,20 +407,6 @@
   (setq result (vl-catch-all-apply 'vla-Item (list styles styleName)))
   (if (vl-catch-all-error-p result) nil result))
 
-(defun ztf:style-font-file (styleName / styleObj result)
-  (if (setq styleObj (ztf:style-object styleName))
-    (progn
-      (setq result (vl-catch-all-apply 'vla-get-FontFile (list styleObj)))
-      (if (and (not (vl-catch-all-error-p result)) (= (type result) 'STR))
-        result
-        ""))
-    ""))
-
-(defun ztf:style-usage-count (styleName / ss)
-  (if (setq ss (ssget "_X" (list '(0 . "TEXT,MTEXT") (cons 7 styleName))))
-    (sslength ss)
-    0))
-
 (defun ztf:refresh-font-list (query / q rec label)
   (setq q (strcase (if query query "")))
   (setq *ztf-filtered-fonts* nil)
@@ -366,7 +482,8 @@
       (if (> dclId 0) (unload_dialog dclId))
       status)))
 
-(defun c:ZTF (/ ent ed status)
+(defun c:ZTF (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ent ed status)
+  (aa:cmd-begin "ZTF")
   (setq *ztf-style-name* (getvar "TEXTSTYLE"))
   (setq *ztf-font-records* (ztf:collect-font-records))
   (while (= (setq status (ztf:run-dialog)) 2)
@@ -377,7 +494,7 @@
           (setq *ztf-style-name* (cdr (assoc 7 ed)))
           (princ "\r\n所选对象不是 TEXT 或 MTEXT。")))
       (princ "\r\n未选择文字。")))
-  (princ)
+  (aa:cmd-end)
 )
 
 (defun aa:set-entity-aci-color (ename color / ed)
@@ -670,13 +787,14 @@
 ;;; 命令: YSDL
 ;;; 功能: 提取选中的文字，自动保存或追加到桌面指定名称的CSV文件中，然后改变文字颜色。
 ;;; =======================================================================================
-(defun c:YSDL (/ *error* ss i ent edata text-data-list sorted-data
+(defun c:YSDL (/ aa:doc aa:undo-open *error* ss i ent edata text-data-list sorted-data
                csv-path f fuzz userprofile file-mode action-msg
                ename targetColor text-string ins-point all-rows current-row
                last-y item current-y line-str cell cell-safe)
 
   ;; 自定义错误处理函数
   (defun *error* (msg)
+    (aa:undo-mark-off)
     (if (and f (= (type f) 'FILE))
       (close f)
     )
@@ -686,6 +804,7 @@
     (princ)
   )
 
+  (aa:undo-mark-on)
   ;; 从全局配置获取容差值
   (setq fuzz *YSDL_RowFuzz*) 
 
@@ -784,6 +903,7 @@
     )
     (princ "\r\n未选择任何文字对象。")
   )
+  (aa:undo-mark-off)
   (princ) 
 )
 
@@ -797,7 +917,8 @@
 ;;; 命令: QSTXT
 ;;; 功能: 快速选择。在已有的选择集中，仅保留文字类型的对象。
 ;;; =======================================================================================
-(defun c:qstxt (/ ss i ent txt)
+(defun c:qstxt (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent txt)
+  (aa:cmd-begin "QSTXT")
   (setq ss (ssget))
   (if ss
     (progn
@@ -821,7 +942,7 @@
     )
     (princ "\r\n未选择任何对象")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 
@@ -943,8 +1064,10 @@
   (princ)
 )
 
-(defun c:T ()
+(defun c:T (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "T")
   (txt:run)
+  (aa:cmd-end)
 )
 
 ;;; =======================================================================================
@@ -1099,7 +1222,8 @@
   count
 )
 
-(defun c:T2 (/ sel)
+(defun c:T2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho sel)
+  (aa:cmd-begin "T2")
   (if (null (tblsearch "STYLE" "HZ"))
     (princ "\r\n未找到文字样式 HZ。")
     (progn
@@ -1108,7 +1232,7 @@
         (princ "\r\n未选择任何对象。"))
     )
   )
-  (princ)
+  (aa:cmd-end)
 )
 ;;; =======================================================================================
 ;;; 命令: H
@@ -1120,41 +1244,11 @@
 ;;; =======================================================================================
 (vl-load-com)
 
-(defun ys-pt (x y)
-  (list x y 0.0)
-)
-
-(defun ys-make-eff-poly (p / x y p1 p2 p3 p4 p5 p6)
-  (setq x (car p))
-  (setq y (cadr p))
-
-  (setq p1 (list x y 0.0))                 ; 起点：左上角
-  (setq p2 (list (+ x 390.0) y 0.0))       ; 向右 390
-  (setq p3 (list (+ x 390.0) (- y 237.0) 0.0)) ; 向下 237
-  (setq p4 (list (+ x 210.0) (- y 237.0) 0.0)) ; 向左 180
-  (setq p5 (list (+ x 210.0) (- y 287.0) 0.0)) ; 向下 50
-  (setq p6 (list x (- y 287.0) 0.0))       ; 向左 210
-  (list p1 p2 p3 p4 p5 p6)
-)
-
-(defun ys-ss->list (ss / i lst)
-  (setq lst '())
-  (if ss
-    (progn
-      (setq i 0)
-      (while (< i (sslength ss))
-        (setq lst (cons (ssname ss i) lst))
-        (setq i (1+ i))
-      )
-    )
-  )
-  lst
-)
-
 ;;; =======================================================================================
-(defun c:H (/ a ss doc i ename vla_obj min_pt max_pt min_list max_list
+(defun c:H (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho a ss doc i ename vla_obj min_pt max_pt min_list max_list
               text_list sorted_text_list anchor_ent anchor_left anchor_top
               current_top current_left target_top delta_x delta_y move_vec count)
+  (aa:cmd-begin "H")
   (vl-load-com)
   (setq a (getdist "\r\n请输入上下间距 <5>: "))
   (if (not a)
@@ -1198,7 +1292,6 @@
         doc         (vla-get-activedocument (vlax-get-acad-object))
         count       0)
 
-  (vla-startundomark doc)
   (foreach text_info sorted_text_list
     (setq ename (nth 2 text_info))
     (if (not (eq ename anchor_ent))
@@ -1222,11 +1315,10 @@
     )
     (setq count (1+ count))
   )
-  (vla-endundomark doc)
   (redraw)
 
   (princ (strcat "\r\n成功以最上方文字为基准排列并左对齐了 " (itoa (sslength ss)) " 个文字对象。"))
-  (princ)
+  (aa:cmd-end)
 )
 
 
@@ -1253,29 +1345,41 @@
   (princ)
 )
 
-(defun c:y ()
-  (aa:color-cmd *Y_TextColor* "\r\n选择要改变颜色的对象: " "\r\n所有选中的对象颜色已更改。"))
+(defun c:y (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "Y")
+  (aa:color-cmd *Y_TextColor* "\r\n选择要改变颜色的对象: " "\r\n所有选中的对象颜色已更改。")
+  (aa:cmd-end)
+)
 
 ;;; =======================================================================================
 ;;; Command: YY
 ;;; Function: Set selected objects to yellow color.
 ;;; =======================================================================================
-(defun c:YY ()
-  (aa:color-cmd *YY_TextColor* "\r\n选择要改为黄色的对象: " "\r\n所有选中对象已改为黄色。"))
+(defun c:YY (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "YY")
+  (aa:color-cmd *YY_TextColor* "\r\n选择要改为黄色的对象: " "\r\n所有选中对象已改为黄色。")
+  (aa:cmd-end)
+)
 
 ;;; =======================================================================================
 ;;; Command: RR
 ;;; Function: Set selected objects to red color.
 ;;; =======================================================================================
-(defun c:RR ()
-  (aa:color-cmd *RR_TextColor* "\r\n选择要改为红色的对象: " "\r\n所有选中对象已改为红色。"))
+(defun c:RR (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "RR")
+  (aa:color-cmd *RR_TextColor* "\r\n选择要改为红色的对象: " "\r\n所有选中对象已改为红色。")
+  (aa:cmd-end)
+)
 
 ;;; =======================================================================================
 ;;; Command: WW
 ;;; Function: Set selected objects to white color.
 ;;; =======================================================================================
-(defun c:WW ()
-  (aa:color-cmd *WW_TextColor* "\r\n选择要改为白色的对象: " "\r\n所有选中对象已改为白色。"))
+(defun c:WW (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "WW")
+  (aa:color-cmd *WW_TextColor* "\r\n选择要改为白色的对象: " "\r\n所有选中对象已改为白色。")
+  (aa:cmd-end)
+)
 ;;; =======================================================================================
 ;;; Command: XU
 ;;; Function: 将所有选中且支持线型修改的对象改为 HIDDEN2。
@@ -1358,15 +1462,21 @@
 ;;; Command: GG
 ;;; Function: Set selected objects to green color.
 ;;; =======================================================================================
-(defun c:GG ()
-  (aa:color-cmd *GG_TextColor* "\r\n选择要改为绿色的对象: " "\r\n所有选中对象已改为绿色。"))
+(defun c:GG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "GG")
+  (aa:color-cmd *GG_TextColor* "\r\n选择要改为绿色的对象: " "\r\n所有选中对象已改为绿色。")
+  (aa:cmd-end)
+)
 
 ;;; =======================================================================================
 ;;; 命令: HH
 ;;; 功能: 将选中的所有对象颜色改为洋红色（ACI 6）。
 ;;; =======================================================================================
-(defun c:HH ()
-  (aa:color-cmd *HH_TextColor* "\r\n请选择要改为洋红色的对象: " "\r\n所有选中对象已改为洋红色。"))
+(defun c:HH (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "HH")
+  (aa:color-cmd *HH_TextColor* "\r\n请选择要改为洋红色的对象: " "\r\n所有选中对象已改为洋红色。")
+  (aa:cmd-end)
+)
 
 
 
@@ -1448,7 +1558,8 @@
   changed
 )
 
-(defun c:HUI (/ targetColor ss i ename ed typ obj doc blockName visited regenResult)
+(defun c:HUI (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho targetColor ss i ename ed typ obj doc blockName visited regenResult)
+  (aa:cmd-begin "HUI")
   (setq targetColor *HUI_TextColor*)
   (princ "\r\n选择要改为颜色 8 的对象: ")
   (setq ss (ssget))
@@ -1484,169 +1595,57 @@
     )
     (princ "\r\n没有选中任何对象。")
   )
-  (princ)
-)
-
-(defun aa:get-dxf-point (ed code / v y z)
-  (setq v (if (assoc code ed) (cdr (assoc code ed)) nil)
-        y (if (assoc (+ code 10) ed) (cdr (assoc (+ code 10) ed)) 0.0)
-        z (if (assoc (+ code 20) ed) (cdr (assoc (+ code 20) ed)) 0.0))
-  (cond
-    ((listp v)
-     (list (float (car v))
-           (float (cadr v))
-           (float (if (caddr v) (caddr v) 0.0))))
-    ((numberp v)
-     (list (float v)
-           (float y)
-           (float z)))
-  )
-)
-
-(defun aa:set-dxf-int (ed code value / row)
-  (setq row (assoc code ed))
-  (if row
-    (subst (cons code value) row ed)
-    (append ed (list (cons code value))))
-)
-
-(defun aa:set-dxf-point (ed code pt / row)
-  (setq row (assoc code ed))
-  (if row
-    (subst (list code (car pt) (cadr pt) (caddr pt)) row ed)
-    (append ed (list (list code (car pt) (cadr pt) (caddr pt)))))
-)
-
-(defun aa:text-anchor-point (ed / typ h v)
-  (setq typ (cdr (assoc 0 ed)))
-  (cond
-    ((= typ "TEXT")
-     (setq h (if (assoc 72 ed) (cdr (assoc 72 ed)) 0)
-           v (if (assoc 73 ed) (cdr (assoc 73 ed)) 0))
-     (if (or (/= h 0) (/= v 0))
-       (or (aa:get-dxf-point ed 11)
-           (aa:get-dxf-point ed 10))
-       (aa:get-dxf-point ed 10)))
-    ((= typ "MTEXT")
-     (aa:get-dxf-point ed 10))
-  )
-)
-
-(defun aa:mtext-center-attachment (ap)
-  (cond
-    ((member ap '(1 2 3)) 2)
-    ((member ap '(4 5 6)) 5)
-    ((member ap '(7 8 9)) 8)
-    (T 5))
-)
-
-(defun aa:center-text-by-anchor (ename base-x / ed typ pt v ap new-pt ok)
-  (setq ed  (entget ename)
-        typ (if ed (cdr (assoc 0 ed)) nil)
-        pt  (aa:text-anchor-point ed))
-  (if (and ed pt)
-    (progn
-      (setq new-pt (list base-x (cadr pt) (caddr pt)))
-      (cond
-        ((= typ "TEXT")
-         (setq v  (if (assoc 73 ed) (cdr (assoc 73 ed)) 0)
-               ed (aa:set-dxf-int ed 72 1)
-               ed (aa:set-dxf-int ed 73 v)
-               ed (aa:set-dxf-point ed 10 new-pt)
-               ed (aa:set-dxf-point ed 11 new-pt)))
-        ((= typ "MTEXT")
-         (setq ap (if (assoc 71 ed) (cdr (assoc 71 ed)) 1)
-               ed (aa:set-dxf-int ed 71 (aa:mtext-center-attachment ap))
-               ed (aa:set-dxf-point ed 10 new-pt)))
-      )
-      (setq ok (entmod ed))
-      (if ok
-        (progn
-          (entupd ename)
-          T)
-        nil))
-    nil)
+  (aa:cmd-end)
 )
 
 ;;; 功能: 将选中文字统一为中中对正，并以最上方文字为基准居中对齐。
-(defun c:ZHONG (/ *error* ss doc undo-open ref i ename bbox dx changed skipped base-x)
-  (vl-load-com)
-  (setq doc       (vla-get-activedocument (vlax-get-acad-object))
-        undo-open nil
-        changed   0
-        skipped   0)
-
-  (defun *error* (msg)
-    (if undo-open
-      (vl-catch-all-apply 'vla-endundomark (list doc))
-    )
-    (if (and msg
-             (/= msg "Function cancelled")
-             (/= msg "quit / exit abort"))
-      (princ (strcat "\r\n[ZHONG] 错误: " msg))
-    )
-    (princ)
-  )
-
-  (princ "\r\n[ZHONG] 请选择要居中对齐的文字...")
+(defun aa:align-text-cmd (tag hint ref-fn edge-fn norm-fn align-fn code axis
+                          / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                            ss ref base i ename changed skipped)
+  ;; ZHONG / ZUO / YOU / SHANG / XIA 五个对齐命令的共用实现。
+  ;;   tag      命令名，用于提示和错误信息
+  ;;   hint     动作描述，如 "居中对齐"
+  ;;   ref-fn   选取基准文字的函数（最上方或最左侧）
+  ;;   edge-fn  从基准包围盒取对齐坐标的函数
+  ;;   norm-fn  统一对正方式的函数（水平或垂直）
+  ;;   align-fn 按包围盒对齐单个文字的函数
+  ;;   code     对正代码：水平 1/2/3 = 左/中/右，垂直 1/2/3 = 上/中/下
+  ;;   axis     基准坐标轴名称，仅用于结果提示
+  (aa:cmd-begin tag)
+  (setq changed 0
+        skipped 0)
+  (princ (strcat "\r\n[" tag "] 请选择要" hint "的文字..."))
   (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
-    (if (setq ref (aa:find-ref-by-top-bbox doc ss))
+    (if (setq ref (apply ref-fn (list aa:doc ss)))
       (progn
-        (setq base-x (aa:bbox-center-x (cadr ref)))
-        (vla-startundomark doc)
-        (setq undo-open T
-              i         0)
+        (setq base (apply edge-fn (list (cadr ref)))
+              i    0)
         (repeat (sslength ss)
           (setq ename (ssname ss i))
-          (if (aa:normalize-text-horizontal-align doc ename 2)
+          (if (apply norm-fn (list aa:doc ename code))
             (if (or (eq ename (car ref))
-                    (aa:align-text-horizontal-by-bbox doc ename base-x 2))
+                    (apply align-fn (list aa:doc ename base code)))
               (setq changed (1+ changed))
               (setq skipped (1+ skipped)))
             (setq skipped (1+ skipped)))
           (setq i (1+ i))
         )
-        (vla-endundomark doc)
-        (setq undo-open nil)
         (princ
-          (strcat
-            "\r\n[ZHONG] 完成。基准 X: "
-            (rtos base-x 2 4)
-            "，已处理: "
-            (itoa changed)
-            "，跳过: "
-            (itoa skipped)
-            "."))
+          (strcat "\r\n[" tag "] 完成。基准 " axis ": " (rtos base 2 4)
+                  "，已处理: " (itoa changed)
+                  "，跳过: " (itoa skipped) "."))
       )
-      (princ "\r\n[ZHONG] 选择中没有有效的文字范围。")
+      (princ (strcat "\r\n[" tag "] 选择中没有有效的文字范围。"))
     )
-    (princ "\r\n[ZHONG] 未选择文字对象。")
+    (princ (strcat "\r\n[" tag "] 未选择文字对象。"))
   )
-  (princ)
+  (aa:cmd-end)
 )
 
-(defun aa:text-raw-v (ed)
-  (if (assoc 73 ed) (cdr (assoc 73 ed)) 0)
-)
-
-(defun aa:text-normalized-h (ed / h)
-  (setq h (if (assoc 72 ed) (cdr (assoc 72 ed)) 0))
-  (cond
-    ((= h 2) 2)
-    ((member h '(1 4)) 1)
-    (T 0))
-)
-
-(defun aa:mtext-h-tier (ap)
-  (+ 1 (rem (max 0 (1- ap)) 3))
-)
-
-(defun aa:mtext-v-tier (ap)
-  (+ 1 (fix (/ (max 0 (1- ap)) 3)))
-)
-
-(defun aa:mtext-attachment (h-tier v-tier)
-  (+ h-tier (* (1- v-tier) 3))
+(defun c:ZHONG ()
+  (aa:align-text-cmd "ZHONG" "居中对齐"
+    'aa:find-ref-by-top-bbox 'aa:bbox-center-x
+    'aa:normalize-text-horizontal-align 'aa:align-text-horizontal-by-bbox 2 "X")
 )
 
 (defun aa:set-text-horizontal-align (ename base-x mode / ed typ obj target result)
@@ -1721,101 +1720,11 @@
     nil)
 )
 
-(defun aa:find-ref-by-top-anchor (ss / i ename ed pt ref-ename ref-pt)
-  (setq i 0
-        ref-ename nil
-        ref-pt nil)
-  (repeat (sslength ss)
-    (setq ename (ssname ss i)
-          ed    (entget ename)
-          pt    (aa:text-anchor-point ed))
-    (if pt
-      (if (or (null ref-pt)
-              (> (cadr pt) (cadr ref-pt)))
-        (setq ref-ename ename
-              ref-pt    pt))
-    )
-    (setq i (1+ i))
-  )
-  (if ref-pt
-    (list ref-ename ref-pt))
-)
-
-(defun aa:find-ref-by-left-anchor (ss / i ename ed pt ref-ename ref-pt)
-  (setq i 0
-        ref-ename nil
-        ref-pt nil)
-  (repeat (sslength ss)
-    (setq ename (ssname ss i)
-          ed    (entget ename)
-          pt    (aa:text-anchor-point ed))
-    (if pt
-      (if (or (null ref-pt)
-              (< (car pt) (car ref-pt)))
-        (setq ref-ename ename
-              ref-pt    pt))
-    )
-    (setq i (1+ i))
-  )
-  (if ref-pt
-    (list ref-ename ref-pt))
-)
-
 ;;; 功能: 将选中文字统一为左中对正，并以最上方文字为基准左对齐。
-(defun c:ZUO (/ *error* ss doc undo-open ref i ename base-x changed skipped)
-  (vl-load-com)
-  (setq doc       (vla-get-activedocument (vlax-get-acad-object))
-        undo-open nil
-        changed   0
-        skipped   0)
-
-  (defun *error* (msg)
-    (if undo-open
-      (vl-catch-all-apply 'vla-endundomark (list doc))
-    )
-    (if (and msg
-             (/= msg "Function cancelled")
-             (/= msg "quit / exit abort"))
-      (princ (strcat "\r\n[ZUO] 错误: " msg))
-    )
-    (princ)
-  )
-
-  (princ "\r\n[ZUO] 请选择要左对齐的文字...")
-  (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
-    (if (setq ref (aa:find-ref-by-top-bbox doc ss))
-      (progn
-        (setq base-x (aa:bbox-left-x (cadr ref)))
-        (vla-startundomark doc)
-        (setq undo-open T
-              i         0)
-        (repeat (sslength ss)
-          (setq ename (ssname ss i))
-          (if (aa:normalize-text-horizontal-align doc ename 1)
-            (if (or (eq ename (car ref))
-                    (aa:align-text-horizontal-by-bbox doc ename base-x 1))
-              (setq changed (1+ changed))
-              (setq skipped (1+ skipped)))
-            (setq skipped (1+ skipped)))
-          (setq i (1+ i))
-        )
-        (vla-endundomark doc)
-        (setq undo-open nil)
-        (princ
-          (strcat
-            "\r\n[ZUO] 完成。基准 X: "
-            (rtos base-x 2 4)
-            "，已处理: "
-            (itoa changed)
-            "，跳过: "
-            (itoa skipped)
-            "."))
-      )
-      (princ "\r\n[ZUO] 选择中没有有效的文字范围。")
-    )
-    (princ "\r\n[ZUO] 未选择文字对象。")
-  )
-  (princ)
+(defun c:ZUO ()
+  (aa:align-text-cmd "ZUO" "左对齐"
+    'aa:find-ref-by-top-bbox 'aa:bbox-left-x
+    'aa:normalize-text-horizontal-align 'aa:align-text-horizontal-by-bbox 1 "X")
 )
 
 ;;; =======================================================================================
@@ -1912,178 +1821,29 @@
 )
 
 ;;; 功能: 将选中文字统一为右中对正，并以最上方文字为基准右对齐。
-(defun c:YOU (/ *error* ss doc undo-open ref i ename base-x changed skipped)
-  (vl-load-com)
-  (setq doc       (vla-get-activedocument (vlax-get-acad-object))
-        undo-open nil
-        changed   0
-        skipped   0)
-
-  (defun *error* (msg)
-    (if undo-open
-      (vl-catch-all-apply 'vla-endundomark (list doc))
-    )
-    (if (and msg
-             (/= msg "Function cancelled")
-             (/= msg "quit / exit abort"))
-      (princ (strcat "\r\n[YOU] 错误: " msg))
-    )
-    (princ)
-  )
-
-  (princ "\r\n[YOU] 请选择要右对齐的文字...")
-  (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
-    (if (setq ref (aa:find-ref-by-top-bbox doc ss))
-      (progn
-        (setq base-x (aa:bbox-right-x (cadr ref)))
-        (vla-startundomark doc)
-        (setq undo-open T
-              i         0)
-        (repeat (sslength ss)
-          (setq ename (ssname ss i))
-          (if (aa:normalize-text-horizontal-align doc ename 3)
-            (if (or (eq ename (car ref))
-                    (aa:align-text-horizontal-by-bbox doc ename base-x 3))
-              (setq changed (1+ changed))
-              (setq skipped (1+ skipped)))
-            (setq skipped (1+ skipped)))
-          (setq i (1+ i))
-        )
-        (vla-endundomark doc)
-        (setq undo-open nil)
-        (princ
-          (strcat
-            "\r\n[YOU] 完成。基准 X: "
-            (rtos base-x 2 4)
-            "，已处理: "
-            (itoa changed)
-            "，跳过: "
-            (itoa skipped)
-            "."))
-      )
-      (princ "\r\n[YOU] 选择中没有有效的文字范围。")
-    )
-    (princ "\r\n[YOU] 未选择文字对象。")
-  )
-  (princ)
+(defun c:YOU ()
+  (aa:align-text-cmd "YOU" "右对齐"
+    'aa:find-ref-by-top-bbox 'aa:bbox-right-x
+    'aa:normalize-text-horizontal-align 'aa:align-text-horizontal-by-bbox 3 "X")
 )
 
 ;;; 功能: 将选中文字统一为中上对正，并以最上方文字为基准上对齐。
-(defun c:SHANG (/ *error* ss doc undo-open ref i ename base-y changed skipped)
-  (vl-load-com)
-  (setq doc       (vla-get-activedocument (vlax-get-acad-object))
-        undo-open nil
-        changed   0
-        skipped   0)
-
-  (defun *error* (msg)
-    (if undo-open
-      (vl-catch-all-apply 'vla-endundomark (list doc))
-    )
-    (if (and msg
-             (/= msg "Function cancelled")
-             (/= msg "quit / exit abort"))
-      (princ (strcat "\r\n[SHANG] 错误: " msg))
-    )
-    (princ)
-  )
-
-  (princ "\r\n[SHANG] 请选择要上对齐的文字...")
-  (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
-    (if (setq ref (aa:find-ref-by-top-bbox doc ss))
-      (progn
-        (setq base-y (aa:bbox-top-y (cadr ref)))
-        (vla-startundomark doc)
-        (setq undo-open T
-              i         0)
-        (repeat (sslength ss)
-          (setq ename (ssname ss i))
-          (if (aa:normalize-text-vertical-align doc ename 1)
-            (if (or (eq ename (car ref))
-                    (aa:align-text-vertical-by-bbox doc ename base-y 1))
-              (setq changed (1+ changed))
-              (setq skipped (1+ skipped)))
-            (setq skipped (1+ skipped)))
-          (setq i (1+ i))
-        )
-        (vla-endundomark doc)
-        (setq undo-open nil)
-        (princ
-          (strcat
-            "\r\n[SHANG] 完成。基准 Y: "
-            (rtos base-y 2 4)
-            "，已处理: "
-            (itoa changed)
-            "，跳过: "
-            (itoa skipped)
-            "."))
-      )
-      (princ "\r\n[SHANG] 选择中没有有效的文字范围。")
-    )
-    (princ "\r\n[SHANG] 未选择文字对象。")
-  )
-  (princ)
+(defun c:SHANG ()
+  (aa:align-text-cmd "SHANG" "上对齐"
+    'aa:find-ref-by-top-bbox 'aa:bbox-top-y
+    'aa:normalize-text-vertical-align 'aa:align-text-vertical-by-bbox 1 "Y")
 )
 
 ;;; 功能: 将选中文字统一为中下对正，并以最左侧文字为基准下对齐。
-(defun c:XIA (/ *error* ss doc undo-open ref i ename base-y changed skipped)
-  (vl-load-com)
-  (setq doc       (vla-get-activedocument (vlax-get-acad-object))
-        undo-open nil
-        changed   0
-        skipped   0)
-
-  (defun *error* (msg)
-    (if undo-open
-      (vl-catch-all-apply 'vla-endundomark (list doc))
-    )
-    (if (and msg
-             (/= msg "Function cancelled")
-             (/= msg "quit / exit abort"))
-      (princ (strcat "\r\n[XIA] 错误: " msg))
-    )
-    (princ)
-  )
-
-  (princ "\r\n[XIA] 请选择要下对齐的文字...")
-  (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
-    (if (setq ref (aa:find-ref-by-left-bbox doc ss))
-      (progn
-        (setq base-y (aa:bbox-bottom-y (cadr ref)))
-        (vla-startundomark doc)
-        (setq undo-open T
-              i         0)
-        (repeat (sslength ss)
-          (setq ename (ssname ss i))
-          (if (aa:normalize-text-vertical-align doc ename 3)
-            (if (or (eq ename (car ref))
-                    (aa:align-text-vertical-by-bbox doc ename base-y 3))
-              (setq changed (1+ changed))
-              (setq skipped (1+ skipped)))
-            (setq skipped (1+ skipped)))
-          (setq i (1+ i))
-        )
-        (vla-endundomark doc)
-        (setq undo-open nil)
-        (princ
-          (strcat
-            "\r\n[XIA] 完成。基准 Y: "
-            (rtos base-y 2 4)
-            "，已处理: "
-            (itoa changed)
-            "，跳过: "
-            (itoa skipped)
-            "."))
-      )
-      (princ "\r\n[XIA] 选择中没有有效的文字范围。")
-    )
-    (princ "\r\n[XIA] 未选择文字对象。")
-  )
-  (princ)
+(defun c:XIA ()
+  (aa:align-text-cmd "XIA" "下对齐"
+    'aa:find-ref-by-left-bbox 'aa:bbox-bottom-y
+    'aa:normalize-text-vertical-align 'aa:align-text-vertical-by-bbox 3 "Y")
 )
 
-(defun c:HE (/ ss lst i ent ent-data pt txt ht sorted-lst master-ent master-data new-str
+(defun c:HE (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss lst i ent ent-data pt txt ht sorted-lst master-ent master-data new-str
              vobj pt-min-var pt-max-var old-left-x new-left-x delta-x mv-from mv-to)
+  (aa:cmd-begin "HE")
   (vl-load-com) ;; 加载 VL 扩展函数
   
   (princ "\r\n请选择需要合并的文字(按照从上到下，从左到右的逻辑合并):")
@@ -2172,7 +1932,7 @@
     )
     (princ "\r\n未选中任何文字对象。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 
@@ -2180,7 +1940,8 @@
 ;;; 命令: QR
 ;;; 功能: 快速修改选中文字对象的高度。
 ;;; =======================================================================================
-(defun c:QR (/ a ss i ent data)
+(defun c:QR (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho a ss i ent data)
+  (aa:cmd-begin "QR")
   ;; 1. 提示用户输入高度值并存储在变量 a 中
   (setq a (getdist "\r\n请输入新的文字高度: "))
 
@@ -2215,14 +1976,15 @@
     (princ "\r\n错误：请输入有效的高度数值。")
   )
   ;; 静默退出
-  (princ)
+  (aa:cmd-end)
 )
 
 
 ;;; =======================================================================================
 ;;;                          --- WI 命令: 修改文字宽度比例 ---
 ;;; =======================================================================================
-(defun c:wi (/ a ss i ename elist old_width)
+(defun c:wi (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho a ss i ename elist old_width)
+  (aa:cmd-begin "wi")
   ;; 1. 提示用户输入文字宽度比例
   (setq a (getreal "\r\n请输入新的文字宽度比例 (例如 0.8 或 1.0): "))
 
@@ -2260,14 +2022,15 @@
     )
     (princ "\r\n无效的宽度数值，请输入大于0的数字。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 
 ;;; =======================================================================================
 ;;;                      --- XB 命令: 文字/尺寸标注整体缩小 10 倍 ---
 ;;; =======================================================================================
-(defun c:XB (/ ss i ename elist typ old_height new_height obj old_scale result changed skipped)
+(defun c:XB (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ename elist typ old_height new_height obj old_scale result changed skipped)
+  (aa:cmd-begin "XB")
   ;; 优先使用执行命令前已经预选的文字/尺寸标注；没有预选时再提示选择。
   (vl-load-com)
   (setq ss (ssget "_I" '((0 . "TEXT,MTEXT,DIMENSION"))))
@@ -2317,7 +2080,7 @@
       (if (> skipped 0)
         (princ (strcat "跳过 " (itoa skipped) " 个无法处理的对象。"))))
     (princ "\r\n未选择任何文字或尺寸标注。"))
-  (princ)
+  (aa:cmd-end)
 )
 
 
@@ -2451,92 +2214,61 @@
 ;;; 命令: SS
 ;;; 功能: 将命令启动前的预选对象按 CAD 原生拉伸规则向上拉伸 10 个单位。
 ;;; =======================================================================================
-(defun c:SS (/ ss)
+(defun c:SS (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss)
+  (aa:cmd-begin "SS")
   (if (setq ss (ssget "_I"))
     (progn
       (command "_.STRETCH" ss "" "_NON" '(0.0 0.0 0.0) "_NON" '(0.0 10.0 0.0))
       (princ "\r\n已向上拉伸 10 个单位。"))
     (princ "\r\n请先选择要拉伸的对象，再输入 SS。"))
-  (princ)
+  (aa:cmd-end)
 )
 
 ;;; --- 命令 1: 向上延长 (SYAN) ---
-(defun c:SYAN (/ ss i ent p1 p2 high low ang new_high)
-  (princ "\r\n请选择要向上延长的直线...")
-  ;; 仅选择直线(LINE)
+(defun aa:extend-line-cmd (tag hint up-p dist
+                           / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                             ss i ent p1 p2 far near ang new-pt)
+  ;; SYAN / XYAN 共用：把选中直线沿自身方向从指定一端延长固定长度。
+  ;;   tag   命令名
+  ;;   hint  方向描述，如 "向上"
+  ;;   up-p  T 表示延长上端，nil 表示延长下端
+  ;;   dist  延长长度
+  (aa:cmd-begin tag)
+  (princ (strcat "\r\n请选择要" hint "延长的直线..."))
   (if (setq ss (ssget '((0 . "LINE"))))
     (progn
       (setq i 0)
       (repeat (sslength ss)
-        (setq ent (entget (ssname ss i)))
-        (setq p1 (cdr (assoc 10 ent))) ; 起点
-        (setq p2 (cdr (assoc 11 ent))) ; 终点
-        
-        ;; 比较 Y 坐标，确定哪一个点在上方
-        (if (> (cadr p1) (cadr p2))
-          (setq high p1 low p2)
-          (setq high p2 low p1)
+        (setq ent (entget (ssname ss i))
+              p1  (cdr (assoc 10 ent))
+              p2  (cdr (assoc 11 ent)))
+        ;; far = 待延长的一端，near = 另一端
+        (if (if up-p
+              (> (cadr p1) (cadr p2))
+              (< (cadr p1) (cadr p2)))
+          (setq far p1 near p2)
+          (setq far p2 near p1)
         )
-        
-        ;; 计算从低点到高点的角度
-        (setq ang (angle low high))
-        ;; 在高点位置沿角度方向延长 5
-        (setq new_high (polar high ang 5))
-        
-        ;; 更新实体数据
-        (if (equal high p1)
-          (setq ent (subst (cons 10 new_high) (assoc 10 ent) ent))
-          (setq ent (subst (cons 11 new_high) (assoc 11 ent) ent))
+        (setq ang    (angle near far)
+              new-pt (polar far ang dist))
+        (if (equal far p1)
+          (setq ent (subst (cons 10 new-pt) (assoc 10 ent) ent))
+          (setq ent (subst (cons 11 new-pt) (assoc 11 ent) ent))
         )
-        
-        (entmod ent) ; 修改实体
+        (entmod ent)
         (setq i (1+ i))
       )
-      (princ (strcat "\r\n成功向上延长了 " (itoa i) " 条直线。"))
+      (princ (strcat "\r\n成功" hint "延长了 " (itoa i) " 条直线。"))
     )
     (princ "\r\n未选中任何直线。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
+(defun c:SYAN () (aa:extend-line-cmd "SYAN" "向上" T   5))
+
 ;;; --- 命令 2: 向下延长 (XYAN) ---
-(defun c:XYAN (/ ss i ent p1 p2 high low ang new_low)
-  (princ "\r\n请选择要向下延长的直线...")
-  ;; 仅选择直线(LINE)
-  (if (setq ss (ssget '((0 . "LINE"))))
-    (progn
-      (setq i 0)
-      (repeat (sslength ss)
-        (setq ent (entget (ssname ss i)))
-        (setq p1 (cdr (assoc 10 ent)))
-        (setq p2 (cdr (assoc 11 ent)))
-        
-        ;; 比较 Y 坐标，确定哪一个点在下方
-        (if (< (cadr p1) (cadr p2))
-          (setq low p1 high p2)
-          (setq low p2 high p1)
-        )
-        
-        ;; 计算从高点到低点的角度
-        (setq ang (angle high low))
-        ;; 在低点位置沿角度方向延长 5
-        (setq new_low (polar low ang 5))
-        
-        ;; 更新实体数据
-        (if (equal low p1)
-          (setq ent (subst (cons 10 new_low) (assoc 10 ent) ent))
-          (setq ent (subst (cons 11 new_low) (assoc 11 ent) ent))
-        )
-        
-        (entmod ent) ; 修改实体
-        (setq i (1+ i))
-      )
-      (princ (strcat "\r\n成功向下延长了 " (itoa i) " 条直线。"))
-    )
-    (princ "\r\n未选中任何直线。")
-  )
-  (princ)
-)
+(defun c:XYAN () (aa:extend-line-cmd "XYAN" "向下" nil 5))
 
 
 ;;; =======================================================================================
@@ -2550,7 +2282,8 @@
 ;;;                 --- SJ & XJ 命令: 电缆角标上下接短线 ---
 ;;; =======================================================================================
 
-(defun c:SJ (/ ss i ent ed p1 p2 top sp ep)
+(defun c:SJ (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent ed p1 p2 top sp ep)
+  (aa:cmd-begin "SJ")
   (princ "\r\n=== SJ 上接模式 ===")
 
   (if (setq ss (ssget '((0 . "LINE"))))
@@ -2574,10 +2307,11 @@
     )
     (princ "\r\n未选中直线！请框选直线后再输入 SJ")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
-(defun c:XJ (/ ss i ent ed p1 p2 bot sp ep)
+(defun c:XJ (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent ed p1 p2 bot sp ep)
+  (aa:cmd-begin "XJ")
   (princ "\r\n=== XJ 下接模式 ===")
 
   (if (setq ss (ssget '((0 . "LINE"))))
@@ -2601,7 +2335,7 @@
     )
     (princ "\r\n未选中直线！请框选直线后再输入 XJ")
   )
-  (princ)
+  (aa:cmd-end)
 )
 ;;; 函数: NU
 ;;; 功能: 材料表数字加数字 - 从选中的文字对象中提取数字，执行加法运算
@@ -2696,7 +2430,7 @@
   prefix-ent
 )
 
-(defun c:GTX (/ *error* ss i ent ent-data text-data text-string insertion-point
+(defun c:GTX (/ aa:doc aa:undo-open *error* ss i ent ent-data text-data text-string insertion-point
                lines current-item current-y found line categorized-groups
                left-text temp-text last-hyphen-pos category group-texts found-category
                pt start-x current-x col-width line-height text-height text-style
@@ -2710,6 +2444,7 @@
                      (getvar "TEXTSTYLE")))
 
   (defun *error* (msg)
+    (aa:undo-mark-off)
     (if (not (member msg '("Function cancelled" "quit / exit abort")))
       (princ (strcat "\r\n[GTX] 错误: " msg))
     )
@@ -2717,6 +2452,7 @@
     (princ)
   )
 
+  (aa:undo-mark-on)
   (setq ss (ssget "_I" '((0 . "TEXT"))))
   (if (not ss)
     (progn
@@ -2879,6 +2615,7 @@
     )
     (princ "\r\n[GTX] 未选择文字。")
   )
+  (aa:undo-mark-off)
   (sssetfirst nil nil)
   (princ)
 )
@@ -2927,7 +2664,6 @@
   (if (caddr pt) (caddr pt) 0.0)
 )
 (defun aa:gty-get-item-width (item) (nth 3 item))
-(defun aa:gty-get-item-height (item) (nth 4 item))
 
 (defun aa:gty-build-sort-key (row idx / raw lead rest i key)
   ;; 取每行最左文字内容
@@ -3217,7 +2953,8 @@
   (bian-make-text (list (+ (car oz) -20.0) (+ (cadr oz) 0.5) 0.0) "UPS-12"    sty)
 )
 
-(defun c:BIAN (/ ss i ent ed sty cnt)
+(defun c:BIAN (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent ed sty cnt)
+  (aa:cmd-begin "BIAN")
   (setq sty (if (tblsearch "STYLE" "HZ") "HZ" (getvar "TEXTSTYLE")))
 
   (if (setq ss (ssget '((0 . "LINE"))))
@@ -3245,7 +2982,7 @@
     )
     (princ "\r\n请先选择直线，再运行 BIAN。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 ;;; =======================================================================================
 ;;; 命令: LAN
@@ -3269,8 +3006,9 @@
   )
 )
 
-(defun c:LAN ( / ss total_count
+(defun c:LAN ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss total_count
                vert_lines  horiz_lines  diag_lines
+  (aa:cmd-begin "LAN")
                vert_count  horiz_count  diag_count
                opt  move_right  dy
                i  ent  copy_ent  entdata
@@ -3403,7 +3141,7 @@
             " 单位 + " (if (> dy 0) "向上" "向下") " 5 单位；"
             "\r\n      水平线 " (if (> dy 0) "向上" "向下")
             " 5 单位 + 左端缩短 " (rtos move_right 2 0) " 单位（右端不动）。"))
-  (princ)
+  (aa:cmd-end)
 )
 
 
@@ -3411,8 +3149,9 @@
 ;;; 命令: XIN
 ;;; 功能: 统计每条选中直线矩形范围内的对象数量，并在直线右端标注统计值。
 ;;; =======================================================================================
-(defun c:XIN ( / ss i ent entData pt1 pt2 leftX rightX topY bottomY
+(defun c:XIN ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent entData pt1 pt2 leftX rightX topY bottomY
                 countSS countNum insertPt textStr rightPt)
+  (aa:cmd-begin "XIN")
   (setq ss (ssget '((0 . "LINE"))))
   (if (null ss)
     (progn
@@ -3483,7 +3222,7 @@
   )
 
   (princ (strcat "\r\n处理完成，共处理 " (itoa (sslength ss)) " 条直线。"))
-  (princ)
+  (aa:cmd-end)
 )
 
 
@@ -3561,53 +3300,11 @@
     (list (list minx miny 0.0) (list maxx maxy 0.0)))
 )
 
-(defun xy:get-line-pts (en / ed p1 p2)
-  (setq ed (entget en))
-  (setq p1 (cdr (assoc 10 ed)))
-  (setq p2 (cdr (assoc 11 ed)))
-  (list p1 p2)
-)
-
-(defun xy:is-line-p (en)
-  (= (cdr (assoc 0 (entget en))) "LINE")
-)
-
-(defun xy:is-horizontal-line-p (en tol / pts p1 p2)
-  (if (not (xy:is-line-p en))
-    nil
-    (progn
-      (setq pts (xy:get-line-pts en))
-      (setq p1 (car pts))
-      (setq p2 (cadr pts))
-      (xy:near (cadr p1) (cadr p2) tol)
-    )
-  )
-)
-
-(defun xy:is-vertical-line-p (en tol / pts p1 p2)
-  (if (not (xy:is-line-p en))
-    nil
-    (progn
-      (setq pts (xy:get-line-pts en))
-      (setq p1 (car pts))
-      (setq p2 (cadr pts))
-      (xy:near (car p1) (car p2) tol)
-    )
-  )
-)
-
 (defun xy:is-vertical-line-ed-p (ed tol / p1 p2)
   (and (= (cdr (assoc 0 ed)) "LINE")
        (setq p1 (cdr (assoc 10 ed)))
        (setq p2 (cdr (assoc 11 ed)))
        (xy:near (car p1) (car p2) tol))
-)
-
-(defun xy:right-endpoint (en / pts p1 p2)
-  (setq pts (xy:get-line-pts en))
-  (setq p1 (car pts))
-  (setq p2 (cadr pts))
-  (if (>= (car p1) (car p2)) p1 p2)
 )
 
 (defun xy:pt-offset-x (pt dx)
@@ -3638,7 +3335,6 @@
       )
       (setq ed (xy:remove-dxf-codes ed '(62 420 430 440)))
       (entmod (append ed (list (cons 62 1))))
-      (entupd en)
     )
   )
 )
@@ -3652,10 +3348,6 @@
   (setq y  (cadr p1))
   (setq rightpt (if (>= x1 x2) p1 p2))
   (list (min x1 x2) (max x1 x2) y rightpt)
-)
-
-(defun xy:hline-info (en)
-  (xy:hline-info-ed (entget en))
 )
 
 (defun xy:norm-angle (a)
@@ -3768,14 +3460,6 @@
   )
 )
 
-(defun xy:get-vrecs-for-hline (hen vlineDataList)
-  (xy:get-vrecs-for-hline-ed (entget hen) vlineDataList)
-)
-
-(defun xy:count-vlines-for-hline (hen lineList)
-  (length (xy:get-vrecs-for-hline hen lineList))
-)
-
 (defun xy:run-xin (sel / selList lineSS vlineDataList ss i ent entData p1 p2 rightPt handle countMap vrecMap vrecs countNum insertPt textStr bounds pmin pmax)
   (setq *xy-last-xin-counts* nil)
   (setq *xy-last-vrec-map* nil)
@@ -3847,39 +3531,6 @@
 );; =========================
 ;; YUAN 功能
 ;; =========================
-(defun xy:make-vrec-if-valid (ven hinfo tol / pts p1 p2 x y1 y2 hy xmin xmax lo hi)
-  (if (not (xy:is-vertical-line-p ven tol))
-    nil
-    (progn
-      (setq pts  (xy:get-line-pts ven))
-      (setq p1   (car pts))
-      (setq p2   (cadr pts))
-      (setq x    (car p1))
-      (setq y1   (cadr p1))
-      (setq y2   (cadr p2))
-      (setq xmin (car hinfo))
-      (setq xmax (cadr hinfo))
-      (setq hy   (caddr hinfo))
-      (setq lo   (if (< y1 y2) p1 p2))
-      (setq hi   (if (> y1 y2) p1 p2))
-
-      (if (not (xy:between x xmin xmax tol))
-        nil
-        (cond
-          ((and (xy:near (cadr hi) hy tol)
-                (< (cadr lo) (- hy tol)))
-           (list x 'DOWN lo ven)
-          )
-          ((and (xy:near (cadr lo) hy tol)
-                (> (cadr hi) (+ hy tol)))
-           (list x 'UP hi ven)
-          )
-          (t nil)
-        )
-      )
-    )
-  )
-)
 
 ;; Optimized: builds vrec from pre-fetched (en x y1 y2) vertical line data; zero entget calls
 (defun xy:make-vrec-if-valid-fast (vdata hinfo tol / en x y1 y2 xmin xmax hy loY hiY)
@@ -3926,7 +3577,7 @@
 
 (defun xy:dedup-vrecs (lst tol / sorted out rec top)
   (setq sorted
-        (vl-sort lst
+        (aa:merge-sort lst
           '(lambda (a b) (< (car a) (car b)))
         )
   )
@@ -4010,7 +3661,7 @@
       )
     )
   )
-  (vl-sort out '(lambda (a b) (< (cadr a) (cadr b))))
+  (aa:merge-sort out '(lambda (a b) (< (cadr a) (cadr b))))
 )
 
 (defun xy:find-text-for-vrec (textMetaList vrec / side anchor ax ay rectXmin rectXmax rectYmin rectYmax best bestHit bestXDist item en xmin xmax ymin ymax hitY xCenter xDist)
@@ -4313,12 +3964,14 @@
       )
     )
   )
+  (redraw)   ; 标记循环内不再逐个 entupd，改为统一重绘
 )
 
 ;; =========================
 ;; 主命令：XY
 ;; =========================
-(defun c:XY (/ sel)
+(defun c:XY (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho sel)
+  (aa:cmd-begin "XY")
   (princ "\r\n选择对象，XY会共用这一批对象执行XIN和YUAN: ")
   (setq sel (ssget))
   (if (null sel)
@@ -4330,7 +3983,7 @@
       (princ "\r\nXY 执行结束。")
     )
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 (princ)
@@ -4569,27 +4222,6 @@
 
 (defun aa:kai-text-box (edata value / box)
   (textbox (subst (cons 1 value) (assoc 1 edata) edata))
-)
-
-(defun aa:kai-text-width (edata value / box p1 p2)
-  (setq box (aa:kai-text-box edata value))
-  (if box
-    (progn
-      (setq p1 (car box)
-            p2 (cadr box))
-      (- (car p2) (car p1)))
-    0.0)
-)
-
-(defun aa:kai-prefix-width (edata prefix / marker with-marker marker-width total-width)
-  (if (= prefix "")
-    0.0
-    (progn
-      (setq marker "X"
-            with-marker (strcat prefix marker)
-            marker-width (aa:kai-text-width edata marker)
-            total-width (aa:kai-text-width edata with-marker))
-      (max 0.0 (- total-width marker-width))))
 )
 
 (defun aa:kai-real-text-width (doc edata value / newdata en bbox width)
@@ -5056,11 +4688,6 @@
   (strcase (vlax-get-property att-obj 'TagString))
 )
 
-;; 读取属性对象的当前值
-(defun att-value (att-obj)
-  (vlax-get-property att-obj 'TextString)
-)
-
 ;; 写入属性值
 (defun set-att-value (att-obj val)
   (vlax-put-property att-obj 'TextString val)
@@ -5098,33 +4725,13 @@
   found
 )
 
-;; 收集当前图纸中所有图框块
-(defun collect-frame-blocks (/ ss i ent blk result)
-  (setq result '())
-  (setq ss (ssget "X" '((0 . "INSERT") (66 . 1))))
-  (if ss
-    (progn
-      (setq i 0)
-      (while (< i (sslength ss))
-        (setq ent (ssname ss i)
-              blk (vlax-ename->vla-object ent))
-        (if (is-frame-block blk)
-          (setq result (cons blk result))
-        )
-        (setq i (1+ i))
-      )
-    )
-  )
-  result
-)
-
 ;; ── 排序 ──────────────────────────────────────────────────────
 
 ;; 按Y从大到小（上到下），Y相同时按X从小到大（左到右）
 ;; 容差：Y差值小于 tolerance 视为同行
 (defun sort-frames-by-position (frame-list / tolerance)
   (setq tolerance 100.0)  ; 单位与图纸一致，可根据需要调整
-  (vl-sort frame-list
+  (aa:merge-sort frame-list
     (function
       (lambda (a b / pa pb ya yb xa xb)
         (setq pa (blk-insertpt a)
@@ -5236,15 +4843,6 @@
 
 ;; ── 诊断功能 ──────────────────────────────────────────────────
 
-;; 打印某个块的所有属性标记，用于调试
-(defun diagnose-frame (blk-obj / atts)
-  (setq atts (get-att-objects blk-obj))
-  (princ (strcat "\r\n块名: " (vlax-get-property blk-obj 'Name)))
-  (foreach att atts
-    (princ (strcat "\r\n  标记: [" (att-tag att) "]  当前值: [" (att-value att) "]"))
-  )
-)
-
 ;; ── 主命令：HAO ───────────────────────────────────────────────
 
 ;; 从选集中提取图框块 VLA 对象列表
@@ -5335,8 +4933,10 @@
   (princ (strcat "\r\n=== 完成！共填写 " (itoa total-pages) " 个图框 ===\r\n"))
 )
 
-(defun c:HAO ()
+(defun c:HAO (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "HAO")
   (fillframes-run)
+  (aa:cmd-end)
 )
 
 
@@ -5346,16 +4946,8 @@
 ;;;              --- FIVE 命令: 将测得高度按比例缩放为 5 ---
 ;;; =======================================================================================
 
-(defun c:FIVE (/ *error* oldcmdecho p1 p2 a b ss base)
-  (defun *error* (msg)
-    (if oldcmdecho (setvar "CMDECHO" oldcmdecho))
-    (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*")))
-      (princ (strcat "\r\nFIVE 错误: " msg))
-    )
-    (princ)
-  )
-
-  (setq oldcmdecho (getvar "CMDECHO"))
+(defun c:FIVE (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho p1 p2 a b ss base)
+  (aa:cmd-begin "FIVE")
   (setvar "CMDECHO" 0)
 
   (setq p1 (getpoint "\r\nFIVE - 请点取当前格子高度的第一个点: "))
@@ -5394,8 +4986,7 @@
     (princ "\r\n未点取第一个点，FIVE 已取消。")
   )
 
-  (setvar "CMDECHO" oldcmdecho)
-  (princ)
+  (aa:cmd-end)
 )
 
 ;;; END IMPORT: 自动页码HAO.lsp
@@ -5955,8 +5546,9 @@
   out
 )
 
-(defun c:DX2 (/ doc ss text-ss i en info infos groups sorted-groups group-record
+(defun c:DX2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho doc ss text-ss i en info infos groups sorted-groups group-record
                group-text out skipped ok tol rect-tol)
+  (aa:cmd-begin "DX2")
   (vl-load-com)
   (setq doc      (vla-get-ActiveDocument (vlax-get-acad-object))
         skipped  0
@@ -6007,7 +5599,7 @@
                          (strcat " 跳过 " (itoa skipped) " 个无法识别方格的文字。")
                          "")))))))))
   (sssetfirst nil nil)
-  (princ)
+  (aa:cmd-end)
 )
 
 ;;; =======================================================================================
@@ -6620,7 +6212,6 @@
 (defun db:set-str (en s / e)
   (setq e (entget en))
   (entmod (subst (cons 1 s) (assoc 1 e) e))
-  (vl-catch-all-apply 'entupd (list en))
 )
 
 ;; 选择文字对象，返回选择集（无则 nil）
@@ -6657,6 +6248,7 @@
         )
         (setq i (1+ i))
       )
+      (redraw)   ; 循环内不再逐个 entupd，改为统一重绘
       (princ (strcat "\r\n已处理 " (itoa cnt) " 个文字对象。"))
     )
   )
@@ -6687,6 +6279,7 @@
             )
             (setq i (1+ i))
           )
+          (redraw)   ; 循环内不再逐个 entupd，改为统一重绘
           (princ (strcat "\r\n已处理 " (itoa cnt) " 个文字对象。"))
         )
       )
@@ -6696,13 +6289,29 @@
 )
 
 ;; DB 删除每个选中文字末尾的 N 个字符
-(defun c:DB () (db:del "B"))
+(defun c:DB (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "DB")
+  (db:del "B")
+  (aa:cmd-end)
+)
 ;; DF 删除每个选中文字开头的 N 个字符
-(defun c:DF () (db:del "F"))
+(defun c:DF (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "DF")
+  (db:del "F")
+  (aa:cmd-end)
+)
 ;; AB 在每个选中文字末尾增加输入的文字
-(defun c:AB () (db:add "B"))
+(defun c:AB (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "AB")
+  (db:add "B")
+  (aa:cmd-end)
+)
 ;; AF 在每个选中文字开头增加输入的文字
-(defun c:AF () (db:add "F"))
+(defun c:AF (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "AF")
+  (db:add "F")
+  (aa:cmd-end)
+)
 
 (princ)
 
@@ -6837,9 +6446,9 @@
 ;; 同一行用顿号连接，行与行之间也用顿号连接，返回 (连接结果 行数)
 (defun qw:join (items / rows row row-y row-h tol res line)
   ;; 先整体按 y 从大到小(从上到下)排序，序号作为最后一级比较，
-  ;; 保证比较严格，避免 vl-sort 把同坐标的元素当重复项丢掉
+  ;; 序号兜底保证比较严格；归并排序本身也不会丢弃同坐标元素
   (setq items
-    (vl-sort items
+    (aa:merge-sort items
       (function
         (lambda (a b)
           (if (equal (car a) (car b) 1e-9)
@@ -6873,7 +6482,7 @@
   (setq res "")
   (foreach r rows
     (setq r
-      (vl-sort r
+      (aa:merge-sort r
         (function
           (lambda (a b)
             (if (equal (cadr a) (cadr b) 1e-9)
@@ -6900,7 +6509,8 @@
 
 ;;   例: ZD1、+KM1、ZD11、-KM1、直流馈线柜、1-2ID4、1(2)B-N4121
 ;; QW 提取选中文字，同一行用顿号连接，不同行之间也用顿号分隔，并复制到剪贴板
-(defun c:QW ( / ss i idx ent ed txt hgt items pt out ok)
+(defun c:QW ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i idx ent ed txt hgt items pt out ok)
+  (aa:cmd-begin "QW")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))
   (if ss
     (progn
@@ -6936,14 +6546,15 @@
     (princ "
 未选中文字。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 ;; QW2 提取选中文字及其坐标，每项一行 "x,y 文字"（坐标在前，保留 2 位小数），
 ;; 按从上到下、从左到右排序，复制到剪贴板
 ;; 按从上到下、从左到右排序
 ;; QW2 提取选中文字及坐标，每项一行 "x,y 文字"（坐标在前，保留 2 位小数），复制到剪贴板
-(defun c:QW2 ( / ss i idx ent ed txt hgt pt items out ok)
+(defun c:QW2 ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i idx ent ed txt hgt pt items out ok)
+  (aa:cmd-begin "QW2")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))
   (if ss
     (progn
@@ -6967,7 +6578,7 @@
         (progn
           ;; 排序: 按 y 从大到小(从上到下), 再按 x 从小到大(从左到右), 序号兜底保证严格比较
           (setq items
-            (vl-sort items
+            (aa:merge-sort items
               (function
                 (lambda (a b)
                   (if (equal (car a) (car b) 1e-9)
@@ -7001,12 +6612,13 @@
     )
     (princ "\r\n未选中文字。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 ;; 白色及其他颜色与 QW2 相同，每项一行 "x,y 文字"；青色为 "x,y 文字 端子名"
 ;; DX1 提取选中文字及坐标，青色文字额外标注“端子名”，复制到剪贴板
-(defun c:DX1 ( / ss i idx ent ed txt hgt pt items out ok suffix cyan-n)
+(defun c:DX1 ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i idx ent ed txt hgt pt items out ok suffix cyan-n)
+  (aa:cmd-begin "DX1")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))
   (if ss
     (progn
@@ -7037,7 +6649,7 @@
         (progn
           ;; 排序: 按 y 从大到小(从上到下), 再按 x 从小到大(从左到右), 序号兜底保证严格比较
           (setq items
-            (vl-sort items
+            (aa:merge-sort items
               (function
                 (lambda (a b)
                   (if (equal (car a) (car b) 1e-9)
@@ -7074,7 +6686,7 @@
     )
     (princ "\r\n未选中文字。")
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 (princ)
@@ -7106,7 +6718,8 @@
 )
 
 ;; CE 测量点序列形成的多段线总长度
-(defun c:CE (/ pt pts total i p1 p2 tmp w)
+(defun c:CE (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho pt pts total i p1 p2 tmp w)
+  (aa:cmd-begin "CE")
   (setq pts '())
   (setq pt (getpoint "\r\n请点击第一个点 (回车/空格结束): "))
   (while pt
@@ -7134,7 +6747,7 @@
       (princ (strcat "\r\n共点击 " (itoa (length pts)) " 个点, 多段线总长度 = " (rtos total 2 4)))
     )
   )
-  (princ)
+  (aa:cmd-end)
 )
 (princ)
 
@@ -7151,10 +6764,6 @@
 
 (defun aw:max2 (a b)
   (if (> a b) a b)
-)
-
-(defun aw:min2 (a b)
-  (if (< a b) a b)
 )
 
 (defun aw:3d (p)
@@ -7651,7 +7260,7 @@
 ;;; ---------------- 排序 ----------------
 (defun tktj:sort-by-page (dataList)
   ;; 数字页码从小到大；非数字页码排到最后。
-  (vl-sort
+  (aa:merge-sort
     dataList
     '(lambda (a b)
        (< (tktj:page-number (tktj:assoc-data 'page a))
@@ -7663,7 +7272,7 @@
 (defun tktj:sort-by-position (dataList / sorted rows row rowY item y result)
   ;; 图面阅读顺序：先按上方优先分行，Y 相差容差内视为同一行；行内左侧优先。
   (setq sorted
-        (vl-sort
+        (aa:merge-sort
           dataList
           '(lambda (a b / ay by)
              (setq ay (tktj:assoc-data 'y a))
@@ -7692,7 +7301,7 @@
     (setq result
           (append
             result
-            (vl-sort
+            (aa:merge-sort
               row
               '(lambda (a b)
                  (< (tktj:assoc-data 'x a)
@@ -7706,8 +7315,9 @@
 )
 
 ;;; ---------------- 主命令 ----------------
-(defun C:ZDML (/ ss i ent obj one data basePt skipped remaining pageData pageCap
+(defun c:ZDML (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent obj one data basePt skipped remaining pageData pageCap
                 pageNo startIndex point written)
+  (aa:cmd-begin "ZDML")
   (vl-load-com)
   (princ "\r\n请选择需要统计的图框块: ")
   (setq ss (ssget '((0 . "INSERT"))))
@@ -7781,10 +7391,12 @@
   (princ)
 )
 )
+  (aa:cmd-end)
 )
 
 ;;; ---------------- 调试命令 ----------------
-(defun C:ZDMLDEBUG (/ ent obj attrs pair)
+(defun c:ZDMLDEBUG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ent obj attrs pair)
+  (aa:cmd-begin "ZDMLDEBUG")
   (vl-load-com)
   (setq ent (car (entsel "\r\n请选择一个图框块: ")))
   (cond
@@ -7815,7 +7427,7 @@
      )
     )
   )
-  (princ)
+  (aa:cmd-end)
 )
 
 (princ)
@@ -7941,90 +7553,6 @@
   )
 )
 
-(defun c1c2:bit-set-p (mode bit)
-  (= 1 (rem (fix (/ mode bit)) 2))
-)
-
-(defun c1c2:osnap-mode-string (/ mode pairs out)
-  (setq mode (getvar "OSMODE")
-        out "")
-  (if (and mode (> mode 0) (not (c1c2:bit-set-p mode 16384)))
-    (progn
-      (setq pairs
-        '(
-          (1 . "END")
-          (2 . "MID")
-          (4 . "CEN")
-          (8 . "NOD")
-          (16 . "QUA")
-          (32 . "INT")
-          (64 . "INS")
-          (128 . "PER")
-          (256 . "TAN")
-          (512 . "NEA")
-          (2048 . "APP")
-          (4096 . "EXT")
-          (8192 . "PAR")
-        )
-      )
-      (foreach p pairs
-        (if (c1c2:bit-set-p mode (car p))
-          (setq out
-            (if (= out "")
-              (cdr p)
-              (strcat out "," (cdr p))
-            )
-          )
-        )
-      )
-      (if (/= out "") out)
-    )
-  )
-)
-
-(defun c1c2:snap-point (pt / mode res)
-  (setq pt (c1c2:pt3 pt)
-        mode (c1c2:osnap-mode-string))
-  (if mode
-    (progn
-      (setq res (vl-catch-all-apply 'osnap (list pt mode)))
-      (if (and (not (vl-catch-all-error-p res)) res)
-        res
-        pt
-      )
-    )
-    pt
-  )
-)
-
-(defun c1c2:ortho-point (base pt / dx dy)
-  (setq base (c1c2:pt3 base)
-        pt   (c1c2:pt3 pt))
-  (if (= 1 (getvar "ORTHOMODE"))
-    (progn
-      (setq dx (- (car pt) (car base))
-            dy (- (cadr pt) (cadr base)))
-      (if (>= (abs dx) (abs dy))
-        (list (car pt) (cadr base) (caddr pt))
-        (list (car base) (cadr pt) (caddr pt))
-      )
-    )
-    pt
-  )
-)
-
-(defun c1c2:target-point (base pt / snapped)
-  (setq snapped (c1c2:snap-point pt))
-  (if (equal snapped (c1c2:pt3 pt) 1e-8)
-    (c1c2:ortho-point base snapped)
-    snapped
-  )
-)
-
-(defun c1c2:final-point (base pt)
-  (c1c2:target-point base pt)
-)
-
 (defun c1c2:delete-preview ()
   (if c1c2:*active-preview*
     (progn
@@ -8033,16 +7561,6 @@
       (redraw)
     )
   )
-)
-
-(defun c1c2:make-preview (src txt base start / obj)
-  (setq obj (vla-Copy src))
-  (vla-put-TextString obj txt)
-  (setq c1c2:*active-preview* obj)
-  (if start
-    (c1c2:move-object obj base start)
-  )
-  obj
 )
 
 (defun c1c2:place-one (src txt base start / obj pt)
@@ -8670,7 +8188,8 @@
 
 (vl-load-com)
 
-(defun c:0 (/ ss index entity data entity-type changed failed)
+(defun c:0 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss index entity data entity-type changed failed)
+  (aa:cmd-begin "0")
   (setq changed 0
         failed  0)
   (prompt "\r\n请选择要处理的对象：")
@@ -8703,7 +8222,7 @@
             (itoa failed)
             " 个文字对象修改失败。"))))
     (prompt "\r\n未选择对象。"))
-  (princ))
+  (aa:cmd-end))
 
 (princ)
 
@@ -8785,7 +8304,8 @@
   )
 )
 
-(defun c:DL1 (/ layers)
+(defun c:DL1 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho layers)
+  (aa:cmd-begin "DL1")
   (setq layers
     '(
       "CABLE_CABINET_1F"
@@ -8800,7 +8320,7 @@
     (dl1:make-layer lay)
   )
   (princ "\r\nDL1：已检查并创建 6 个电缆相关图层。")
-  (princ)
+  (aa:cmd-end)
 )
 
 (princ "\r\nDL1 命令已加载，输入 DL1 创建电缆相关图层。")
@@ -8825,7 +8345,8 @@
     (setq s (substr s 1 (1- (strlen s)))))
   s)
 
-(defun c:REP ( / ss i en obj str key pair cnt miss table)
+(defun c:REP ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i en obj str key pair cnt miss table)
+  (aa:cmd-begin "REP")
   (vl-load-com)
   (setq table
     (list
@@ -8916,7 +8437,7 @@
         (setq i (1+ i)))
       (princ (strcat "\r\n替换完成：成功 " (itoa cnt) " 个，未匹配 " (itoa miss) " 个。")))
     (princ "\r\n未选择任何文字。"))
-  (princ)
+  (aa:cmd-end)
 )
 (princ "\r\nREP 柜名标准化替换命令已加载，输入 REP 运行。")
 (princ)
@@ -9204,7 +8725,8 @@
 ;;; Encoding: UTF-8 without BOM, CRLF.
 ;;; XX：将选中文字内容替换为 "7×2.5"（预选优先，未预选则点选）。
 
-(defun c:XX (/ ss en obj cnt i)
+(defun c:XX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss en obj cnt i)
+  (aa:cmd-begin "XX")
   (vl-load-com)
   (setq ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
   (if (null ss)
@@ -9229,7 +8751,7 @@
       (princ (strcat "\r\n[XX] 已把 " (itoa cnt) " 个文字替换为 7×2.5。")))
     (princ "\r\n[XX] 未选择文字。"))
   (sssetfirst nil nil)
-  (princ)
+  (aa:cmd-end)
 )
 ;;; =======================================================================================
 ;;; 命令: DAO
@@ -9441,7 +8963,7 @@
   )
 
   ;; 3. 参考文字按 Y 排序后聚类成行（行间容差取组内最大字高的 0.7 倍）
-  (setq sorted-ref (vl-sort ref-list
+  (setq sorted-ref (aa:merge-sort ref-list
                      '(lambda (a b) (< (cadr a) (cadr b))))
         rows '())
   (foreach item sorted-ref
@@ -9753,14 +9275,16 @@
        (= (strcase (hddl:cabinet (hddl:cell a 2)))
           (strcase (hddl:cabinet (hddl:cell b 0))))))
 
-(defun c:HDDL (/ ss i e d items sorted rows cur lasty rec row id groups grp
+(defun c:HDDL (/ aa:doc aa:undo-open ss i e d items sorted rows cur lasty rec row id groups grp
                  issue bad marker made mirror-ok olderr stage)
   (setq olderr *error*)
   (defun *error* (msg)
+    (aa:undo-mark-off)
     (if (and msg (/= (strcase msg) "FUNCTION CANCELLED"))
       (princ (strcat "\r\n[HDDL] 校核失败（阶段：" stage "）：" msg)))
     (setq *error* olderr)
     (princ))
+  (aa:undo-mark-on)
   (princ "\r\n请选择要校核的 YSDL 文字: ")
   (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
     (progn
@@ -9814,6 +9338,7 @@
                      "\r\n已生成红色标记: " (itoa made)
                      "\r\n\r\n规则：合法的起终点互换镜像行不标红；同向重复、镜像原理号数量不一致或行内原理号重复会标红。")))
       (princ "\r\n未选择文字。"))
+  (aa:undo-mark-off)
   (setq *error* olderr)
   (princ))
 
