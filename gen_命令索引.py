@@ -41,7 +41,15 @@ def scan():
         for m in re.finditer(r'\[([A-Za-z0-9]+)(?:\]\s*/\s*\[([A-Za-z0-9]+))?\]\s*-\s*([^"\)\r\n]+)', text(p)):
             for n in m.group(1, 2):
                 if n: hints.setdefault(n.upper(), m.group(3).strip())
-    return fs, sorted((r for p in fs for r in extract(p, hints)), key=lambda r: (r[0], r[1], r[2]))
+    rows = [r for p in fs for r in extract(p, hints)]
+    ribbon = ROOT / 'V6' / 'AICADRibbon' / 'AiRibbonPlugin.cs'
+    if ribbon.exists():
+        for i, line in enumerate(text(ribbon).splitlines(), 1):
+            if re.search(r'\[CommandMethod\("DWGWIN"', line):
+                rows.append(('DWGWIN', ribbon.relative_to(ROOT).as_posix(), i,
+                             '打开单实例图纸窗口管理器，汇总本机当前会话所有中望CAD图纸并跨进程切换。'))
+                fs.append(ribbon)
+    return fs, sorted(rows, key=lambda r: (r[0], r[1], r[2]))
 
 def generate(fs, rows):
     dup = {n for n,c in Counter(r[0] for r in rows).items() if c > 1}
@@ -73,7 +81,7 @@ def check(fs, rows):
     elif {line.split('`')[1].split('`')[0].replace(' ⚠️', '') for line in md.read_text(encoding='utf-8').splitlines() if line.startswith('| `') and '` |' in line} != actual:
         errors.append('命令索引.md 与实际 defun c: 命令不一致')
     if errors: print('检查失败：\n- '+'\n- '.join(errors)); return 1
-    print(f'检查通过：{len(rows)} 个命令，{len(fs)} 个 LISP 文件'); return 0
+    print(f'检查通过：{len(rows)} 个命令，{len(fs)} 个源文件'); return 0
 
 if __name__ == '__main__':
     ap=argparse.ArgumentParser(); ap.add_argument('--check',action='store_true'); a=ap.parse_args(); fs,rows=scan(); sys.exit(check(fs,rows) if a.check else (generate(fs,rows) or 0))

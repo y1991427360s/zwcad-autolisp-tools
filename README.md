@@ -31,6 +31,14 @@
 - `命令索引.md`：自动生成的命令、文件和行号索引。
 - `gen_命令索引.py`：命令索引生成脚本。
 
+## 图纸窗口管理器
+
+输入 `DWGWIN`，或点击 Ribbon 工具区的“图纸窗口”，唤起独立的单实例管理器。相同 Windows 用户及登录会话中的多个 ZWCAD 2026 共用一个窗口，列表显示每张图纸所属 CAD；双击会激活对应图纸并将所属 CAD 带到前台，保持双屏布局。支持搜索、排序、备注、收藏、打开目录和明确选择保存或丢弃后关闭。窗口默认不置顶，可切换置顶并记住位置。
+
+每个 CAD 都需要加载新版 `V6/AICADRibbonHostV6.dll`；未加载代理的 CAD 显示未连接。已加载旧 DLL 的 CAD 需要在保存工作后重新启动，单纯重新加载 LISP 无法替换已加载的 .NET 程序集。关闭管理器不关闭 CAD，关闭某一个 CAD 不影响其他实例。
+
+管理器 `V6/DwgWindowManager.exe` 和插件通过本机命名管道通信，不开放网络端口。备注由独立管理器统一保存在 `%APPDATA%\ZW-auto_lisp\window-notes.json`，保留历史格式，按完整路径关联；未保存图纸使用会话备注。构建命令为 `powershell -NoProfile -ExecutionPolicy Bypass -File V6/build_zwcad_ribbon.ps1`，同时生成 DLL 和 EXE。详细验证结果见 `V6/WindowManager/VALIDATION.md`。
+
 ## 运行时加载
 
 CADTools/YS-Tools 已从 ZWCAD 支持目录、启动文件和 APPLOAD 注册表中卸载，不再参与命令加载。不要重新部署该工具箱，否则可能覆盖整合版本中的同名命令。

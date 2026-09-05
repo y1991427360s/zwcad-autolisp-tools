@@ -8,6 +8,9 @@
 *.pat text eol=crlf
 
 # Normal project text files.
+*.cs text eol=crlf
+*.ps1 text eol=crlf
+*.py text eol=crlf
 *.md text eol=crlf
 .gitignore text eol=crlf
 .gitattributes text eol=crlf

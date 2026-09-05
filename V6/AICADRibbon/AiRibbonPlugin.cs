@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
+
 using System.Text;
 using System.Windows.Input;
 using Draw = System.Drawing;
@@ -69,7 +68,7 @@ namespace AICADRibbon
         private bool _replacePanelSuppressSync;
         private string _findText = string.Empty;
         private ReplacePanelForm _replacePanel;
-        private WindowManagerForm _windowManager;
+        private WindowAgent _windowAgent;
 
         public void Initialize()
         {
@@ -79,6 +78,7 @@ namespace AICADRibbon
             EnsureIdleHook();
             EnsureDocumentHook();
             EnsureLispLoadedForActiveDocument();
+            _windowAgent = new WindowAgent();
         }
 
         public void Terminate()
@@ -97,7 +97,7 @@ namespace AICADRibbon
 
             ClosePromptPanel();
             CloseReplacePanel();
-            CloseWindowManager();
+            if (_windowAgent != null) { _windowAgent.Dispose(); _windowAgent = null; }
             _instance = null;
         }
 
@@ -130,24 +130,16 @@ namespace AICADRibbon
 
         internal void ShowWindowManagerCommand()
         {
-            if (_windowManager != null && !_windowManager.IsDisposed && _windowManager.Visible)
+            try
             {
-                _windowManager.Close();
-                return;
+                string directory = Path.GetDirectoryName(typeof(AiRibbonPlugin).Assembly.Location);
+                string executable = Path.Combine(directory, "DwgWindowManager.exe");
+                if (!File.Exists(executable)) throw new FileNotFoundException("图纸窗口管理器未安装", executable);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(executable) { UseShellExecute = false, WorkingDirectory = directory });
             }
-
-            _windowManager = new WindowManagerForm(this);
-            _windowManager.FormClosed += delegate { _windowManager = null; };
-            _windowManager.Show();
-            _windowManager.RefreshDocuments();
-        }
-
-        private void CloseWindowManager()
-        {
-            if (_windowManager != null && !_windowManager.IsDisposed)
+            catch (System.Exception ex)
             {
-                _windowManager.Close();
-                _windowManager = null;
+                WinForms.MessageBox.Show("无法启动图纸窗口管理器：" + ex.Message, "图纸窗口管理器", WinForms.MessageBoxButtons.OK, WinForms.MessageBoxIcon.Error);
             }
         }
 
@@ -216,10 +208,7 @@ namespace AICADRibbon
                 {
                     EnsureLispLoaded(e.Document);
                 }
-                if (_windowManager != null && !_windowManager.IsDisposed)
-                {
-                    _windowManager.RefreshDocuments();
-                }
+
             }
             finally
             {
@@ -227,56 +216,7 @@ namespace AICADRibbon
             }
         }
 
-        internal Document[] GetOpenDocuments()
-        {
-            List<Document> documents = new List<Document>();
-            foreach (Document document in ZcadApp.DocumentManager)
-            {
-                documents.Add(document);
-            }
-            return documents.ToArray();
-        }
 
-        internal void ActivateDocument(Document document)
-        {
-            if (document == null) return;
-            try { ZcadApp.DocumentManager.MdiActiveDocument = document; }
-            catch (System.Exception ex) { WriteMessage(document.Editor, "切换图纸失败：" + ex.Message); }
-        }
-
-        internal void CloseDocument(Document document)
-        {
-            if (document == null) return;
-            try
-            {
-                bool modified = false;
-                try
-                {
-                    System.Reflection.PropertyInfo property = document.GetType().GetProperty("IsModified");
-                    object value = property == null ? null : property.GetValue(document, null);
-                    if (value is bool) modified = (bool)value;
-                }
-                catch { }
-
-                if (modified)
-                {
-                    string path = document.Name ?? string.Empty;
-                    System.Reflection.MethodInfo saveClose = document.GetType().GetMethod("CloseAndSave", new Type[] { typeof(string) });
-                    if (saveClose != null && !string.IsNullOrEmpty(path))
-                    {
-                        saveClose.Invoke(document, new object[] { path });
-                    }
-                    else document.CloseAndDiscard();
-                }
-                else
-                {
-                    System.Reflection.MethodInfo close = document.GetType().GetMethod("Close", Type.EmptyTypes);
-                    if (close != null) close.Invoke(document, null);
-                    else document.CloseAndDiscard();
-                }
-            }
-            catch (System.Exception ex) { WriteMessage(document.Editor, "关闭图纸失败：" + ex.Message); }
-        }
 
         private void EnsurePromptPanelVisible(bool forceShow)
         {
@@ -1161,282 +1101,7 @@ namespace AICADRibbon
             public void Execute(object parameter) { _owner.ShowWindowManagerCommand(); }
         }
 
-        [DataContract]
-        private sealed class WindowNoteRecord
-        {
-            [DataMember] public string path;
-            [DataMember] public string note;
-            [DataMember] public bool favorite;
-            [DataMember] public string updatedAt;
-        }
 
-        private sealed class WindowNoteStore
-        {
-            private readonly Dictionary<string, WindowNoteRecord> _records =
-                new Dictionary<string, WindowNoteRecord>(StringComparer.OrdinalIgnoreCase);
-            private readonly string _filePath;
-
-            public WindowNoteStore()
-            {
-                string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ZW-auto_lisp");
-                Directory.CreateDirectory(dir);
-                _filePath = Path.Combine(dir, "window-notes.json");
-                Load();
-            }
-
-            public WindowNoteRecord Get(string path)
-            {
-                WindowNoteRecord record;
-                return path != null && _records.TryGetValue(path, out record)
-                    ? record
-                    : new WindowNoteRecord { path = path ?? string.Empty, note = string.Empty };
-            }
-
-            public bool Put(string path, string note, bool favorite)
-            {
-                if (string.IsNullOrEmpty(path)) return false;
-                _records[path] = new WindowNoteRecord {
-                    path = path, note = note ?? string.Empty, favorite = favorite,
-                    updatedAt = DateTime.Now.ToString("s")
-                };
-                return Save();
-            }
-
-            private void Load()
-            {
-                if (!File.Exists(_filePath)) return;
-                try
-                {
-                    using (FileStream stream = File.OpenRead(_filePath))
-                    {
-                        DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(WindowNoteRecord[]));
-                        WindowNoteRecord[] records = serializer.ReadObject(stream) as WindowNoteRecord[];
-                        if (records != null)
-                            foreach (WindowNoteRecord record in records)
-                                if (record != null && !string.IsNullOrEmpty(record.path)) _records[record.path] = record;
-                    }
-                }
-                catch
-                {
-                    try { File.Copy(_filePath, _filePath + ".bak", true); } catch { }
-                    _records.Clear();
-                }
-            }
-
-            private bool Save()
-            {
-                try
-                {
-                    string temp = _filePath + ".tmp";
-                    using (FileStream stream = File.Create(temp))
-                    {
-                        DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(WindowNoteRecord[]));
-                        serializer.WriteObject(stream, _records.Values.ToArray());
-                    }
-                    if (File.Exists(_filePath))
-                    {
-                        try { File.Replace(temp, _filePath, _filePath + ".bak", true); }
-                        catch { File.Copy(temp, _filePath, true); File.Delete(temp); }
-                    }
-                    else
-                    {
-                        File.Move(temp, _filePath);
-                    }
-                    return true;
-                }
-                catch { try { File.Delete(_filePath + ".tmp"); } catch { } return false; }
-            }
-        }
-
-        private sealed class WindowDocumentItem
-        {
-            public Document Document;
-            public string Key;
-            public string Name;
-            public string Path;
-            public string Note;
-            public bool Favorite;
-            public bool Modified;
-        }
-
-        private sealed class WindowManagerForm : WinForms.Form
-        {
-            private static readonly System.Reflection.PropertyInfo FullFileNameProperty = typeof(Document).GetProperty("FullFileName");
-            private static readonly System.Reflection.PropertyInfo DocumentModifiedProperty = typeof(Document).GetProperty("IsModified");
-            private readonly AiRibbonPlugin _owner;
-            private readonly WindowNoteStore _store;
-            private readonly WinForms.TextBox _searchBox;
-            private readonly WinForms.CheckBox _favoritesOnly;
-            private readonly WinForms.ComboBox _sortBox;
-            private readonly WinForms.ListView _list;
-            private readonly WinForms.TextBox _noteBox;
-            private readonly WinForms.Label _status;
-            private readonly WinForms.Button _favoriteButton;
-            private readonly WinForms.Button _folderButton;
-            private readonly WinForms.Button _closeButton;
-            private readonly WinForms.Timer _refreshTimer;
-            private bool _refreshing;
-            private string _lastSignature = string.Empty;
-            private string _selectedKey = string.Empty;
-
-            public WindowManagerForm(AiRibbonPlugin owner)
-            {
-                _owner = owner;
-                _store = new WindowNoteStore();
-                Text = "图纸窗口管理器";
-                StartPosition = WinForms.FormStartPosition.CenterScreen;
-                MinimumSize = new Draw.Size(680, 430);
-                ClientSize = new Draw.Size(820, 560);
-                BackColor = Draw.Color.FromArgb(43, 43, 46);
-                ForeColor = Draw.Color.FromArgb(230, 230, 230);
-                KeyPreview = true;
-
-                WinForms.TableLayoutPanel root = new WinForms.TableLayoutPanel { Dock = WinForms.DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new WinForms.Padding(10) };
-                root.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 34));
-                root.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 32));
-                root.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100));
-                root.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 142));
-
-                WinForms.Panel title = new WinForms.Panel { Dock = WinForms.DockStyle.Fill, BackColor = Draw.Color.FromArgb(37, 37, 38) };
-                title.Controls.Add(new WinForms.Label { Text = "图纸窗口管理器", AutoSize = true, Location = new Draw.Point(8, 8), Font = new Draw.Font(Font, Draw.FontStyle.Bold) });
-                WinForms.Button refresh = MakeButton("刷新", 70); refresh.Location = new Draw.Point(150, 4); refresh.Click += delegate { RefreshDocuments(); }; title.Controls.Add(refresh);
-                WinForms.Button close = MakeButton("关闭面板", 82); close.Anchor = WinForms.AnchorStyles.Top | WinForms.AnchorStyles.Right; close.Location = new Draw.Point(Width - 112, 4); close.Click += delegate { Close(); }; title.Controls.Add(close);
-                root.Controls.Add(title, 0, 0);
-
-                WinForms.FlowLayoutPanel filters = new WinForms.FlowLayoutPanel { Dock = WinForms.DockStyle.Fill, WrapContents = false, Padding = new WinForms.Padding(0, 3, 0, 0) };
-                _searchBox = new WinForms.TextBox { Width = 270, BackColor = Draw.Color.FromArgb(62, 62, 66), ForeColor = ForeColor, BorderStyle = WinForms.BorderStyle.FixedSingle }; _searchBox.TextChanged += delegate { RefreshDocuments(); }; filters.Controls.Add(_searchBox);
-                _favoritesOnly = new WinForms.CheckBox { Text = "仅收藏", AutoSize = true, ForeColor = ForeColor, Margin = new WinForms.Padding(12, 4, 8, 0) }; _favoritesOnly.CheckedChanged += delegate { RefreshDocuments(); }; filters.Controls.Add(_favoritesOnly);
-                _sortBox = new WinForms.ComboBox { Width = 130, DropDownStyle = WinForms.ComboBoxStyle.DropDownList, BackColor = Draw.Color.FromArgb(62, 62, 66), ForeColor = ForeColor }; _sortBox.Items.AddRange(new object[] { "按当前顺序", "按备注优先", "按文件名" }); _sortBox.SelectedIndex = 0; _sortBox.SelectedIndexChanged += delegate { RefreshDocuments(); }; filters.Controls.Add(_sortBox);
-                root.Controls.Add(filters, 0, 1);
-
-                _list = new WinForms.ListView { Dock = WinForms.DockStyle.Fill, View = WinForms.View.Details, FullRowSelect = true, GridLines = true, HideSelection = false, MultiSelect = false, BackColor = Draw.Color.FromArgb(52, 52, 56), ForeColor = ForeColor }; _list.Columns.Add("状态", 72); _list.Columns.Add("备注", 250); _list.Columns.Add("文件名", 600); _list.SelectedIndexChanged += OnSelectionChanged; _list.DoubleClick += delegate { ActivateSelected(); }; root.Controls.Add(_list, 0, 2);
-
-                WinForms.TableLayoutPanel editor = new WinForms.TableLayoutPanel { Dock = WinForms.DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new WinForms.Padding(0, 8, 0, 0) };
-                editor.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100));
-                editor.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 22));
-                editor.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100));
-                editor.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 32));
-                editor.Controls.Add(new WinForms.Label { Text = "备注（选中图纸后在白色输入框中编辑，Ctrl+Enter 保存）", Dock = WinForms.DockStyle.Fill, ForeColor = Draw.Color.FromArgb(210, 210, 210), TextAlign = Draw.ContentAlignment.MiddleLeft }, 0, 0);
-                _noteBox = new WinForms.TextBox { Dock = WinForms.DockStyle.Fill, Multiline = true, AcceptsReturn = true, ScrollBars = WinForms.ScrollBars.Vertical, BackColor = Draw.Color.White, ForeColor = Draw.Color.Black, BorderStyle = WinForms.BorderStyle.Fixed3D, Font = new Draw.Font(Font.FontFamily, 10f) }; _noteBox.KeyDown += OnNoteKeyDown; editor.Controls.Add(_noteBox, 0, 1);
-                WinForms.FlowLayoutPanel actions = new WinForms.FlowLayoutPanel { Dock = WinForms.DockStyle.Fill, FlowDirection = WinForms.FlowDirection.LeftToRight, WrapContents = false, Padding = new WinForms.Padding(0, 3, 0, 0) }; WinForms.Button save = MakeButton("保存备注", 110); save.BackColor = Draw.Color.FromArgb(0, 122, 204); save.Click += delegate { SaveNote(); }; actions.Controls.Add(save); _favoriteButton = MakeButton("收藏", 70); _favoriteButton.Click += delegate { ToggleFavorite(); }; actions.Controls.Add(_favoriteButton); _folderButton = MakeButton("打开目录", 82); _folderButton.Click += delegate { OpenFolder(); }; actions.Controls.Add(_folderButton); _closeButton = MakeButton("关闭图纸", 82); _closeButton.Click += delegate { CloseSelected(); }; actions.Controls.Add(_closeButton); _status = new WinForms.Label { AutoSize = true, TextAlign = Draw.ContentAlignment.MiddleLeft, ForeColor = Draw.Color.FromArgb(170, 170, 170), Margin = new WinForms.Padding(14, 5, 0, 0) }; actions.Controls.Add(_status); editor.Controls.Add(actions, 0, 2); root.Controls.Add(editor, 0, 3);
-                Controls.Add(root);
-                _refreshTimer = new WinForms.Timer { Interval = 1000 };
-                _refreshTimer.Tick += delegate { RefreshDocuments(); };
-                _refreshTimer.Start();
-                KeyDown += OnWindowManagerKeyDown;
-                FormClosing += delegate { SaveNote(); };
-                FormClosed += delegate { _refreshTimer.Stop(); _refreshTimer.Dispose(); _noteBox.Text = string.Empty; };
-            }
-
-            private WinForms.Button MakeButton(string text, int width) { return new WinForms.Button { Text = text, Width = width, Height = 25, FlatStyle = WinForms.FlatStyle.Flat, BackColor = Draw.Color.FromArgb(62, 62, 66), ForeColor = ForeColor, Margin = new WinForms.Padding(4, 0, 0, 0) }; }
-
-            public void RefreshDocuments()
-            {
-                if (_refreshing || IsDisposed) return;
-                if (InvokeRequired)
-                {
-                    BeginInvoke(new Action(RefreshDocuments));
-                    return;
-                }
-                _refreshing = true;
-                try
-                {
-                    string query = (_searchBox.Text ?? string.Empty).Trim();
-                    List<WindowDocumentItem> items = new List<WindowDocumentItem>();
-                    foreach (Document document in _owner.GetOpenDocuments())
-                    {
-                        string path = GetDocumentPath(document);
-                        string key = string.IsNullOrEmpty(path) ? "*session*" + document.GetHashCode().ToString() : path;
-                        WindowNoteRecord record = _store.Get(path);
-                        string name = document.Name ?? "未命名图纸";
-                        bool modified = IsDocumentModified(document);
-                        if (_favoritesOnly.Checked && !record.favorite) continue;
-                        if (query.Length > 0 && name.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0 && path.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0 && (record.note ?? string.Empty).IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                        items.Add(new WindowDocumentItem { Document = document, Key = key, Name = name, Path = path, Note = record.note ?? string.Empty, Favorite = record.favorite, Modified = modified });
-                    }
-                    if (_sortBox.SelectedIndex == 1) items = items.OrderByDescending(x => x.Favorite).ThenByDescending(x => !string.IsNullOrWhiteSpace(x.Note)).ThenBy(x => x.Name).ToList();
-                    else if (_sortBox.SelectedIndex == 2) items = items.OrderBy(x => x.Name).ToList();
-                    Document active = ZcadApp.DocumentManager.MdiActiveDocument;
-                    string signature = string.Join("|", items.Select(item => item.Key + "\u001f" + item.Note + "\u001f" + item.Favorite + "\u001f" + item.Modified + "\u001f" + ReferenceEquals(item.Document, active))) + "|" + query + "|" + _favoritesOnly.Checked + "|" + _sortBox.SelectedIndex;
-                    if (string.Equals(signature, _lastSignature, StringComparison.Ordinal)) return;
-                    _lastSignature = signature;
-                    _list.BeginUpdate();
-                    try
-                    {
-                        _list.Items.Clear();
-                        foreach (WindowDocumentItem item in items)
-                        {
-                            string state = (ReferenceEquals(item.Document, active) ? "当前" : "") + (item.Modified ? " *" : "");
-                            if (item.Favorite) state += " ★";
-                            WinForms.ListViewItem row = new WinForms.ListViewItem(state); row.SubItems.Add(string.IsNullOrEmpty(item.Note) ? "（未备注）" : item.Note); row.SubItems.Add(item.Name); row.Tag = item; if (ReferenceEquals(item.Document, active)) row.BackColor = Draw.Color.FromArgb(70, 90, 105); _list.Items.Add(row);
-                        }
-                    }
-                    finally
-                    {
-                        _list.EndUpdate();
-                    }
-                    _status.Text = "共 " + items.Count.ToString() + " 张图纸";
-                    for (int i = 0; i < _list.Items.Count; i++)
-                    {
-                        WindowDocumentItem item = _list.Items[i].Tag as WindowDocumentItem;
-                        if (item != null && string.Equals(item.Key, _selectedKey, StringComparison.OrdinalIgnoreCase))
-                        {
-                            _list.Items[i].Selected = true;
-                            _list.Items[i].EnsureVisible();
-                            break;
-                        }
-                    }
-                }
-                finally { _refreshing = false; }
-            }
-
-        private static string GetDocumentPath(Document document)
-            {
-                if (document == null) return string.Empty;
-                try
-                {
-                    object value = FullFileNameProperty == null ? null : FullFileNameProperty.GetValue(document, null);
-                    if (value is string && !string.IsNullOrEmpty((string)value)) return NormalizePath((string)value);
-                }
-                catch { }
-                try { return NormalizePath(document.Name ?? string.Empty); } catch { return string.Empty; }
-            }
-
-            private static string NormalizePath(string path)
-            {
-                if (string.IsNullOrWhiteSpace(path)) return string.Empty;
-                try { return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-                catch { return path.Trim(); }
-            }
-
-            private static bool IsDocumentModified(Document document)
-            {
-                try
-                {
-                    object value = DocumentModifiedProperty == null ? null : DocumentModifiedProperty.GetValue(document, null);
-                    if (value is bool) return (bool)value;
-                }
-                catch { }
-                try
-                {
-                    System.Reflection.PropertyInfo property = document.Database.GetType().GetProperty("IsModified");
-                    object value = property == null ? null : property.GetValue(document.Database, null);
-                    if (value is bool) return (bool)value;
-                }
-                catch { }
-                return false;
-            }
-
-            private WindowDocumentItem SelectedItem() { return _list.SelectedItems.Count == 0 ? null : _list.SelectedItems[0].Tag as WindowDocumentItem; }
-            private void OnWindowManagerKeyDown(object sender, WinForms.KeyEventArgs e) { if (e.KeyCode == WinForms.Keys.Escape) { e.SuppressKeyPress = true; Close(); } }
-            private void OnNoteKeyDown(object sender, WinForms.KeyEventArgs e) { if (e.KeyCode == WinForms.Keys.Enter && e.Control) { e.SuppressKeyPress = true; SaveNote(); } }
-            private void OnSelectionChanged(object sender, EventArgs e) { WindowDocumentItem item = SelectedItem(); if (item == null) return; _selectedKey = item.Key; _noteBox.Text = item.Note; _favoriteButton.Text = item.Favorite ? "取消收藏" : "收藏"; _folderButton.Enabled = !string.IsNullOrEmpty(item.Path); _closeButton.Enabled = true; }
-            private void ActivateSelected() { WindowDocumentItem item = SelectedItem(); if (item != null) { SaveNote(); _owner.ActivateDocument(item.Document); RefreshDocuments(); } }
-            private void SaveNote() { WindowDocumentItem item = SelectedItem(); if (item == null) { _status.Text = "请先在上方列表选中一张图纸"; return; } if (string.IsNullOrEmpty(item.Path)) { _status.Text = "当前图纸没有可关联的文件名"; return; } _selectedKey = item.Key; bool ok = _store.Put(item.Path, _noteBox.Text, item.Favorite); if (ok) { item.Note = _noteBox.Text; _lastSignature = string.Empty; RefreshDocuments(); _status.Text = "备注已保存"; } else { _status.Text = "备注保存失败，请检查配置目录权限"; } }
-            private void ToggleFavorite() { WindowDocumentItem item = SelectedItem(); if (item == null || string.IsNullOrEmpty(item.Path)) return; _selectedKey = item.Key; if (_store.Put(item.Path, item.Note, !item.Favorite)) { _lastSignature = string.Empty; RefreshDocuments(); } else { _status.Text = "收藏状态保存失败"; } }
-            private void OpenFolder() { WindowDocumentItem item = SelectedItem(); if (item != null && File.Exists(item.Path)) System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + item.Path + "\""); }
-            private void CloseSelected() { WindowDocumentItem item = SelectedItem(); if (item == null) return; SaveNote(); _owner.CloseDocument(item.Document); RefreshDocuments(); }
-        }
 
         private sealed class ReplacePanelForm : WinForms.Form
         {

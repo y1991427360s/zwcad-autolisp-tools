@@ -6,21 +6,29 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$buildStarted = Get-Date
 
 $compiler = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 $frameworkDir = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319"
 $wpfDir = Join-Path $frameworkDir "WPF"
 $sourceFile = Join-Path $PSScriptRoot "AICADRibbon\AiRibbonPlugin.cs"
 $outputPath = Join-Path $OutputDir $OutputName
+$managerPath = Join-Path $OutputDir "DwgWindowManager.exe"
+$protocolSource = Join-Path $PSScriptRoot "WindowManager\Protocol.cs"
+$agentSource = Join-Path $PSScriptRoot "AICADRibbon\WindowAgent.cs"
+$managerSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot "WindowManager") -Filter *.cs | ForEach-Object { $_.FullName })
 
 $requiredFiles = @(
   $compiler,
   $sourceFile,
+  $protocolSource,
+  $agentSource,
   (Join-Path $ZWCADDir "ZwManaged.dll"),
   (Join-Path $ZWCADDir "ZwDatabaseMgd.dll"),
   (Join-Path $ZWCADDir "ZdWindows.dll"),
   (Join-Path $frameworkDir "System.Drawing.dll"),
   (Join-Path $frameworkDir "System.Windows.Forms.dll"),
+  (Join-Path $frameworkDir "System.Runtime.Serialization.dll"),
   (Join-Path $frameworkDir "System.Xaml.dll"),
   (Join-Path $wpfDir "PresentationCore.dll"),
   (Join-Path $wpfDir "PresentationFramework.dll"),
@@ -41,6 +49,7 @@ $references = @(
   (Join-Path $ZWCADDir "ZdWindows.dll"),
   (Join-Path $frameworkDir "System.Drawing.dll"),
   (Join-Path $frameworkDir "System.Windows.Forms.dll"),
+  (Join-Path $frameworkDir "System.Runtime.Serialization.dll"),
   (Join-Path $frameworkDir "System.Xaml.dll"),
   (Join-Path $wpfDir "PresentationCore.dll"),
   (Join-Path $wpfDir "PresentationFramework.dll"),
@@ -54,6 +63,8 @@ $arguments = @(
   "/optimize+"
   "/out:" + $outputPath
   $sourceFile
+  $agentSource
+  $protocolSource
 ) + $references
 
 & $compiler @arguments
@@ -66,4 +77,20 @@ if (-not (Test-Path -LiteralPath $outputPath)) {
   throw "Build failed. Output not found: $outputPath"
 }
 
-Write-Host "Built $outputPath"
+$managerArguments = @(
+  "/nologo", "/target:winexe", "/platform:x64", "/optimize+",
+  ("/out:" + $managerPath),
+  "/reference:System.dll", "/reference:System.Core.dll",
+  "/reference:System.Drawing.dll", "/reference:System.Windows.Forms.dll",
+  "/reference:System.Runtime.Serialization.dll"
+) + $managerSources
+& $compiler @managerArguments
+if ($LASTEXITCODE -ne 0) { throw "Manager build failed with exit code $LASTEXITCODE" }
+foreach ($artifactPath in @($outputPath, $managerPath)) {
+  $artifact = Get-Item -LiteralPath $artifactPath
+  if ($artifact.LastWriteTime -lt $buildStarted -or $artifact.Length -eq 0) {
+    throw "Artifact was not updated: $artifactPath"
+  }
+  $artifact | Select-Object FullName, LastWriteTime, Length
+}
+Write-Host "Build started: $($buildStarted.ToString('o'))"
