@@ -8,7 +8,7 @@ $branch = 'optimize/robustness-and-cleanup'
 Set-Location -LiteralPath $root
 function Git-Run {
     param([string[]]$GitArgs)
-    $result = & git @GitArgs
+    $result = & git -c core.quotepath=false @GitArgs
     if ($LASTEXITCODE -ne 0) { throw "Git failed: $($GitArgs -join ' ')" }
     return $result
 }
