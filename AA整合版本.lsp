@@ -15,15 +15,15 @@
 ;;;   - HDDL  : 直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。
 ;;;   - QSTXT : 快速从当前选择中仅选中所有文字对象。
 ;;;   - T     : 把字体刷为HZ样式，高度3，宽度0.7。
-;;;   - T2    : 把字体刷为HZ样式并自动避让周围对象，尽量使用最大不重叠字高。
+;;;   - T2    : 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距从上到下排列。
 ;;;   - Y     : 将选中对象的颜色快速变为青色。
 ;;;   - YY    : 将选中对象快速改为黄色。
 ;;;   - RR    : 将选中对象快速改为红色。
-;;;   - WW    : 将选中对象快速改为白色。
+;;;   - WW    : 将选中对象快速改为白色；支持尺寸标注（转角标注等全要素变白）、引线及块内实体。
 ;;;   - GG    : 将选中对象快速改为绿色。
 ;;;   - HH    : 将选中对象快速改为洋红色。
-;;;   - HUI   : 将选中对象快速改为颜色 8。
+;;;   - HUI   : 将选中对象快速改为颜色 8；遇到引线先分解再改色，遇到块参照连块内实体一起改。
 ;;;   - ZHONG : 将选中文字统一为中中对正，并以最上方文字为基准居中对齐。
 ;;;   - ZUO   : 将选中文字统一为左中对正，并以最上方文字为基准左对齐。
 ;;;   - HP    : 将选中文字按从左到右排列，使相邻文字首尾间距为指定值，并按最左文字上边对齐。
@@ -32,6 +32,8 @@
 ;;;   - XIA   : 将选中文字统一为中下对正，并以最左侧文字为基准下对齐。
 ;;;   - HE    : 将同一行的两个或以上文字合并。
 ;;;   - QR    : 快速修改文字高度。
+;;;   - QR2   : 连续选择文字并逐轮输入高度进行修改，按 Esc 退出。
+;;;   - DEA   : 删除所选对象中高度小于 0.1 的 TEXT/MTEXT 文字。
 ;;;   - WI    : 修改选中文字的宽度比例。
 ;;;   - XB    : 将选中的文字或尺寸标注整体缩小为原来的十分之一，并保留选择状态。
 ;;;   - YAN   : 延长竖直直线统一间距，支持分组和上下方向控制。
@@ -77,6 +79,7 @@
 ;;;   - AW    : 自动微移选中文字，尽量避开旁边线段、文字和其他对象重叠。
 ;;;   - ZDML  : 选择多个图框块，生成目录文字。
 ;;;   - ZDMLDEBUG : 选择一个图框块，打印所有增强属性。
+;;;   - AAE   : 选择块内属性文字，在自定义窗口中编辑并按回车直接保存。
 ;;;   - C1    : 复制文字并递增减号右侧编号，使用CAD原生捕捉连续放置。
 ;;;   - C2    : 复制文字并递减减号右侧编号，使用CAD原生捕捉连续放置。
 ;;;   - C3    : 复制文字并每次将减号右侧编号加 2，使用CAD原生捕捉连续放置。
@@ -90,6 +93,7 @@
 ;;;   - QH    : 只选中已选文字所在行、且位于当前屏幕内、参考文字左右各 1000 内的所有文字（跨多行时逐行选择）。
 ;;;   - BK    : 选中文字后只保留最后一对括号内的内容，括号外有“至”时保留“至”。
 ;;;   - ZTF   : 搜索系统字体并将选定字体写入指定文字样式。
+;;;   - HS    : 选中物体单向横向缩放，左右宽度改变，高度保持不变。
 ;;; =======================================================================================
 
 ;;;----------------------------------------------------------------------------------------
@@ -497,17 +501,25 @@
   (aa:cmd-end)
 )
 
-(defun aa:set-entity-aci-color (ename color / ed)
+(defun aa:set-entity-aci-color (ename color / ed cur-c)
   (if (setq ed (entget ename))
     (progn
-      (setq ed
-        (vl-remove-if
-          '(lambda (item) (member (car item) '(420 430)))
-          ed))
-      (if (assoc 62 ed)
-        (setq ed (subst (cons 62 color) (assoc 62 ed) ed))
-        (setq ed (append ed (list (cons 62 color)))))
-      (if (entmod ed) T nil))
+      (setq cur-c (assoc 62 ed))
+      ;; 若已经是目标颜色且无 420/430 真彩色覆盖，直接跳过 entmod，极大提升批量处理速度
+      (if (and cur-c
+               (= (cdr cur-c) color)
+               (not (assoc 420 ed))
+               (not (assoc 430 ed)))
+        T
+        (progn
+          (setq ed
+            (vl-remove-if
+              '(lambda (item) (member (car item) '(420 430)))
+              ed))
+          (if cur-c
+            (setq ed (subst (cons 62 color) cur-c ed))
+            (setq ed (append ed (list (cons 62 color)))))
+          (if (entmod ed) T nil))))
     nil)
 )
 
@@ -1072,19 +1084,16 @@
 
 ;;; =======================================================================================
 ;;; 命令: T2
-;;; 功能: 将文字刷为 HZ/0.7；高度 3 若会与周围对象重叠，则自动降低到可用的最大高度。
-;;;       调整高度后补偿插入点，使文字包围盒中心保持不变。
+;;; 功能: 将文字刷为 HZ/0.7；智能字高优先避让（优先 3.0 标准字高 + 安全微移；空间狭窄时微调至 2.5/2.2；保底保持 3.0 原位）。
+;;;       局部空间索引快速提取线段，毫秒级响应，原地优先，文字永不失真缩小。
 ;;; =======================================================================================
-(defun txt2:get-bbox (ename / obj mn mx result)
-  (setq obj (vlax-ename->vla-object ename)
-        result (vl-catch-all-apply 'vla-getboundingbox (list obj 'mn 'mx)))
-  (if (vl-catch-all-error-p result)
-    nil
-    (list (vlax-safearray->list mn) (vlax-safearray->list mx)))
+(defun txt2:get-bbox (ename / doc)
+  (setq doc (vla-get-activedocument (vlax-get-acad-object)))
+  (aa:safe-get-bbox doc ename)
 )
 
 (defun txt2:overlap-p (a b / tol)
-  (setq tol 1e-8)
+  (setq tol 1e-6)
   (and a b
        (<= (- (car (car b)) tol) (+ (car (cadr a)) tol))
        (<= (- (car (car a)) tol) (+ (car (cadr b)) tol))
@@ -1092,132 +1101,474 @@
        (<= (- (cadr (car a)) tol) (+ (cadr (cadr b)) tol)))
 )
 
-(defun txt2:collision-p (ename box / ss i other ob hit p1 p2)
-  (setq hit nil)
-  (if (and box
-           ;; vla-getboundingbox 返回 WCS，ssget 窗口按当前 UCS 解释。
-           (setq p1 (trans (car box) 0 1)
-                 p2 (trans (cadr box) 0 1)
-                 ss (ssget "_C" p1 p2)))
+(defun txt2:expand-bbox (box gap)
+  (if (and box gap)
+    (list
+      (list (- (car (car box)) gap)
+            (- (cadr (car box)) gap)
+            (caddr (car box)))
+      (list (+ (car (cadr box)) gap)
+            (+ (cadr (cadr box)) gap)
+            (caddr (cadr box))))
+  )
+)
+
+;; 判断线段 (x1 y1)-(x2 y2) 是否与水平线段 y=y0 (x在[xmin, xmax]) 相交
+(defun txt2:cross-horiz-p (x1 y1 x2 y2 y0 xmin xmax / xi)
+  (if (and (/= y1 y2)
+           (<= (* (- y1 y0) (- y2 y0)) 1e-9))
     (progn
-      (setq i 0)
-      (while (and (< i (sslength ss)) (not hit))
-        (setq other (ssname ss i))
-        (if (and other (/= other ename)
-                 (setq ob (txt2:get-bbox other))
-                 (txt2:overlap-p box ob))
-          (setq hit T)
-        )
-        (setq i (1+ i))
-      )
+      (setq xi (+ x1 (/ (* (- x2 x1) (- y0 y1)) (- y2 y1))))
+      (and (<= (- xmin 1e-8) xi) (<= xi (+ xmax 1e-8))))
+    nil
+  )
+)
+
+;; 判断线段 (x1 y1)-(x2 y2) 是否与垂直线段 x=x0 (y在[ymin, ymax]) 相交
+(defun txt2:cross-vert-p (x1 y1 x2 y2 x0 ymin ymax / yi)
+  (if (and (/= x1 x2)
+           (<= (* (- x1 x0) (- x2 x0)) 1e-9))
+    (progn
+      (setq yi (+ y1 (/ (* (- y2 y1) (- x0 x1)) (- x2 x1))))
+      (and (<= (- ymin 1e-8) yi) (<= yi (+ ymax 1e-8))))
+    nil
+  )
+)
+
+;; 纯几何线段与 AABB 矩形碰撞检测（快速 AABB 粗筛 + 端点内外测试 + 边线相交）
+(defun txt2:line-box-collision-p (x1 y1 x2 y2 xmin ymin xmax ymax / tol)
+  (setq tol 1e-8)
+  (cond
+    ;; 1. 快速 AABB 排除
+    ((or (< (max x1 x2) (- xmin tol))
+         (> (min x1 x2) (+ xmax tol))
+         (< (max y1 y2) (- ymin tol))
+         (> (min y1 y2) (+ ymax tol)))
+     nil)
+    ;; 2. 端点在矩形内（包含边界容差）
+    ((or (and (<= (- xmin tol) x1) (<= x1 (+ xmax tol))
+              (<= (- ymin tol) y1) (<= y1 (+ ymax tol)))
+         (and (<= (- xmin tol) x2) (<= x2 (+ xmax tol))
+              (<= (- ymin tol) y2) (<= y2 (+ ymax tol))))
+     T)
+    ;; 3. 穿过 4 条边之一
+    ((txt2:cross-horiz-p x1 y1 x2 y2 ymin xmin xmax) T)
+    ((txt2:cross-horiz-p x1 y1 x2 y2 ymax xmin xmax) T)
+    ((txt2:cross-vert-p x1 y1 x2 y2 xmin ymin ymax) T)
+    ((txt2:cross-vert-p x1 y1 x2 y2 xmax ymin ymax) T)
+    (T nil)
+  )
+)
+
+;; 提取 LWPOLYLINE 的所有线段
+(defun txt2:lwpoly-segments (ename edata / pts closed segs p0 prev cur p)
+  (setq closed (= 1 (logand 1 (cdr (assoc 70 edata))))
+        pts    '()
+        segs   '())
+  (foreach item edata
+    (if (= (car item) 10)
+      (progn
+        ;; 顶点可能位于实体 OCS，统一转换到 WCS 后再参与碰撞计算。
+        (setq p (trans (cdr item) ename 0))
+        (setq pts (cons p pts)))))
+  (setq pts (reverse pts))
+  (if (and pts (> (length pts) 1))
+    (progn
+      (setq p0   (car pts)
+            prev p0)
+      (foreach cur (cdr pts)
+        (setq segs (cons (list (car prev) (cadr prev) (car cur) (cadr cur)) segs)
+              prev cur))
+      (if closed
+        (setq segs (cons (list (car prev) (cadr prev) (car p0) (cadr p0)) segs)))
     )
   )
+  segs
+)
+
+;; 提取经典 2D/3D POLYLINE 的所有线段
+(defun txt2:polyline-segments (ename / edata closed pts sub subed p0 prev cur segs p)
+  (setq edata  (entget ename)
+        closed (= 1 (logand 1 (cdr (assoc 70 edata))))
+        pts    '()
+        segs   '()
+        sub    (entnext ename))
+  (while (and sub (setq subed (entget sub)) (/= "SEQEND" (cdr (assoc 0 subed))))
+    (if (= "VERTEX" (cdr (assoc 0 subed)))
+      (if (= 0 (logand 16 (cdr (assoc 70 subed))))
+        (progn
+          (setq p (trans (cdr (assoc 10 subed)) ename 0))
+          (setq pts (cons p pts)))))
+    (setq sub (entnext sub))
+  )
+  (setq pts (reverse pts))
+  (if (and pts (> (length pts) 1))
+    (progn
+      (setq p0   (car pts)
+            prev p0)
+      (foreach cur (cdr pts)
+        (setq segs (cons (list (car prev) (cadr prev) (car cur) (cadr cur)) segs)
+              prev cur))
+      (if closed
+        (setq segs (cons (list (car prev) (cadr prev) (car p0) (cadr p0)) segs)))
+    )
+  )
+  segs
+)
+
+;; 纯几何碰撞检测：检测测试包围盒是否与局部线段相交或与其他已放置文字盒重叠
+(defun txt2:box-collision-p (box lines boxes gap / hit xmin ymin xmax ymax cur-lines cur-boxes cur-b)
+  (setq hit nil
+        box (txt2:expand-bbox box gap)
+        xmin (car (car box))
+        ymin (cadr (car box))
+        xmax (car (cadr box))
+        ymax (cadr (cadr box))
+        cur-lines lines
+        cur-boxes boxes)
+  (while (and cur-lines (not hit))
+    (if (txt2:line-box-collision-p (car (car cur-lines)) (cadr (car cur-lines))
+                                   (caddr (car cur-lines)) (cadddr (car cur-lines))
+                                   xmin ymin xmax ymax)
+      (setq hit T))
+    (setq cur-lines (cdr cur-lines)))
+  (while (and cur-boxes (not hit))
+    (setq cur-b (cdr (car cur-boxes)))
+    (if (txt2:overlap-p box cur-b)
+      (setq hit T))
+    (setq cur-boxes (cdr cur-boxes)))
   hit
 )
 
-(defun txt2:shift-point (pt delta)
-  (if pt
-    (mapcar '+ pt delta)
+;; 提取指定图元的线段
+(defun txt2:extract-entity-lines (en / ed typ p1 p2)
+  (if (and en (setq ed (entget en)))
+    (progn
+      (setq typ (cdr (assoc 0 ed)))
+      (cond
+        ((= typ "LINE")
+         (setq p1 (cdr (assoc 10 ed))
+               p2 (cdr (assoc 11 ed)))
+         ;; LINE 的 10/11 点已是 WCS；不要按实体 OCS 二次转换。
+         (list (list (car p1) (cadr p1) (car p2) (cadr p2))))
+        ((= typ "LWPOLYLINE")
+         (txt2:lwpoly-segments en ed))
+        ((= typ "POLYLINE")
+         (txt2:polyline-segments en))
+        (T nil)
+      )
+    )
+    nil
   )
 )
 
-(defun txt2:move-to-center (ename oldbox newbox / oldc newc delta edata item)
-  (if (and oldbox newbox)
-    (progn
-      (setq oldc (list (/ (+ (car (car oldbox)) (car (cadr oldbox))) 2.0)
-                       (/ (+ (cadr (car oldbox)) (cadr (cadr oldbox))) 2.0)
-                       0.0)
-            newc (list (/ (+ (car (car newbox)) (car (cadr newbox))) 2.0)
-                       (/ (+ (cadr (car newbox)) (cadr (cadr newbox))) 2.0)
-                       0.0)
-            delta (mapcar '- oldc newc))
-      (if (> (distance '(0.0 0.0 0.0) delta) 1e-9)
-        (progn
-          ;; ZWCAD 2026 没有 ENTMOVE；直接平移 TEXT 的插入点/对齐点。
-          (setq edata (entget ename))
-          (if (setq item (assoc 10 edata))
-            (setq edata (subst (cons 10 (txt2:shift-point (cdr item) delta)) item edata)))
-          (if (setq item (assoc 11 edata))
-            (setq edata (subst (cons 11 (txt2:shift-point (cdr item) delta)) item edata)))
-          (entmod edata)
-        )
+;; 收集候选障碍物：优先提取用户框选的线框，再在文字群外扩 5.0 局部范围内快速拾取物理线段
+;; 杜绝全图扫描与图块/标注的大 AABB 误判
+(defun txt2:wcs-box-to-ucs-window (wmin wmax / p1 p2 p3 p4 u1 u2 u3 u4)
+  ;; 旋转 UCS 下，WCS 包围盒两个对角点不足以构成完整窗口；转换四角后取 UCS 外包。
+  (setq p1 (trans (list (car wmin) (cadr wmin) 0.0) 0 1)
+        p2 (trans (list (car wmin) (cadr wmax) 0.0) 0 1)
+        p3 (trans (list (car wmax) (cadr wmin) 0.0) 0 1)
+        p4 (trans (list (car wmax) (cadr wmax) 0.0) 0 1)
+        u1 (list (car p1) (cadr p1) 0.0)
+        u2 (list (car p2) (cadr p2) 0.0)
+        u3 (list (car p3) (cadr p3) 0.0)
+        u4 (list (car p4) (cadr p4) 0.0))
+  (list
+    (list (min (car u1) (car u2) (car u3) (car u4))
+          (min (cadr u1) (cadr u2) (cadr u3) (cadr u4))
+          0.0)
+    (list (max (car u1) (car u2) (car u3) (car u4))
+          (max (cadr u1) (cadr u2) (cadr u3) (cadr u4))
+          0.0)))
+
+(defun txt2:collect-obstacles (text-list extra-ents / doc g-min g-max margin ss i en ed typ lines boxes bbox ucs-win)
+  (setq doc    (vla-get-activedocument (vlax-get-acad-object))
+        g-min  nil
+        g-max  nil
+        margin 5.0
+        lines  '()
+        boxes  '())
+  ;; 1. 先处理用户一同框选的非文字对象。
+  (foreach en extra-ents
+    (if (not (member en text-list))
+      (progn
+        (setq ed (entget en)
+              typ (cdr (assoc 0 ed)))
+        (if (member typ '("LINE" "LWPOLYLINE" "POLYLINE"))
+          (setq lines (append (txt2:extract-entity-lines en) lines))
+          (if (setq bbox (aa:safe-get-bbox doc en))
+            (setq boxes (cons (cons en bbox) boxes))))
     )
   )
+  ;; 2. 动态计算待处理文字联合外包范围
+  (foreach en text-list
+    (if (setq bbox (aa:safe-get-bbox doc en))
+      (if (null g-min)
+        (setq g-min (car bbox)
+              g-max (cadr bbox))
+        (setq g-min (list (min (car g-min) (car (car bbox)))
+                          (min (cadr g-min) (cadr (car bbox))))
+              g-max (list (max (car g-max) (car (cadr bbox)))
+                          (max (cadr g-max) (cadr (cadr bbox))))))))
+  ;; 3. 在文字群联合外包盒周围局部拾取线段和其它图元。
+  (if (and g-min g-max)
+    (progn
+      (setq g-min (list (- (car g-min) margin) (- (cadr g-min) margin))
+            g-max (list (+ (car g-max) margin) (+ (cadr g-max) margin))
+            ;; ssget 窗口按当前 UCS 解释，范围坐标来自 WCS 包围盒四角。
+            ucs-win (txt2:wcs-box-to-ucs-window g-min g-max)
+            ss    (ssget "C" (car ucs-win) (cadr ucs-win)
+                         '((0 . "LINE,LWPOLYLINE,POLYLINE,CIRCLE,ARC,ELLIPSE,SPLINE,INSERT,DIMENSION,LEADER,MULTILEADER"))))
+      (if ss
+        (progn
+          (setq i 0)
+          (while (< i (sslength ss))
+            (setq en (ssname ss i))
+            (if (and (not (member en text-list))
+                     (not (member en extra-ents)))
+              (progn
+                (setq ed (entget en)
+                      typ (cdr (assoc 0 ed)))
+                (if (member typ '("LINE" "LWPOLYLINE" "POLYLINE"))
+                  (setq lines (append (txt2:extract-entity-lines en) lines))
+                  (if (setq bbox (aa:safe-get-bbox doc en))
+                    (setq boxes (cons (cons en bbox) boxes))))))
+            (setq i (1+ i))
+          )
+        )
+      )
+    )
   )
-  (txt2:get-bbox ename)
+  (list lines boxes)
+)
 )
 
-(defun txt2:modify-text (ename / edata basebox trialbox height bestbox done)
-  (if (and ename (= "TEXT" (cdr (assoc 0 (setq edata (entget ename)))))
-           (setq basebox (txt2:get-bbox ename)))
+;; 智能避让修改单个文字：
+;; 1. 样式设为 HZ、宽比 0.7；
+;; 2. 严格优先采用 3.0 标准字高：原地若无碰撞直接保留，若有碰撞则在微移网格内寻找不碰撞位置；
+;; 3. 仅当 3.0 任何微移均无法避让时，才微调字高到 2.5 / 2.2，下限绝不低于 2.2；
+;; 4. 保底策略：若极端狭窄处 2.2 仍碰撞，保持 3.0 标准字高原地放置，绝不破坏可读性。
+(defun txt2:modify-text (ename lines boxes / doc edata oldbox basebox orig-cx orig-cy w3 h3
+                                             local-lines max-r bound-min-x bound-max-x bound-min-y bound-max-y
+                                             nudge-offsets best-sol test-height
+                                             cur-h cur-dx cur-dy cur-box
+                                             cur-cx cur-cy target-cx target-cy
+                                             shift-x shift-y vla-obj final-box)
+  (setq doc (vla-get-activedocument (vlax-get-acad-object)))
+  (if (and ename (= "TEXT" (cdr (assoc 0 (setq edata (entget ename))))))
     (progn
+      ;; 先保存原中心；刷样式/字高会改变包围盒，最后必须补偿回原中心。
+      (setq oldbox (aa:safe-get-bbox doc ename))
+      ;; 1. 统一设为样式 HZ、宽比 0.7、初始字高 3.0，并更新获取标准基准盒
       (setq edata (txt:set-dxf 7 "HZ" edata)
-            edata (txt:set-dxf 41 0.7 edata))
+            edata (txt:set-dxf 41 0.7 edata)
+            edata (txt:set-dxf 40 3.0 edata))
       (entmod edata)
-      (setq height 3.0 done nil bestbox nil)
-      (while (and (not done) (>= height 0.5))
-        (setq edata (txt:set-dxf 40 height (entget ename)))
-        (entmod edata)
-        (setq trialbox (txt2:move-to-center ename basebox (txt2:get-bbox ename)))
-        (if (not (txt2:collision-p ename trialbox))
-          (setq bestbox trialbox done T)
-          (setq height (- height 0.2))
-        )
-      )
-      (if (not bestbox)
+      (entupd ename)
+      (setq basebox (aa:safe-get-bbox doc ename))
+      (if (null basebox)
+        0
         (progn
-          (setq edata (txt:set-dxf 40 0.5 (entget ename)))
-          (entmod edata)
-          (txt2:move-to-center ename basebox (txt2:get-bbox ename))
+          (setq orig-cx (/ (+ (car (car (if oldbox oldbox basebox)))
+                              (car (cadr (if oldbox oldbox basebox)))) 2.0)
+                orig-cy (/ (+ (cadr (car (if oldbox oldbox basebox)))
+                              (cadr (cadr (if oldbox oldbox basebox)))) 2.0)
+                w3      (- (car (cadr basebox)) (car (car basebox)))
+                h3      (- (cadr (cadr basebox)) (cadr (car basebox))))
+
+          ;; 局部线段粗筛：仅提取此文字周围 (半宽/半高 + 2.5) 范围内的线段，毫秒级碰撞检测
+          (setq max-r       (+ (max (/ w3 2.0) (/ h3 2.0)) 2.5)
+                bound-min-x (- orig-cx max-r)
+                bound-max-x (+ orig-cx max-r)
+                bound-min-y (- orig-cy max-r)
+                bound-max-y (+ orig-cy max-r)
+                local-lines '())
+          (foreach seg lines
+            (if (not (or (< (max (car seg) (caddr seg)) bound-min-x)
+                         (> (min (car seg) (caddr seg)) bound-max-x)
+                         (< (max (cadr seg) (cadddr seg)) bound-min-y)
+                         (> (min (cadr seg) (cadddr seg)) bound-max-y)))
+              (setq local-lines (cons seg local-lines))))
+
+          ;; 候选微移向量 (dx dy)：原地优先，垂直微调优先，水平次之，最后轻微斜向
+          (setq nudge-offsets
+            '(
+              (0.0  0.0)
+              (0.0  0.3) (0.0 -0.3)
+              (0.0  0.6) (0.0 -0.6)
+              (0.0  1.0) (0.0 -1.0)
+              (0.0  1.5) (0.0 -1.5)
+              (0.3  0.0) (-0.3  0.0)
+              (0.6  0.0) (-0.6  0.0)
+              (1.0  0.0) (-1.0  0.0)
+              (1.5  0.0) (-1.5  0.0)
+              (0.3  0.3) (-0.3  0.3) (0.3 -0.3) (-0.3 -0.3)
+              (0.6  0.6) (-0.6  0.6) (0.6 -0.6) (-0.6 -0.6)
+             ))
+
+          ;; 2. 字高优先搜索最优解：
+          ;;    严格以标准字高 3.0 为最高优先！能通过微移避开就绝不降低字高！
+          (setq test-height
+            '(lambda (h / scale half-w half-h sol off-list off dx dy test-box)
+               (setq scale    (/ h 3.0)
+                     half-w   (* (/ w3 2.0) scale)
+                     half-h   (* (/ h3 2.0) scale)
+                     sol      nil
+                     off-list nudge-offsets)
+               (while (and off-list (null sol))
+                 (setq off      (car off-list)
+                       dx       (car off)
+                       dy       (cadr off)
+                       test-box (list
+                                  (list (- (+ orig-cx dx) half-w)
+                                        (- (+ orig-cy dy) half-h)
+                                        0.0)
+                                  (list (+ (+ orig-cx dx) half-w)
+                                        (+ (+ orig-cy dy) half-h)
+                                        0.0)))
+                 ;; 文字与线框至少保留 0.3 间隙。
+                 (if (not (txt2:box-collision-p test-box local-lines boxes 0.3))
+                   (setq sol (list h dx dy)))
+                 (setq off-list (cdr off-list)))
+               sol
+             ))
+
+          ;; 第一优先级：3.0 标准字高（原地及微移测试）
+          (setq best-sol (apply test-height '(3.0)))
+
+          ;; 第二优先级：若 3.0 任何微移均无法避开，才尝试 2.5
+          (if (null best-sol)
+            (setq best-sol (apply test-height '(2.5))))
+
+          ;; 第三优先级：若 2.5 仍无法避开，才尝试 2.2
+          (if (null best-sol)
+            (setq best-sol (apply test-height '(2.2))))
+
+          ;; 3. 保底处理：若所有网格均有碰撞（极端拥挤），
+          ;;    坚决保持 3.0 标准字高原地放置，杜绝文字缩为肉眼难辨的微小字！
+          (if (null best-sol)
+            (setq best-sol (list 3.0 0.0 0.0)))
+
+          ;; 4. 实施最终字高与平移调整
+          (setq cur-h  (nth 0 best-sol)
+                cur-dx (nth 1 best-sol)
+                cur-dy (nth 2 best-sol))
+
+          ;; 若字高不是 3.0，更新字高
+          (if (/= cur-h 3.0)
+            (progn
+              (setq edata (entget ename))
+              (setq edata (txt:set-dxf 40 cur-h edata))
+              (entmod edata)
+              (entupd ename)
+            )
+          )
+
+          ;; 无论是否微移/降高，都补偿最终包围盒中心，保证刷样式不改变原位置。
+          (setq cur-box (aa:safe-get-bbox doc ename))
+          (if cur-box
+            (progn
+              (setq cur-cx    (/ (+ (car (car cur-box)) (car (cadr cur-box))) 2.0)
+                    cur-cy    (/ (+ (cadr (car cur-box)) (cadr (cadr cur-box))) 2.0)
+                    target-cx (+ orig-cx cur-dx)
+                    target-cy (+ orig-cy cur-dy)
+                    shift-x   (- target-cx cur-cx)
+                    shift-y   (- target-cy cur-cy))
+              (if (> (+ (* shift-x shift-x) (* shift-y shift-y)) 1e-8)
+                (progn
+                  (setq vla-obj (vlax-ename->vla-object ename))
+                  (vl-catch-all-apply
+                    'vla-Move
+                    (list vla-obj
+                          (vlax-3d-point '(0.0 0.0 0.0))
+                          (vlax-3d-point (list shift-x shift-y 0.0))))
+                  (entupd ename)
+                )
+              )
+            )
+          )
+
+          ;; 返回此文字的最终包围盒，便于后续文字作为障碍避让
+          (setq final-box (aa:safe-get-bbox doc ename))
+          (if final-box final-box basebox)
         )
       )
-      1
     )
-    0
+    nil
   )
 )
 
-(defun txt2:process-selection (sel / *error* oldcmdecho total i ename etype mtss mtlist before after count)
-  (defun *error* (msg)
-    (if oldcmdecho (setvar "CMDECHO" oldcmdecho))
-    (if (and msg (/= msg "Function cancelled") (/= msg "quit / exit abort"))
-      (princ (strcat "\r\n错误: " msg)))
-    (princ)
-  )
-  (setq oldcmdecho (getvar "CMDECHO")
-        total (sslength sel) mtss (ssadd) mtlist '() count 0 i 0)
-  (setvar "CMDECHO" 0)
+(defun txt2:process-selection (sel / doc total i ename etype
+                                     mtss mtlist before after text-list extra-ents
+                                     count obstacles lines boxes new-box)
+  (setq doc        (vla-get-activedocument (vlax-get-acad-object))
+        total      (sslength sel)
+        mtss       (ssadd)
+        mtlist     '()
+        text-list  '()
+        extra-ents '()
+        count      0
+        i          0)
+
+  ;; 1. 区分待排版文字 (TEXT/MTEXT) 与随选的避让参照实体 (线框等)
   (while (< i total)
-    (setq ename (ssname sel i) etype (cdr (assoc 0 (entget ename))))
-    (if (= etype "TEXT")
-      (setq count (+ count (txt2:modify-text ename)))
-      (if (= etype "MTEXT")
-        (progn (ssadd ename mtss) (setq mtlist (cons ename mtlist)))
-      )
+    (setq ename (ssname sel i)
+          etype (cdr (assoc 0 (entget ename))))
+    (cond
+      ((= etype "TEXT")
+       (setq text-list (cons ename text-list)))
+      ((= etype "MTEXT")
+       (ssadd ename mtss)
+       (setq mtlist (cons ename mtlist)))
+      (T
+       (setq extra-ents (cons ename extra-ents)))
     )
     (setq i (1+ i))
   )
+
+  ;; 2. 如果存在 MTEXT，统一炸开并收集炸开后的 TEXT
   (if (> (sslength mtss) 0)
     (progn
       (setq before (entlast))
       (command "_.explode" mtss "")
       (foreach ename mtlist
-        (if (= "MTEXT" (cdr (assoc 0 (entget ename)))) (command "_.explode" ename)))
+        (if (= "MTEXT" (cdr (assoc 0 (entget ename))))
+          (command "_.explode" ename)))
       (setq after (entlast))
       (if (and after (not (eq before after)))
         (progn
           (setq ename (if before (entnext before) (entnext)))
           (while ename
             (if (= "TEXT" (cdr (assoc 0 (entget ename))))
-              (setq count (+ count (txt2:modify-text ename))))
+              (setq text-list (cons ename text-list)))
             (if (eq ename after) (setq ename nil) (setq ename (entnext ename)))
           )
         )
       )
     )
   )
+
+  ;; 3. 局部感知提取障碍物线段并逐个文字智能避让
+  (setq text-list (reverse text-list))
+  (if text-list
+    (progn
+      (setq obstacles (txt2:collect-obstacles text-list extra-ents)
+            lines     (car obstacles)
+            boxes     (cadr obstacles))
+      (foreach ename text-list
+        (if (setq new-box (txt2:modify-text ename lines boxes))
+          (progn
+            (setq count (1+ count))
+            ;; 将当前文字排定后的新包围盒实时加入障碍盒列表，供后续文字协同避让！
+            (setq boxes (cons (cons ename new-box) boxes))
+          )
+        )
+      )
+    )
+  )
+
   (redraw)
-  (setvar "CMDECHO" oldcmdecho)
   (princ (strcat "\r\n已处理文字数量: " (itoa count)))
   count
 )
@@ -1227,9 +1578,17 @@
   (if (null (tblsearch "STYLE" "HZ"))
     (princ "\r\n未找到文字样式 HZ。")
     (progn
-      (setq sel (ssget '((0 . "TEXT,MTEXT"))))
-      (if sel (txt2:process-selection sel)
-        (princ "\r\n未选择任何对象。"))
+      (setq sel (ssget "_I"))
+      (if (null sel)
+        (progn
+          (princ "\r\n请选择文字对象（可同时框选周围线框作为避让参考）: ")
+          (setq sel (ssget))
+        )
+      )
+      (if sel
+        (txt2:process-selection sel)
+        (princ "\r\n未选择任何对象。")
+      )
     )
   )
   (aa:cmd-end)
@@ -1373,11 +1732,13 @@
 
 ;;; =======================================================================================
 ;;; Command: WW
-;;; Function: Set selected objects to white color.
+;;; Function: 将选中对象改为白色；支持转角标注等尺寸标注全要素变白，块内所有实体一并变白。
 ;;; =======================================================================================
 (defun c:WW (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
   (aa:cmd-begin "WW")
-  (aa:color-cmd *WW_TextColor* "\r\n选择要改为白色的对象: " "\r\n所有选中对象已改为白色。")
+  (aa:deep-color-cmd *WW_TextColor*
+    "\r\n选择要改为白色的对象: " "\r\n所有选中对象已改为白色。")
+  (sssetfirst nil nil)
   (aa:cmd-end)
 )
 ;;; =======================================================================================
@@ -1485,11 +1846,68 @@
 
 
 ;;; =======================================================================================
-;;; 命令: HUI
-;;; 功能: 将选中的所有对象颜色改为颜色 8；块参照直接修改块定义，不分解块。
+;;; 公共实现: HUI / WW 的深度改色
+;;; 功能: 按目标颜色改色；块参照直接修改块定义，块内实体与嵌套块一并改色，不分解块。
 ;;; =======================================================================================
-(defun aa:hui-color-attributes (blkObj color / result atts item itemEname)
-  ;; 属性参照不属于块定义，单独处理以确保当前选中的块完整变灰。
+(defun aa:deep-color-dimension (doc ename color visited / ed typ txt new-txt obj bname childEname childEd childTyp)
+  ;; 转角/对齐等尺寸标注高速改色：
+  ;; 1. 剥离文字覆盖中的内嵌颜色控制码（如 \C1;）
+  ;; 2. 修改标注实体 DXF 62 组码
+  ;; 3. 通过 COM 属性设置尺寸线、尺寸界线、文字及整体颜色覆盖
+  ;; 4. 原生指针极速单趟遍历匿名块 (*D...) 定义内部图元（界线、箭头、文字），统一改色
+  ;; 注意：不在循环中逐图元调用 entupd / vla-Update，最后由命令统一 Regen 刷新，保证毫秒级极速响应
+  (if (and ename (setq ed (entget ename)))
+    (progn
+      ;; 1. 检查并剥离标注文字中的内嵌颜色控制码
+      (setq txt (cdr (assoc 1 ed)))
+      (if (and txt (/= txt "") (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+        (progn
+          (setq new-txt (aa:strip-mtext-color-format txt))
+          (if (/= new-txt txt)
+            (progn
+              (setq ed (subst (cons 1 new-txt) (assoc 1 ed) ed))
+              (entmod ed)
+              (setq ed (entget ename))))))
+
+      ;; 2. 修改标注实体本身的 ACI 颜色（组码 62）
+      (aa:set-entity-aci-color ename color)
+
+      ;; 3. 通过 COM 属性设置标注颜色覆盖（尺寸线、界线、文字）
+      (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+      (if (and obj (not (vl-catch-all-error-p obj)))
+        (progn
+          (vl-catch-all-apply 'vla-put-Color (list obj color))
+          (vl-catch-all-apply 'vla-put-DimensionLineColor (list obj color))
+          (vl-catch-all-apply 'vla-put-ExtensionLineColor (list obj color))
+          (vl-catch-all-apply 'vla-put-TextColor (list obj color))))
+
+      ;; 4. 原生指针极速单趟遍历修改匿名块 (*D...) 定义内部图元，不走 COM 封送开销
+      (setq bname (cdr (assoc 2 ed)))
+      (if (and bname (/= bname "") (not (member bname visited)))
+        (progn
+          (setq visited (cons bname visited))
+          (setq childEname (cdr (assoc -2 (tblsearch "BLOCK" bname))))
+          (while (and childEname
+                      (setq childEd (entget childEname))
+                      (/= (cdr (assoc 0 childEd)) "ENDBLK"))
+            (setq childTyp (cdr (assoc 0 childEd)))
+            (cond
+              ((= childTyp "MTEXT")
+               (setq txt (cdr (assoc 1 childEd)))
+               (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+                 (progn
+                   (setq new-txt (aa:strip-mtext-color-format txt))
+                   (if (/= new-txt txt)
+                     (setq childEd (subst (cons 1 new-txt) (assoc 1 childEd) childEd))))))
+              ((= childTyp "INSERT")
+               (setq visited (aa:deep-color-block-definition doc (cdr (assoc 2 childEd)) color visited))))
+            (aa:set-entity-aci-color childEname color)
+            (setq childEname (entnext childEname)))))))
+  visited
+)
+
+(defun aa:deep-color-attributes (blkObj color / result atts item itemEname)
+  ;; 属性参照不属于块定义，单独处理以确保当前选中的块完整改色。
   (setq result (vl-catch-all-apply 'vlax-invoke (list blkObj 'GetAttributes)))
   (if (not (vl-catch-all-error-p result))
     (progn
@@ -1505,8 +1923,10 @@
   result
 )
 
-(defun aa:hui-color-block-definition (doc blockName color visited / blocks blockDef result child childEname childEd childName)
+(defun aa:deep-color-block-definition (doc blockName color visited / blocks blockDef result child childEname childEd childTyp childName txt new-txt)
   ;; 通过 BlockTableRecord 修改块内部实体，递归处理嵌套块并避免重复访问。
+  ;; 必须返回更新后的 visited 列表：若 visited 落在 if 的 else 分支里，处理过块后
+  ;; 会返回 vlax-for 的值 T，调用方把 visited 赋成 T，下一个块 (member blockName T) 报 listp: T。
   (if (and blockName (not (member blockName visited)))
     (progn
       (setq visited (cons blockName visited)
@@ -1519,50 +1939,121 @@
             (setq childEname (vl-catch-all-apply 'vlax-vla-object->ename (list child)))
             (if (not (vl-catch-all-error-p childEname))
               (progn
-                (setq childEname childEname
-                      childEd (entget childEname))
-                (if (= (cdr (assoc 0 childEd)) "INSERT")
-                  (progn
-                    (setq childName (vla-get-Name child))
-                    (setq visited (aa:hui-color-block-definition doc childName color visited))))
-                (aa:set-entity-aci-color childEname color)))))))
+                (setq childEd (entget childEname))
+                (setq childTyp (cdr (assoc 0 childEd)))
+                (cond
+                  ((= childTyp "INSERT")
+                   (setq childName (vla-get-Name child))
+                   (setq visited (aa:deep-color-block-definition doc childName color visited))
+                   (aa:set-entity-aci-color childEname color))
+                  ((= childTyp "DIMENSION")
+                   (setq visited (aa:deep-color-dimension doc childEname color visited)))
+                  ((= childTyp "MTEXT")
+                   (setq txt (cdr (assoc 1 childEd)))
+                   (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+                     (progn
+                       (setq new-txt (aa:strip-mtext-color-format txt))
+                       (if (/= new-txt txt)
+                         (entmod (subst (cons 1 new-txt) (assoc 1 childEd) childEd)))))
+                   (aa:set-entity-aci-color childEname color))
+                  (T
+                   (aa:set-entity-aci-color childEname color))))))))))
   visited
 )
-)
 
-(defun aa:hui-explode-and-color (ename color / obj result items item itemEname changed)
-  ;; 引线和多行文字先分解；不支持分解时保留原对象并直接改色。
-  (setq obj (vlax-ename->vla-object ename)
-        result (vl-catch-all-apply 'vla-Explode (list obj))
-        changed nil)
-  (if (not (vl-catch-all-error-p result))
+(defun aa:strip-mtext-color-format (str / idx len out ch next semi)
+  ;; 去除 MTEXT 内容中的内嵌颜色控制码（如 \C1; 或 \c255;），保留换行与其余格式
+  (if (null str) ""
     (progn
-      (setq result (vl-catch-all-apply 'vlax-variant-value (list result)))
-      (if (not (vl-catch-all-error-p result))
-        (progn
-          (setq items
-            (if (listp result)
-              result
-              (vl-catch-all-apply 'vlax-safearray->list (list result))))
-          (if (not (vl-catch-all-error-p items))
-            (foreach item items
-              (setq itemEname
-                (vl-catch-all-apply 'vlax-vla-object->ename (list item)))
-              (if (not (vl-catch-all-error-p itemEname))
-                (progn
-                  (aa:set-entity-aci-color itemEname color)
-                  (setq changed T)))))))))
-  (if changed
-    (vl-catch-all-apply 'vla-Delete (list obj))
-    (aa:set-entity-aci-color ename color))
-  changed
+      (setq idx 1
+            len (strlen str)
+            out "")
+      (while (<= idx len)
+        (setq ch (substr str idx 1))
+        (cond
+          ((and (= ch "\\") (<= (+ idx 1) len))
+           (setq next (substr str (1+ idx) 1))
+           (if (or (= next "C") (= next "c"))
+             (progn
+               (setq semi (vl-string-search ";" str (+ idx 1)))
+               (if semi
+                 (setq idx (+ semi 2))
+                 (progn
+                   (setq out (strcat out ch))
+                   (setq idx (1+ idx)))))
+             (progn
+               (setq out (strcat out ch))
+               (setq idx (1+ idx)))))
+          (T
+           (setq out (strcat out ch))
+           (setq idx (1+ idx)))))
+      out)))
+
+(defun aa:explode-lead-recursive (ename / queue final-ents cur typ before new-ents)
+  ;; 循环分解引线对象（LEADER / MULTILEADER），直到彻底打散为非引线基础图元
+  (setq queue (list ename)
+        final-ents nil)
+  (while queue
+    (setq cur (car queue)
+          queue (cdr queue))
+    (if (and cur (entget cur))
+      (progn
+        (setq typ (cdr (assoc 0 (entget cur))))
+        (if (member typ '("LEADER" "MULTILEADER"))
+          (progn
+            (setq before (entlast))
+            (vl-catch-all-apply 'vl-cmdf (list "_.EXPLODE" cur))
+            (if (and (entget cur) (eq before (entlast)))
+              (vl-catch-all-apply '(lambda () (command "_.EXPLODE" cur))))
+            (setq new-ents nil)
+            (while (setq before (entnext before))
+              (if (entget before)
+                (setq new-ents (cons before new-ents))))
+            (if new-ents
+              ;; 分解成功，可能包含次级引线（如 MULTILEADER 分解出 LEADER），重新加入队列继续分解
+              (setq queue (append new-ents queue))
+              ;; 若无法分解（如所在图层被锁定），保留为最终实体避免丢弃
+              (setq final-ents (cons cur final-ents))))
+          ;; 非引线实体，作为最终图元保留
+          (setq final-ents (cons cur final-ents))))))
+  (reverse final-ents)
 )
 
-(defun c:HUI (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho targetColor ss i ename ed typ obj doc blockName visited regenResult)
-  (aa:cmd-begin "HUI")
-  (setq targetColor *HUI_TextColor*)
-  (princ "\r\n选择要改为颜色 8 的对象: ")
-  (setq ss (ssget))
+(defun aa:deep-explode-and-color (doc ename color visited / ents ent ed typ obj bname txt new-txt)
+  ;; 引线先彻底分解为基础图元，然后修改为指定颜色
+  (setq ents (aa:explode-lead-recursive ename))
+  (foreach ent ents
+    (if (and ent (setq ed (entget ent)))
+      (progn
+        (setq typ (cdr (assoc 0 ed)))
+        (cond
+          ((= typ "INSERT")
+           (setq obj (vlax-ename->vla-object ent)
+                 bname (vla-get-Name obj))
+           (setq visited (aa:deep-color-block-definition doc bname color visited))
+           (aa:deep-color-attributes obj color)
+           (aa:set-entity-aci-color ent color))
+          ((= typ "MTEXT")
+           (setq txt (cdr (assoc 1 ed)))
+           (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+             (progn
+               (setq new-txt (aa:strip-mtext-color-format txt))
+               (if (/= new-txt txt)
+                 (entmod (subst (cons 1 new-txt) (assoc 1 ed) ed)))))
+           (aa:set-entity-aci-color ent color))
+          (T
+           (aa:set-entity-aci-color ent color))))))
+  visited
+)
+
+(defun aa:deep-color-cmd (targetColor prompt done / ss i ename ed typ obj doc blockName visited regenResult txt new-txt)
+  ;; HUI / WW 共用：块参照直接改块定义，块内实体（含嵌套块与属性）一并改色，不分解块。
+  ;; 遇引线对象（LEADER / MULTILEADER）先分解为基础图元，再统一修改为指定颜色。
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn
+      (princ prompt)
+      (setq ss (ssget))))
 
   (if ss
     (progn
@@ -1571,30 +2062,50 @@
       (setq i 0)
       (repeat (sslength ss)
         (setq ename (ssname ss i))
-        (setq ed (entget ename)
-              typ (cdr (assoc 0 ed)))
-        (cond
-          ((= typ "INSERT")
-           (setq obj (vlax-ename->vla-object ename)
-                 blockName (vla-get-Name obj))
-           (setq visited (aa:hui-color-block-definition doc blockName targetColor visited))
-           (aa:hui-color-attributes obj targetColor)
-           ;; 对块参照本身也设色，兼容块内容使用 ByBlock 的情况。
-           (aa:set-entity-aci-color ename targetColor))
-          ((member typ '("LEADER" "MULTILEADER" "MTEXT"))
-           (aa:hui-explode-and-color ename targetColor))
-          (T
-           (aa:set-entity-aci-color ename targetColor)))
+        (if (and ename (setq ed (entget ename)))
+          (progn
+            (setq typ (cdr (assoc 0 ed)))
+            (cond
+              ((= typ "INSERT")
+               (setq obj (vlax-ename->vla-object ename)
+                     blockName (vla-get-Name obj))
+               (setq visited (aa:deep-color-block-definition doc blockName targetColor visited))
+               (aa:deep-color-attributes obj targetColor)
+               ;; 对块参照本身也设色，兼容块内容使用 ByBlock 的情况。
+               (aa:set-entity-aci-color ename targetColor))
+              ((member typ '("LEADER" "MULTILEADER"))
+               (setq visited (aa:deep-explode-and-color doc ename targetColor visited)))
+              ((= typ "DIMENSION")
+               (setq visited (aa:deep-color-dimension doc ename targetColor visited)))
+              ((= typ "MTEXT")
+               (setq txt (cdr (assoc 1 ed)))
+               (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+                 (progn
+                   (setq new-txt (aa:strip-mtext-color-format txt))
+                   (if (/= new-txt txt)
+                     (entmod (subst (cons 1 new-txt) (assoc 1 ed) ed)))))
+               (aa:set-entity-aci-color ename targetColor))
+              (T
+               (aa:set-entity-aci-color ename targetColor)))))
         (setq i (1+ i))
       )
       ;; 修改块定义后必须重新生成视口，普通 redraw 不会立即刷新块参照显示。
       (setq regenResult (vl-catch-all-apply 'vla-Regen (list doc 1)))
       (if (vl-catch-all-error-p regenResult)
         (redraw))
-      (princ "\r\n所有选中对象已改为颜色 8。")
+      (sssetfirst nil nil)
+      (princ done)
     )
     (princ "\r\n没有选中任何对象。")
   )
+  (sssetfirst nil nil)
+  (princ)
+)
+
+(defun c:HUI (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "HUI")
+  (aa:deep-color-cmd *HUI_TextColor*
+    "\r\n选择要改为颜色 8 的对象: " "\r\n所有选中对象已改为颜色 8。")
   (aa:cmd-end)
 )
 
@@ -1976,6 +2487,63 @@
     (princ "\r\n错误：请输入有效的高度数值。")
   )
   ;; 静默退出
+  (aa:cmd-end)
+)
+
+;;; =======================================================================================
+;;; 命令: QR2
+;;; 功能: 连续选择文字并逐轮输入高度进行修改，按 Esc 退出。
+;;; =======================================================================================
+(defun c:QR2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss a i ent data count)
+  (aa:cmd-begin "QR2")
+  (princ "\r\nQR2：选择文字后按空格，输入高度后按空格；重复操作，按 Esc 退出。")
+  (while (setq ss (ssget '((0 . "TEXT,MTEXT"))))
+    (setq a (getdist "\r\n请输入新的文字高度: "))
+    (if (and a (> a 0))
+      (progn
+        (setq i 0
+              count 0)
+        (repeat (sslength ss)
+          (setq ent (ssname ss i)
+                data (entget ent))
+          (if (assoc 40 data)
+            (progn
+              (entmod (subst (cons 40 a) (assoc 40 data) data))
+              (setq count (1+ count))))
+          (setq i (1+ i)))
+        (redraw)
+        (princ (strcat "\r\n已将 " (itoa count) " 个文字的高度修改为: " (rtos a 2 4))))
+      (princ "\r\n错误：请输入有效的高度数值。"))
+  )
+  (aa:cmd-end)
+)
+
+;;; =======================================================================================
+;;; 命令: DEA
+;;; 功能: 删除所选对象中高度小于 0.1 的 TEXT/MTEXT 文字。
+;;; =======================================================================================
+(defun c:DEA (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i ent data typ height count)
+  (aa:cmd-begin "DEA")
+  (princ "\r\n请选择要检查的对象: ")
+  (setq ss (ssget))
+  (if ss
+    (progn
+      (setq i 0
+            count 0)
+      (repeat (sslength ss)
+        (setq ent (ssname ss i)
+              data (entget ent)
+              typ (cdr (assoc 0 data))
+              height (cdr (assoc 40 data)))
+        (if (and (member typ '("TEXT" "MTEXT"))
+                 height
+                 (< height 0.1))
+          (if (entdel ent)
+            (setq count (1+ count))))
+        (setq i (1+ i)))
+      (redraw)
+      (princ (strcat "\r\n已删除 " (itoa count) " 个高度小于 0.1 的文字。")))
+    (princ "\r\n未选择任何对象。"))
   (aa:cmd-end)
 )
 
@@ -4932,6 +5500,68 @@
 
   (princ (strcat "\r\n=== 完成！共填写 " (itoa total-pages) " 个图框 ===\r\n"))
 )
+
+;;; 功能：选择块内属性文字，在自定义窗口中编辑并按回车直接保存。
+(defun c:AAE (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho pick ent ed ss
+                 dcl-path dcl-id dialog-result old-text new-text)
+  (aa:cmd-begin "AAE")
+  (setq ss (ssget "_I" '((0 . "ATTRIB"))))
+  (if ss
+    (setq pick (list (ssname ss 0) nil))
+    (setq pick (nentsel "\n选择要编辑的属性文字: "))
+  )
+  (if pick
+    (progn
+      (setq ent (car pick)
+            ed  (entget ent))
+      (if (= (cdr (assoc 0 ed)) "ATTRIB")
+        (progn
+          (setq old-text (cdr (assoc 1 ed))
+                dcl-path (aae:locate-dcl)
+                dcl-id   (if dcl-path (load_dialog dcl-path) 0))
+          (if (and (> dcl-id 0) (new_dialog "aae_main" dcl-id))
+            (progn
+              (set_tile "value" (if old-text old-text ""))
+              (mode_tile "value" 2)
+              (action_tile "accept" "(setq new-text (get_tile \"value\"))(done_dialog 1)")
+              (action_tile "cancel" "(done_dialog 0)")
+              (setq dialog-result (start_dialog))
+              (if (= dialog-result 1)
+                (progn
+                  (entmod (subst (cons 1 new-text) (assoc 1 ed) ed))
+                  (entupd ent)
+                )
+              )
+            )
+            (alert "找不到 AAE.dcl，请确认它与 AA整合版本.lsp 在同一目录。")
+          )
+          (if (> dcl-id 0) (unload_dialog dcl-id))
+        )
+        (princ "\n所选对象不是块属性文字，请直接点选属性文字。")
+      )
+    )
+  )
+  ;; 编辑完成后清除双击动作传入的预选和高亮状态。
+  (sssetfirst nil nil)
+  (aa:cmd-end)
+)
+
+(defun aae:locate-dcl (/ p loadPath)
+  ;; findfile 只搜索支持路径，因此补充当前 LISP 加载目录和项目目录。
+  (setq p (findfile "AAE.dcl"))
+  (if (not p)
+    (progn
+      (setq loadPath (if (and (boundp '*load-truename*)
+                              (= (type *load-truename*) 'STR))
+                       *load-truename*
+                       nil))
+      (if loadPath
+        (setq p (strcat (vl-filename-directory loadPath) "\\AAE.dcl")))))
+  (if (and p (findfile p))
+    (findfile p)
+    (if (findfile (strcat *ztf-project-dir* "\\AAE.dcl"))
+      (findfile (strcat *ztf-project-dir* "\\AAE.dcl"))
+      nil)))
 
 (defun c:HAO (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
   (aa:cmd-begin "HAO")
@@ -9418,3 +10048,222 @@
 ;;; CD：将选中对象向下复制到 5、10、15……单位的位置。
 (defun c:CD ()
   (cu:copy-vertical -1.0))
+;;; =======================================================================================
+;;;              --- HS 命令: 选中物体单向横向缩放（宽度改变，高度不变） ---
+;;; =======================================================================================
+
+(setq *HS_Last_Scale* 1.0) ; (HS) 记录上次使用的横向缩放比例
+
+(defun aa:hs-filter-unlocked (ss / out i ename layer-ent)
+  ;; 过滤掉锁定图层上的对象，防止打包块或修改时报错
+  (if ss
+    (progn
+      (setq out (ssadd))
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss i))
+        (setq layer-ent (tblsearch "LAYER" (cdr (assoc 8 (entget ename)))))
+        ;; 组码 70 的第 4 位 (4) 代表锁定图层
+        (if (or (null layer-ent) (/= (logand (cdr (assoc 70 layer-ent)) 4) 4))
+          (ssadd ename out)
+        )
+        (setq i (1+ i))
+      )
+      (if (> (sslength out) 0) out nil)
+    )
+  )
+)
+
+(defun aa:hs-get-ss-bbox (doc ss / i ename bbox min-pt max-pt all-min-x all-min-y all-max-x all-max-y)
+  ;; 获取整个选择集在 WCS 下的整体包围盒
+  (setq i 0)
+  (repeat (sslength ss)
+    (setq ename (ssname ss i))
+    (setq bbox (aa:safe-get-bbox doc ename))
+    (if bbox
+      (progn
+        (setq min-pt (car bbox)
+              max-pt (cadr bbox))
+        (setq all-min-x (if all-min-x (min all-min-x (car min-pt)) (car min-pt))
+              all-min-y (if all-min-y (min all-min-y (cadr min-pt)) (cadr min-pt))
+              all-max-x (if all-max-x (max all-max-x (car max-pt)) (car max-pt))
+              all-max-y (if all-max-y (max all-max-y (cadr max-pt)) (cadr max-pt))
+        )
+      )
+    )
+    (setq i (1+ i))
+  )
+  (if (and all-min-x all-max-x)
+    (list (list all-min-x all-min-y 0.0)
+          (list all-max-x all-max-y 0.0))
+    nil
+  )
+)
+
+(defun c:HS (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               ss bbox wcs-min wcs-max def-base-wcs def-base cur-width
+               base inp ref-len new-len scale ucs-pt1 ucs-pt2 ucs-angle
+               last-ent blk-idx blkname blkDef cur-space blkRef blkEname new-ss)
+  (aa:cmd-begin "HS")
+  (setvar "CMDECHO" 0)
+
+  ;; 1. 优先读取预选集，无预选则交互选择
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn
+      (princ "\r\n请选择要横向缩放的对象: ")
+      (setq ss (ssget ":L"))
+    )
+  )
+  (setq ss (aa:hs-filter-unlocked ss))
+
+  (if (null ss)
+    (progn
+      (princ "\r\n未选择有效对象，HS 已退出。")
+      (aa:cmd-end)
+    )
+    (progn
+      ;; 2. 计算包围盒与推荐基点
+      (setq bbox (aa:hs-get-ss-bbox aa:doc ss))
+      (if bbox
+        (progn
+          (setq wcs-min (car bbox)
+                wcs-max (cadr bbox))
+          ;; 默认基点取左侧中点 (WCS) 并转为当前 UCS
+          (setq def-base-wcs (list (car wcs-min) (/ (+ (cadr wcs-min) (cadr wcs-max)) 2.0) 0.0))
+          (setq def-base (trans def-base-wcs 0 1))
+          (setq cur-width (abs (- (car (trans (list (car wcs-max) (cadr wcs-min) 0.0) 0 1))
+                                  (car def-base))))
+        )
+        (progn
+          (setq def-base '(0.0 0.0 0.0)
+                cur-width 100.0)
+        )
+      )
+
+      ;; 3. 拾取基点
+      (setq base (getpoint def-base
+                   (strcat "\r\n请指定横向缩放基点 <默认左侧 ("
+                           (rtos (car def-base) 2 2) ","
+                           (rtos (cadr def-base) 2 2) ")>: ")))
+      (if (null base) (setq base def-base))
+
+      ;; 4. 输入缩放比例或选择参照(R)
+      (if (or (null *HS_Last_Scale*) (<= *HS_Last_Scale* 0.0))
+        (setq *HS_Last_Scale* 1.0)
+      )
+      (initget "Reference R")
+      (setq inp (getdist base
+                  (strcat "\r\n指定横向缩放比例 或 [参照(R)] <"
+                          (rtos *HS_Last_Scale* 2 4) ">: ")))
+      (cond
+        ;; 参照模式
+        ((or (= inp "Reference") (= inp "R"))
+         (initget 6) ; 参照长度不可为 0 或负数
+         (setq ref-len (getdist base
+                         (strcat "\r\n指定参照长度 <" (rtos cur-width 2 4) ">: ")))
+         (if (null ref-len) (setq ref-len cur-width))
+         (if (and ref-len (> ref-len 1e-6))
+           (progn
+             (initget 7) ; 新长度不可为 0、负数或空
+             (setq new-len (getdist base "\r\n指定新长度: "))
+             (setq scale (/ new-len ref-len))
+             (princ (strcat "\r\n计算所得横向缩放比例为: " (rtos scale 2 6)))
+           )
+           (setq scale nil)
+         )
+        )
+        ;; 用户直接回车默认值
+        ((null inp)
+         (setq scale *HS_Last_Scale*))
+        ;; 用户直接输入了数字或点取了两点距离
+        ((numberp inp)
+         (setq scale inp))
+        (t (setq scale nil))
+      )
+
+      (cond
+        ((or (null scale) (<= scale 1e-6))
+         (princ "\r\n缩放比例无效或过小，HS 已取消。")
+         (aa:cmd-end)
+        )
+        ((equal scale 1.0 1e-6)
+         (princ "\r\n横向缩放比例为 1，对象未改变。")
+         (aa:cmd-end)
+        )
+        (t
+         (setq *HS_Last_Scale* scale)
+
+         ;; 5. 处理当前 UCS 旋转：若 UCS 存在旋转角，临时将物体对齐到世界坐标系
+         (setq ucs-pt1 (trans '(0.0 0.0 0.0) 1 0))
+         (setq ucs-pt2 (trans '(1.0 0.0 0.0) 1 0))
+         (setq ucs-angle (angle ucs-pt1 ucs-pt2))
+         (if (> (abs ucs-angle) 1e-6)
+           (command "_.ROTATE" ss "" "_non" base (angtos (- ucs-angle) (getvar "AUNITS") 8))
+         )
+
+         ;; 6. 创建临时块并打散
+         (setq last-ent (entlast))
+         (setq blk-idx 0)
+         (while (tblsearch "BLOCK" (setq blkname (strcat "HS_TMP_" (itoa blk-idx))))
+           (setq blk-idx (1+ blk-idx))
+         )
+
+         ;; 打包成临时块
+         (command "_.BLOCK" blkname "_non" base ss "")
+
+         ;; 设置该块定义允许分解
+         (setq blkDef (vla-item (vla-get-blocks aa:doc) blkname))
+         (vl-catch-all-apply 'vla-put-explodable (list blkDef :vlax-true))
+
+         ;; 插入带非等比比例 (scale, 1.0, 1.0) 的块引用
+         (setq cur-space (if (= (getvar "CVPORT") 1)
+                           (vla-get-PaperSpace aa:doc)
+                           (vla-get-ModelSpace aa:doc)))
+         (setq blkRef (vl-catch-all-apply
+                        'vlax-invoke
+                        (list cur-space 'InsertBlock (trans base 1 0) blkname scale 1.0 1.0 0.0)))
+
+         ;; 分解该块引用
+         (if (and blkRef (not (vl-catch-all-error-p blkRef)))
+           (progn
+             (setq blkEname (vlax-vla-object->ename blkRef))
+             (command "_.EXPLODE" blkEname)
+           )
+           (progn
+             ;; 降级调用命令行插入
+             (command "_.-INSERT" blkname "_non" base scale 1.0 0.0)
+             (command "_.EXPLODE" (entlast))
+           )
+         )
+
+         ;; 追踪打散生成的新实体
+         (setq new-ss (ssadd))
+         (while (setq last-ent (entnext last-ent))
+           (if (entget last-ent)
+             (ssadd last-ent new-ss)
+           )
+         )
+
+         ;; 清理临时块定义
+         (vl-catch-all-apply
+           '(lambda ()
+              (vla-delete (vla-item (vla-get-blocks aa:doc) blkname))
+            )
+         )
+
+         ;; 7. 若之前补偿了 UCS 旋转，此时旋转还原
+         (if (and (> (abs ucs-angle) 1e-6) (> (sslength new-ss) 0))
+           (command "_.ROTATE" new-ss "" "_non" base (angtos ucs-angle (getvar "AUNITS") 8))
+         )
+
+         (redraw)
+         (sssetfirst nil nil)
+         (princ (strcat "\r\nHS 完成：已将 " (itoa (sslength new-ss))
+                        " 个对象横向缩放 " (rtos scale 2 4) " 倍（高度保持不变）。"))
+         (aa:cmd-end)
+        )
+      )
+    )
+  )
+)

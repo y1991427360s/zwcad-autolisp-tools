@@ -1,165 +1,40 @@
-# ZW-auto_lisp 项目规则（必须遵守）
+# ZW-auto_lisp 项目规则
 
-本项目是 ZWCAD 2026（中望 CAD 2026）AutoLISP 插件集合。以下规则是硬性要求，优先于各工具的默认编辑习惯。
+本项目是 ZWCAD 2026 AutoLISP 插件集合。以下是必须遵守的项目级约束。
 
-本项目根目录的 `AGENTS.md` 与 `CLAUDE.md` 必须永远保持完全同步。更新其中任意一份后，必须立即把同样内容写入另一份。
+## 文件与编码
 
-## 一、文件编码（最重要）
+- `.lsp`、`.dcl`、`.scr`、`.mnl`、`.lin`、`.pat` 以及项目源码统一使用 UTF-8 无 BOM；CAD 文本使用 Windows CRLF。
+- 写入后必须严格按 UTF-8 解码检查，确认无 BOM、无替换字符、无乱码；禁止使用隐式 ANSI 编码。
+- ZWCAD 加载 UTF-8 LISP 前确认 `LISPSYS=1` 并已重启；中文字符串必须在实际 CAD 环境验证。
+- 修改 `AA整合版本.lsp` 前先做字节级备份；发现编码、乱码或换行异常时立即停止，从干净备份恢复。
 
-1. 所有 AutoLISP 文件（`.lsp`）必须保存为 **UTF-8 无 BOM**，不再使用 ANSI / GBK / UTF-16。
-2. CAD 相关文本文件（`.dcl`、`.scr`、`.mnl`、`.lin`、`.pat`）以及项目内 Markdown、Python、PowerShell、VBScript、C# 等文本源码统一使用 **UTF-8 无 BOM**。
-3. `.lsp` 及 CAD 相关文本文件必须使用 Windows CRLF（`\r\n`）；其他项目文本保持各自既有换行风格。
-4. 中文字符串必须在 ZWCAD 2026 中正常显示。出现任何 `\xef\xbf\xbd`、`?`、方块都视为严重 bug。
-5. ZWCAD 2026 必须将 `LISPSYS` 设为 `1` 并重启后再加载 UTF-8 LISP；与 CAD 交互的中文字符串仍须实际验证不乱码。
+## 项目结构与同步
 
-## 二、编辑 UTF-8 文件的正确方式（强制）
+- 主整合文件：`AA整合版本.lsp`；启动加载只保留它和 `V6/aicad_aa_loader.lsp`，不得重新部署已卸载的 CADTools/YS-Tools。
+- `ZJ`、`YJ` 等命令必须内嵌在整合文件中，不得依赖已删除的小命令目录。
+- 新增、删除、修改或改名命令后，必须同步整合文件并运行 `python gen_命令索引.py`，核对 `命令索引.md` 与 `命令索引.html`。
+- 文件开头的命令清单必须覆盖所有实际 `(defun c:...)` 入口，不保留已删除命令。
+- 本文件与 `CLAUDE.md` 必须完全一致。
 
-项目文本已经统一迁移到 UTF-8 无 BOM。Codex、Claude Code 等工具可直接按 UTF-8 编辑，但必须避免写入 BOM、UTF-16 或回退到系统默认 ANSI 编码。
+## 命令实现规范
 
-因此：
+- 常规命令使用 `aa:cmd-begin` / `aa:cmd-end`，局部变量必须包含 `*error* aa:tag aa:doc aa:undo-open aa:old-cmdecho`。
+- 有专属 `*error*` 的命令使用 `aa:undo-mark-on` / `aa:undo-mark-off`，不得覆盖资源清理逻辑。
+- 所有修改图形的命令必须位于一个 undo 分组内，使一次 `U` 整体撤销。
+- 排序统一使用 `aa:merge-sort`；禁止大列表使用 `vl-sort`。ZTF 小列表沿用 `aa:insert-sort`。
+- `ZHONG`、`ZUO`、`YOU`、`SHANG`、`XIA` 共用 `aa:align-text-cmd`；`SYAN`、`XYAN` 共用 `aa:extend-line-cmd`。
+- 文字对齐优先使用 COM 的 `Alignment` / `AttachmentPoint`，用 `vl-catch-all-error-p` 判断结果，并补偿外包框位置。
 
-- `.lsp` / `.dcl` / `.scr` / `.mnl` / `.lin` / `.pat` 可使用普通 UTF-8 文本补丁编辑。
-- 脚本读写时必须显式指定 `utf-8`；需要严格检查时使用拒绝无效字节的 UTF-8 解码器。
-- 写入后必须验证文件可被严格 UTF-8 解码、没有 BOM、没有替换字符，CAD 文本仍为 CRLF。
-- 禁止使用 PowerShell 旧版默认编码或任何隐式 ANSI 编码写入项目文本。
+## 批处理性能
 
-推荐 Python 方式：
+- 大批量处理优先使用选择集过滤和 `entmod`，循环结束后统一 `redraw`；不要逐对象调用原生命令或 `entupd`，除非必须立即读取更新后几何。
+- 附近邻居查询优先使用逐实体 `ssget "_C"`，不要先用 `ssget "_X"` 扫描全图；斜 UCS 下按需使用 `(trans pt 0 1)`。
+- `MJ` 单列表格的文字包围盒和横线位置各采集一次并缓存，表格线用 `entmod` 批量修改，文字按缓存行中心移动。
 
-```python
-from pathlib import Path
+## ZTF 与验收
 
-path = Path(r"E:\366256\ZW-auto_lisp\AA整合版本.lsp")
-
-# 读
-text = path.read_bytes().decode("utf-8")
-
-# 修改 text 后写回，确保 CRLF + UTF-8 无 BOM
-out = text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
-path.write_bytes(out.encode("utf-8"))
-
-# 验证
-back = path.read_bytes()
-assert b"\xef\xbf\xbd" not in back
-assert not back.startswith(b"\xef\xbb\xbf")
-back.decode("utf-8", errors="strict")
-assert b"\r\n" in back
-```
-
-PowerShell 写 UTF-8 无 BOM 文件时应显式指定编码，例如：
-
-```powershell
-[System.IO.File]::WriteAllText($path, $text, [System.Text.UTF8Encoding]::new($false))
-```
-
-不要依赖 PowerShell 版本相关的默认编码写入 CAD 相关文件。
-
-## 三、修改前备份
-
-修改 `.lsp` 主文件前，必须先复制一份备份，命名格式建议：
-
-- `<原名>.bak_YYYYMMDD`
-- `<原名>.bak-encoding-YYYYMMDD-HHMMSS`
-
-备份必须通过字节级复制完成，不能触发编码转换。
-
-## 四、测试环境
-
-1. 插件必须在 Windows 原生 CAD 环境中测试。
-2. ZWCAD 2026 是主要日常使用和当前工作流验证环境。
-3. 不以 WSL2 测试结果作为最终依据，因为路径、编码、COM 行为都可能不一致。
-
-## 五、项目结构要点
-
-- 主整合文件：`E:\366256\ZW-auto_lisp\AA整合版本.lsp`
-- 启动加载：`AA整合版本.lsp` 直接加入 APPLOAD 启动组；AICAD 面板由 `E:\366256\ZW-auto_lisp\V6\aicad_aa_loader.lsp` 加载。
-- 全部常用 AutoLISP 命令均已整合到 `E:\366256\ZW-auto_lisp\AA整合版本.lsp`，不再保留独立小命令目录。
-- Markdown 命令索引：`E:\366256\ZW-auto_lisp\命令索引.md`
-- HTML 命令索引：`E:\366256\ZW-auto_lisp\命令索引.html`
-- Claude 规则文件：`E:\366256\ZW-auto_lisp\CLAUDE.md`
-- Codex 规则文件：`E:\366256\ZW-auto_lisp\AGENTS.md`
-
-## 六、发现编码异常时
-
-如果发现文件不是 UTF-8、带 BOM、出现 `\xef\xbf\xbd`、中文乱码或换行异常，必须立刻停手：
-
-1. 不要在损坏文件上继续打补丁。
-2. 从最近的干净备份恢复。
-3. 恢复后重新按 UTF-8 无 BOM 方式修改。
-4. 再次执行 UTF-8 / 无 BOM / CRLF / 无替换字符验证。
-
-## 七、命令清单维护（强制）
-
-1. `AA整合版本.lsp` 文件开头的 `;;; 包含以下命令:` 清单必须覆盖当前文件内所有 `(defun c:命令名 ...)` 入口。
-2. 每次新增、删除、改名命令，必须同步更新该清单，不能只改函数本体。
-3. 更新清单时优先以实际存在的 `(defun c:...)` 为准，不保留已经不存在的旧命令。
-4. 命令说明要简短写清用途，新增命令至少写明触发命令名和核心功能。
-
-## 八、批量处理性能
-
-1. 批量处理大量实体时，不要在循环中逐对象调用原生命令或 `entupd`；优先把选择集一次性交给原生命令，使用 `entmod` 完成逐实体数据修改后再统一 `redraw`。
-2. `MJ` 处理单列表格时，文字包围盒和横线位置必须各采集一次后缓存复用；禁止在收窄前后重复调用 `ZZ` 的逐文字邻边搜索。表格线用 `entmod` 批量修改 X 坐标，文字按缓存的行中心一次移动，最后统一 `redraw`。
-
-## 九、整合版本与命令索引同步（强制）
-
-1. 每次新增、修改、删除或改名 AutoLISP 命令后，必须重新更新 `AA整合版本.lsp`，确保整合版本包含本次完成的最新脚本内容；不得只修改独立脚本而遗漏整合版本。
-2. 整合版本更新完成后，必须在项目根目录运行 `python gen_命令索引.py`，同时重新生成 `命令索引.md` 和 `命令索引.html`。
-3. Markdown 与 HTML 两份命令索引必须保持内容一致，均以生成器扫描到的实际 `.lsp` 命令为准，禁止只更新其中一份。
-4. 交付前必须核对 `AA整合版本.lsp`、`命令索引.md`、`命令索引.html` 均已反映本次脚本修改。
-
-## 十、ZWCAD 文字对正兼容性
-
-1. 在 ZWCAD 2026 中统一 `TEXT` / `MTEXT` 对正方式时，优先使用 COM 属性 `Alignment` / `AttachmentPoint` 设置完整对正枚举，不要只修改 DXF 72、73 或 71 的单个方向分量。
-2. `vla-put-Alignment`、`vla-put-AttachmentPoint` 等 COM 属性写入成功时可能返回 `nil`；必须用 `vl-catch-all-error-p` 判断是否报错，不能把空返回值当成失败。
-3. 改变对正方式前后应读取外包框并补偿位置，再执行最终对齐，避免文字因锚点变化先发生跳位。
-
-## 十一、CAD 启动加载边界
-
-1. CADTools/YS-Tools 已从 ZWCAD 支持目录、启动文件和 APPLOAD 注册表中卸载，不得重新部署，以免覆盖整合版本中的同名命令。
-2. ZWCAD 启动套件只保留 `E:\366256\ZW-auto_lisp\AA整合版本.lsp` 和 `E:\366256\ZW-auto_lisp\V6\aicad_aa_loader.lsp`。
-3. AICAD 的固定目录为 `E:\366256\ZW-auto_lisp\V6`；`aicad_aa_loader.lsp`、`aicad_extension.lsp`、`acaddoc.lsp` 和 `AICADAA_BASEDIR` 不得再引用桌面旧路径。
-4. `ZJ`、`YJ` 等命令必须直接内嵌在 `AA整合版本.lsp` 中，不得依赖已删除的独立小命令文件或目录。
-
-## 十二、ZTF 字体搜索器维护要点
-
-1. `ZTF` 命令位于 `AA整合版本.lsp`，DCL 界面文件为项目根目录的 `ZTF.dcl`；修改主 LISP 后必须重新加载整合文件，CAD 内存不会自动更新旧函数定义。
-2. ZWCAD 2026 对 DCL 中文 UTF-8 控件文本存在解析乱码风险，`ZTF.dcl` 控件标签保持 ASCII；中文提示放在 LISP 的 `alert` 或命令行中。
-3. ZWCAD 2026 中不要用 `vl-sort` / `acad_strlsort` 对 ZTF 样式名排序；当前使用手写插入排序，避免出现 `stringp: T`。
-4. Windows 字体在 `Fonts` 目录，`txt.shx` 等 SHX 字体在 CAD 支持路径；SHX 必须用 `findfile` 从支持路径查找，不能只扫描 Windows Fonts。
-5. `ZTF.dcl` 不在支持路径时，代码会按支持路径、主 LISP 加载目录和项目固定目录依次定位；不要把 DCL 内容直接内嵌到 LISP。
-
-## 十三、命令公共框架（强制）
-
-`AA整合版本.lsp` 顶部定义了一套命令公共框架，新增或修改命令时必须沿用，不要各写一套。
-
-1. **常规命令**用 `aa:cmd-begin` / `aa:cmd-end`。局部变量表必须声明
-   `*error* aa:tag aa:doc aa:undo-open aa:old-cmdecho`，否则会污染全局环境：
-
-   ```lisp
-   (defun c:XXX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i)
-     (aa:cmd-begin "XXX")
-     ;; ... 命令主体 ...
-     (aa:cmd-end)
-   )
-   ```
-
-   `aa:cmd-begin` 会取文档对象、保存 `CMDECHO`、挂上统一错误处理器并开启 undo 分组；
-   `aa:cmd-end` 负责收尾。异常或用户按 Esc 时由 `aa:cmd-error` 关闭分组并恢复系统变量。
-
-2. **已有专属 `*error*` 的命令**（需要关闭文件句柄、清理选择集等）改用 `aa:undo-mark-on` /
-   `aa:undo-mark-off`：局部表声明 `aa:doc aa:undo-open`，并在自有 `*error*` 里调用
-   `(aa:undo-mark-off)`。不要用 `aa:cmd-begin` 覆盖掉这类专属清理逻辑。
-
-3. 每条会修改图形的命令都必须落在一个 undo 分组内，保证用户按一次 `U` 能整体撤销。
-   新增命令后可用递归调用链检查确认，不能只看命令自身有没有 `entmod`——
-   很多命令是通过辅助函数改图的。
-
-4. 排序一律用 `aa:merge-sort`（O(n log n) 稳定归并），**禁止使用 `vl-sort`**：
-   ZWCAD 2026 上 `vl-sort` 对带 lambda 比较器的大列表性能极差，而且会把比较器判定为
-   相等的元素当作重复项**丢弃**。`aa:merge-sort` 两者都不会，签名与 `vl-sort` 相同。
-   ZTF 样式名排序仍可用既有的 `aa:insert-sort`（列表很小）。
-
-5. 五个对齐命令 `ZHONG` / `ZUO` / `YOU` / `SHANG` / `XIA` 共用 `aa:align-text-cmd`，
-   `SYAN` / `XYAN` 共用 `aa:extend-line-cmd`。调整这类行为时改公共实现，不要把命令重新拆开复制。
-
-6. 不要在批量循环里逐对象 `entupd`。只有后续需要立刻读回包围盒或几何时才保留
-   （如 `aa:safe-get-bbox`、对正相关函数）；纯粹刷新显示的场合，改为循环结束后统一 `(redraw)`。
+- `ZTF` 位于 `AA整合版本.lsp`，界面文件为根目录 `ZTF.dcl`；修改后必须重新加载整合文件。
+- `ZTF.dcl` 控件标签保持 ASCII；SHX 用 `findfile` 从 CAD 支持路径查找，不得把 DCL 内嵌到 LISP。
+- 最终测试必须在 Windows 原生 ZWCAD 2026 中完成；WSL 结果不能替代 CAD 验证。
+- 交付前核对编码、换行、命令清单、整合文件及两份命令索引均已同步。
