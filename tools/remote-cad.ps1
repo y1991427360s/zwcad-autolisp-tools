@@ -13,7 +13,7 @@ function Git-Run {
     return $result
 }
 if ($Action -eq 'Develop') {
-    & ssh -t sen3-via-sen5 'cd /home/ubuntu/projects/zwcad-autolisp-tools && tmux new-session -A -s cad-lisp codex'
+    & ssh -t sen3-via-sen5 'cd /home/ubuntu/projects/zwcad-autolisp-tools && tmux new-session -A -s cad-lisp "codex --yolo"'
     exit $LASTEXITCODE
 }
 if ($Action -eq 'Status') {
