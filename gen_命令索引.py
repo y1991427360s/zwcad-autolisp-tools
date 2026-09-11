@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 MAIN = ROOT / 'AA整合版本.lsp'
-EXCLUDED = {'.git', '.svn', '__pycache__', 'node_modules'}
+EXCLUDED = {'.git', '.svn', '__pycache__', 'node_modules', 'backups'}
 
 AICAD_DEFAULTS = {
     'AICAD': '根据自然语言指令或对话修改选中的 CAD 对象',
@@ -939,7 +939,7 @@ def check(fs, rows):
         md_commands = {
             line.split('`')[1].split('`')[0].replace(' ⚠️', '')
             for line in md.read_text(encoding='utf-8').splitlines()
-            if line.startswith('| `') and '` |' in line
+            if line.startswith('| `') and re.match(r'^\| `[^`]+`(?: ⚠️)? \|', line)
         }
         if md_commands != actual:
             errors.append('命令索引.md 与实际 defun c: 命令不一致')

@@ -668,6 +668,24 @@
   filtered
 )
 
+;; Expand only instance attributes; never edit shared block definitions.
+(defun aicad:replacement-selection (ss / result i ent data child child-data)
+  (setq result (ssadd) i 0)
+  (repeat (aicad:selection-count ss)
+    (setq ent (ssname ss i) data (entget ent))
+    (cond
+      ((member (cdr (assoc 0 data)) '("TEXT" "MTEXT" "ATTRIB"))
+       (ssadd ent result))
+      ((and (= (cdr (assoc 0 data)) "INSERT") (= (cdr (assoc 66 data)) 1))
+       (setq child (entnext ent))
+       (while (and child (setq child-data (entget child))
+                   (/= (cdr (assoc 0 child-data)) "SEQEND"))
+         (if (= (cdr (assoc 0 child-data)) "ATTRIB") (ssadd child result))
+         (setq child (entnext child)))))
+    (setq i (1+ i)))
+  result
+)
+
 (defun aicad:selection-count (ss)
   (if ss (sslength ss) 0)
 )
@@ -680,27 +698,16 @@
   )
 )
 
-(defun aicad:get-entity-text (ename / edata obj text)
+(defun aicad:get-entity-text (ename / obj text property)
   (setq text "")
-  (if ename
+  (if (and ename (entget ename))
     (progn
-      (setq edata (entget ename))
-      (if edata
-        (setq text (cdr (assoc 1 edata)))
-      )
-      (if (or (not text) (= text ""))
+      (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+      (if (not (vl-catch-all-error-p obj))
         (progn
-          (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
-          (if (not (vl-catch-all-error-p obj))
-            (setq text (vl-catch-all-apply 'vla-get-TextString (list obj)))
-          )
-          (if (vl-catch-all-error-p text)
-            (setq text "")
-          )
-        )
-      )
-    )
-  )
+          (setq property (aicad:text-property obj))
+          (setq text (vl-catch-all-apply 'vlax-get-property (list obj property)))))))
+  (if (vl-catch-all-error-p text) (setq text ""))
   (if text text "")
 )
 
@@ -1198,31 +1205,49 @@
   )
 )
 
-(defun aicad:apply-text-replacements (ss replace-pairs / i ent ent-data text-content new-text count pair)
+(defun aicad:text-property (obj)
+  (if (and (vlax-property-available-p obj 'MTextAttribute)
+           (= (vlax-get-property obj 'MTextAttribute) :vlax-true))
+    'MTextAttributeContent
+    'TextString)
+)
+
+(defun aicad:replace-object-text (ent replace-pairs / obj property text-content new-text pair)
+  (setq obj (vlax-ename->vla-object ent) property (aicad:text-property obj))
+  (setq text-content (vlax-get-property obj property) new-text text-content)
+  (foreach pair replace-pairs
+    (setq new-text (aicad:string-replace-all new-text (car pair) (cadr pair))))
+  (if (/= new-text text-content)
+    (progn
+      (vlax-put-property obj property new-text)
+      (if (= property 'MTextAttributeContent)
+        (vlax-invoke-method obj 'UpdateMTextAttribute))
+      T)
+    nil)
+)
+
+(defun aicad:apply-text-replacements (ss replace-pairs / i ent count result failed doc undo-result)
   (setq i 0
-        count 0)
+        count 0 failed 0
+        doc (vla-get-activedocument (vlax-get-acad-object)))
+  (vla-StartUndoMark doc)
+  ;; Catch the whole batch so the undo mark is also closed on interruption.
+  (setq undo-result (vl-catch-all-apply
+    '(lambda ()
   (repeat (sslength ss)
     (setq ent (ssname ss i))
-    (setq ent-data (entget ent))
-    (setq text-content (cdr (assoc 1 ent-data)))
-    (if (and text-content (/= text-content ""))
-      (progn
-        (setq new-text text-content)
-        (foreach pair replace-pairs
-          (setq new-text (aicad:string-replace-all new-text (car pair) (cadr pair)))
-        )
-        (if (/= new-text text-content)
-          (progn
-            (setq ent-data (aicad:set-dxf ent-data 1 new-text))
-            (entmod ent-data)
-            (entupd ent)
-            (setq count (1+ count))
-          )
-        )
-      )
-    )
+    (setq result (vl-catch-all-apply 'aicad:replace-object-text (list ent replace-pairs)))
+    (cond
+      ((vl-catch-all-error-p result) (setq failed (1+ failed)))
+      (result (setq count (1+ count))))
     (setq i (1+ i))
-  )
+  )) '()))
+  (vla-EndUndoMark doc)
+  (if (> count 0) (vla-Regen doc 1))
+  (if (> failed 0)
+    (princ (strcat "\nSkipped " (itoa failed) " object(s): text could not be updated.")))
+  (if (vl-catch-all-error-p undo-result)
+    (princ (strcat "\nReplacement interrupted: " (vl-catch-all-error-message undo-result))))
   count
 )
 
@@ -1519,7 +1544,7 @@
      )
     )
     ((= command "RETXT")
-     (setq target-ss (aicad:filter-selection ss "TEXT"))
+     (setq target-ss (aicad:replacement-selection ss))
      (setq replace-pairs (aicad:replace-pairs-from-result result))
      (if (and (> (aicad:selection-count target-ss) 0) replace-pairs)
        (progn
@@ -1629,7 +1654,7 @@
      (princ "\nRibbon replace source text is empty.")
     )
     (T
-     (setq target-ss (aicad:filter-selection ss "TEXT"))
+     (setq target-ss (aicad:replacement-selection ss))
      (if (> (aicad:selection-count target-ss) 0)
        (progn
          (setq count (aicad:apply-text-replacements target-ss pairs))
@@ -1663,7 +1688,7 @@
      (princ "\nRibbon find text is empty.")
     )
     (T
-     (setq target-ss (aicad:filter-selection ss "TEXT"))
+     (setq target-ss (aicad:replacement-selection ss))
      (if (> (aicad:selection-count target-ss) 0)
        (progn
          (setq matches (aicad:matching-text-entities target-ss search-text))

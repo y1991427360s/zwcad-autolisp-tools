@@ -23,16 +23,35 @@ if ($Action -eq 'Status') {
 }
 if ((Git-Run @('branch', '--show-current')) -ne $branch) { throw "Switch to $branch before updating." }
 $dirty = @(Git-Run @('status', '--porcelain'))
-if ($dirty.Count) { throw 'Local changes found. Commit or preserve them before updating.' }
+$stashRef = $null
+$backup = $null
+if ($dirty.Count) {
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+    $backup = Join-Path $root "backups/remote-update-$stamp"
+    New-Item -ItemType Directory -Path $backup | Out-Null
+    Git-Run @('diff', '--binary', '--output=' + (Join-Path $backup 'local-changes.patch'))
+    Git-Run @('diff', '--cached', '--binary', '--output=' + (Join-Path $backup 'local-index.patch'))
+    Git-Run @('status', '--short') | Set-Content -LiteralPath (Join-Path $backup 'local-status.txt') -Encoding UTF8
+    Git-Run @('stash', 'push', '--include-untracked', '-m', "remote-update-$stamp")
+    $stashRef = (Git-Run @('stash', 'list', '-1', '--format=%gd')).Trim()
+}
 Git-Run @('fetch', 'origin', $branch)
 $old = Git-Run @('rev-parse', 'HEAD')
 $target = Git-Run @('rev-parse', "origin/$branch")
-if ($old -eq $target) { Write-Host "Already current: $old"; exit 0 }
+if ($old -eq $target) {
+    if ($stashRef) {
+        & git stash pop $stashRef
+        if ($LASTEXITCODE -ne 0) { throw "本地改动恢复发生冲突，备份已保存在：$backup；暂存仍保留，请手动处理。" }
+    }
+    Write-Host "Already current: $old"; exit 0
+}
 & git merge-base --is-ancestor $old $target
 if ($LASTEXITCODE -ne 0) { throw 'Branches diverged. Update stopped; no files replaced.' }
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
-$backup = Join-Path $root "backups/remote-update-$stamp"
-New-Item -ItemType Directory -Path $backup | Out-Null
+if (-not $backup) {
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+    $backup = Join-Path $root "backups/remote-update-$stamp"
+    New-Item -ItemType Directory -Path $backup | Out-Null
+}
 Git-Run @('archive', '--format=zip', "--output=$backup/before.zip", 'HEAD')
 Git-Run @('archive', '--format=zip', "--output=$backup/incoming.zip", $target)
 Expand-Archive -LiteralPath "$backup/incoming.zip" -DestinationPath "$backup/incoming"
@@ -47,6 +66,10 @@ foreach ($file in Get-ChildItem -LiteralPath "$backup/incoming" -Recurse -File) 
     # Git archives contain canonical LF; checkout applies .gitattributes CRLF.
 }
 Git-Run @('merge', '--ff-only', $target)
+if ($stashRef) {
+    & git stash pop $stashRef
+    if ($LASTEXITCODE -ne 0) { throw "本地改动恢复发生冲突，备份已保存在：$backup；暂存仍保留，请手动处理。" }
+}
 foreach ($name in Git-Run @('ls-files')) {
     if ($extensions -notcontains [IO.Path]::GetExtension($name).ToLowerInvariant()) { continue }
     $text = $utf8.GetString([IO.File]::ReadAllBytes((Join-Path $root $name)))

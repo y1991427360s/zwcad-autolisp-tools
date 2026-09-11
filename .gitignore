@@ -14,3 +14,6 @@ backups/
 # Python cache
 __pycache__/
 *.pyc
+
+# Session/desktop metadata
+.reasonix/
