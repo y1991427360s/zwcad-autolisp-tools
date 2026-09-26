@@ -1,39 +1,27 @@
-"""Check the actual CC forms without connecting to CAD."""
+"""Check CC native drag and cleanup without connecting to CAD."""
 import sys
 from pathlib import Path
-
 from check_fdx_static import ARITY, parse, walk
-
-
-def _quoted_strings(node, acc):
-    if not isinstance(node, list):
-        if isinstance(node, str):
-            acc.append(node)
-        return
-    if node and node[0] == 'quote' and len(node) >= 2:
-        if isinstance(node[1], str):
-            acc.append(node[1])
-        elif isinstance(node[1], list):
-            acc.extend(x for x in node[1] if isinstance(x, str))
-    for item in node:
-        _quoted_strings(item, acc)
 
 
 def check(path):
     data = path.read_bytes()
     assert not data.startswith(b'\xef\xbb\xbf'), 'UTF-8 BOM'
     source = data.decode('utf-8', errors='strict')
-    assert '\ufffd' not in source, 'Replacement character'
+    assert '\ufffd' not in source
     assert b'\n' not in data.replace(b'\r\n', b''), 'Bare LF'
     forms = parse(source)
     targets = [f for f in forms if isinstance(f, list)
                and f[:2] == ['defun', 'c:cc']]
     assert len(targets) == 1, 'CC must be one top-level definition'
     cc = targets[0]
-    assert cc[-1] == ['aa:cmd-end'], 'Missing command cleanup'
-    limits = dict(ARITY, **{'getpoint': (1, 2), 'vla-copy': (1, 1),
-                          'vla-move': (3, 3), 'vla-put-textstring': (2, 2)})
     calls = list(walk(cc[3:]))
+    assert cc[3] == ['setq', 'ss', ['ssget', '"_I"']]
+    assert cc[-1] == ['aa:cmd-end']
+    assert ['aa:cmd-begin', '"CC"'] in calls
+    assert ['qe:get-clip-text'] in calls
+    limits = dict(ARITY, **{'getpoint': (1, 2), 'vla-copy': (1, 1),
+                          'vla-update': (1, 1), 'vla-put-textstring': (2, 2)})
     for node in calls:
         if not isinstance(node[0], str):
             continue
@@ -45,52 +33,42 @@ def check(path):
             assert count % 2 == 0, 'Odd setq'
         if head == 'cond':
             assert all(isinstance(x, list) and x for x in node[1:]), 'Bad cond'
-    assert ['setq', 'ss', ['ssget', '"_I"']] == cc[3], 'Capture preselection first'
-    assert ['aa:cmd-begin', '"CC"'] in calls
-    assert ['qe:get-clip-text'] in calls
-    assert not any(n[0] in ('zi:to-clip', 'c:qe', 'command', 'command-s')
-                   for n in calls if isinstance(n[0], str))
-    # ghost created after base point, text replaced, then dragged
-    assert ['vla-copy', ['vlax-ename->vla-object', 'src']] in calls, 'Copy source after base'
-    assert ['vla-put-textstring', 'copy-obj', 'clip-text'] in calls
-    assert ['cc:drag-object', 'copy-obj', 'base'] in calls, 'Drag live copy'
-    # cancel path deletes ghost (via vl-catch-all-apply 'vla-Delete)
-    quoted_cc = []
-    _quoted_strings(cc, quoted_cc)
-    assert 'vla-delete' in quoted_cc, 'Cancel must delete copy'
+        assert head not in ('grread', 'grdraw', 'grvecs', 'osnap', 'vla-move',
+                            'zi:to-clip', 'c:qe', 'command-s')
+        assert not head.startswith('cc:'), 'Old drag helper must not be called'
+        if head == 'setvar':
+            assert node[1] not in ('"OSMODE"', '"ORTHOMODE"', '"SNAPMODE"')
+    assert len([n for n in calls if n[0] == 'getpoint']) == 1
+    copy = ['vla-copy', ['vlax-ename->vla-object', 'src']]
+    replace = ['vla-put-textstring', 'copy-obj', 'clip-text']
+    update = ['vla-update', 'copy-obj']
+    move = ['command', '"_.MOVE"', ['vlax-vla-object->ename', 'copy-obj'],
+            '""', '"_non"', 'base']
+    assert calls.index(copy) < calls.index(replace) < calls.index(update) < calls.index(move)
+    hide = ['redraw', ['vlax-vla-object->ename', 'copy-obj'], '2']
+    show = ['redraw', ['vlax-vla-object->ename', 'copy-obj'], '1']
+    pause = ['command', 'pause']
+    sample_last = ['setq', 'last-pt', ['getvar', '"LASTPOINT"']]
+    assert sample_last in calls
+    assert calls.index(move) < calls.index(sample_last) < calls.index(hide) < calls.index(pause) < calls.index(show)
+    assert not any(n[0] == 'vla-put-visible' for n in calls)
+    assert ['while', ['>', ['logand', ['getvar', '"CMDACTIVE"'], '1'], '0'],
+            ['command', 'pause']] in calls
+    assert ['setvar', '"DRAGMODE"', '2'] in calls
+    restore = ['setvar', '"DRAGMODE"', 'old-dragmode']
+    release = ['setq', 'old-dragmode', 'nil', 'copy-obj', 'nil']
+    assert calls.index(move) < calls.index(restore) < calls.index(release)
+    assert calls.index(show) < calls.index(release)
     error = next(n for n in calls if n[:2] == ['defun', '*error*'])
-    assert ['aa:cmd-error', 'msg'] in list(walk(error))
-    quoted_err = []
-    _quoted_strings(error, quoted_err)
-    assert 'vla-delete' in quoted_err, 'error handler must delete leftover copy'
-
-    helpers = {}
-    for form in forms:
-        if (isinstance(form, list) and len(form) > 1
-                and form[0] == 'defun' and isinstance(form[1], str)
-                and form[1].startswith('cc:')):
-            helpers[form[1]] = form
-    for name in ('cc:move-ucs', 'cc:drag-object'):
-        assert name in helpers, 'Missing ' + name
-
-    move_calls = list(walk(helpers['cc:move-ucs'][3:]))
-    assert ['trans', 'from', '1', '0'] in move_calls, 'UCS->WCS from'
-    assert ['trans', 'to', '1', '0'] in move_calls, 'UCS->WCS to'
-    assert any(n[0] == 'vla-move' for n in move_calls
-               if isinstance(n, list) and n and isinstance(n[0], str))
-
-    drag_calls = list(walk(helpers['cc:drag-object'][3:]))
-    drag_heads = [n[0] for n in drag_calls if isinstance(n, list) and n
-                  and isinstance(n[0], str)]
-    assert 'cc:move-ucs' in drag_heads, 'drag must move live object'
-    quoted = []
-    _quoted_strings(helpers['cc:drag-object'], quoted)
-    assert 'grread' in quoted, 'drag must use grread'
-    assert 'vla-copy' not in drag_heads, 'drag helper must not create entity'
-    assert 'vla-put-textstring' not in drag_heads, 'drag helper must not write text'
+    error_calls = list(walk(error))
+    assert ['vl-catch-all-apply', ['quote', 'vla-delete'], ['list', 'copy-obj']] in error_calls
+    assert ['vl-catch-all-apply', ['quote', 'setvar'],
+            ['list', '"DRAGMODE"', 'old-dragmode']] in error_calls
+    assert ['aa:cmd-error', 'msg'] in error_calls
+    assert any(n[0] == 'while' and n[1] == 'continue' for n in calls), 'CC must loop continuously'
+    assert ['vl-catch-all-apply', ['quote', 'vla-delete'], ['list', 'copy-obj']] in calls
     print(f'PASS: {len(forms)} top-level forms; CC structure and call arities')
-    print('PASS: preselection, clipboard replace, cancel/error cleanup')
-    print('PASS: real ghost copy after base + grread drag (CO-like text preview)')
+    print('PASS: replacement before native MOVE; continuous loop; cleanup and settings')
     print('PASS: UTF-8 without BOM, CRLF')
 
 

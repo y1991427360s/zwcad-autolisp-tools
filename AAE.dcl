@@ -1,8 +1,14 @@
 aae_main : dialog {
   label = "Attribute Editor";
   : edit_box {
-    key = "value";
-    label = "Value:";
+    key = "line1";
+    label = "Line 1:";
+    edit_width = 48;
+    allow_accept = true;
+  }
+  : edit_box {
+    key = "line2";
+    label = "Line 2:";
     edit_width = 48;
     allow_accept = true;
   }

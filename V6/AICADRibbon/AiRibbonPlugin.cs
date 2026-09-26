@@ -25,12 +25,15 @@ namespace AICADRibbon
         private const string PromptPanelSourceId = "AA_AICAD_PANEL_SOURCE";
         private const string PromptPanelTitle = "AICAD";
         private const string RibbonInputVariable = "AICAD_RIBBON_INPUT";
+        private const string RibbonInputFileVariable = "AICAD_RIBBON_INPUT_FILE";
         private const string RibbonReplaceSearchVariable = "AICAD_RIBBON_REPLACE_SEARCH";
         private const string RibbonReplaceValueVariable = "AICAD_RIBBON_REPLACE_VALUE";
         private const string RibbonReplaceCountVariable = "AICAD_RIBBON_REPLACE_COUNT";
         private const string RibbonReplaceSearchPrefix = "AICAD_RIBBON_REPLACE_SEARCH_";
         private const string RibbonReplaceValuePrefix = "AICAD_RIBBON_REPLACE_VALUE_";
+        private const string RibbonReplaceFileVariable = "AICAD_RIBBON_REPLACE_FILE";
         private const string RibbonFindSearchVariable = "AICAD_RIBBON_FIND_SEARCH";
+        private const string RibbonFindFileVariable = "AICAD_RIBBON_FIND_FILE";
         private const string RibbonFindHandleVariable = "AICAD_RIBBON_FIND_HANDLE";
         private const string BaseDirectoryEnvVar = "AICADAA_BASEDIR";
         private static readonly TimeSpan ReplaceCommandDebounceWindow = TimeSpan.FromMilliseconds(750);
@@ -592,12 +595,37 @@ namespace AICADRibbon
                 EnsureLispLoaded(document);
                 PreserveImpliedSelection(document.Editor);
 
-                document.SendStringToExecute("(progn (setenv \"" + RibbonInputVariable + "\" \"" + EscapeForLisp(prompt) + "\") (princ)) ", true, false, false);
+                if (prompt.Length > 100)
+                {
+                    string tempDir = Path.GetTempPath();
+                    int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                    string filePath = Path.Combine(tempDir, string.Format("aicad_input_{0}.txt", pid));
+                    string fallbackPath = Path.Combine(tempDir, "aicad_ribbon_input.txt");
+
+                    File.WriteAllText(filePath, prompt, new System.Text.UTF8Encoding(false));
+                    try { File.Copy(filePath, fallbackPath, true); } catch { }
+
+                    try
+                    {
+                        System.Environment.SetEnvironmentVariable(RibbonInputFileVariable, filePath);
+                    }
+                    catch
+                    {
+                    }
+
+                    string lispPath = filePath.Replace("\\", "/");
+                    document.SendStringToExecute("(progn (setenv \"" + RibbonInputFileVariable + "\" \"" + lispPath + "\") (princ)) ", true, false, false);
+                }
+                else
+                {
+                    document.SendStringToExecute("(progn (setenv \"" + RibbonInputVariable + "\" \"" + EscapeForLisp(prompt) + "\") (princ)) ", true, false, false);
+                }
+
                 document.SendStringToExecute("AICADRIBBON ", true, false, false);
             }
             catch (System.Exception ex)
             {
-                WriteMessage(document.Editor, "AICAD \u8f93\u5165\u6846\u6267\u884c\u5931\u8d25\uff1a" + ex.Message);
+                WriteMessage(document.Editor, "AICAD 输入框执行失败：" + ex.Message);
             }
         }
 
@@ -640,22 +668,66 @@ namespace AICADRibbon
                 EnsureLispLoaded(document);
                 PreserveImpliedSelection(document.Editor);
 
-                string command = "(progn ";
-                command += "(setenv \"" + RibbonReplaceCountVariable + "\" \"" + pairs.Count + "\") ";
-                for (int i = 0; i < pairs.Count; i++)
+                string payloadPath = WriteReplacePayloadFile(pairs);
+                string lispPath = payloadPath.Replace("\\", "/");
+
+                try
                 {
-                    command += "(setenv \"" + RibbonReplaceSearchPrefix + (i + 1) + "\" \"" + EscapeForLisp(pairs[i][0]) + "\") ";
-                    command += "(setenv \"" + RibbonReplaceValuePrefix + (i + 1) + "\" \"" + EscapeForLisp(pairs[i][1]) + "\") ";
+                    System.Environment.SetEnvironmentVariable(RibbonReplaceFileVariable, payloadPath);
+                }
+                catch
+                {
                 }
 
-                command += "(princ)) ";
+                // If only 1 short rule, also set legacy env vars for older LISP compatibility
+                if (pairs.Count == 1 && pairs[0][0].Length < 35 && pairs[0][1].Length < 35)
+                {
+                    string legacyCmd = "(progn "
+                        + "(setenv \"" + RibbonReplaceCountVariable + "\" \"1\") "
+                        + "(setenv \"" + RibbonReplaceSearchPrefix + "1\" \"" + EscapeForLisp(pairs[0][0]) + "\") "
+                        + "(setenv \"" + RibbonReplaceValuePrefix + "1\" \"" + EscapeForLisp(pairs[0][1]) + "\") "
+                        + "(princ)) ";
+                    document.SendStringToExecute(legacyCmd, true, false, false);
+                }
+
+                string command = "(progn (setenv \"" + RibbonReplaceFileVariable + "\" \"" + lispPath + "\") (princ)) ";
                 document.SendStringToExecute(command, true, false, false);
                 document.SendStringToExecute("AICADRIBBONREPLACE ", true, false, false);
             }
             catch (System.Exception ex)
             {
-                WriteMessage(document.Editor, "AICAD \u66ff\u6362\u6846\u6267\u884c\u5931\u8d25\uff1a" + ex.Message);
+                WriteMessage(document.Editor, "AICAD 替换框执行失败：" + ex.Message);
             }
+        }
+
+        private static string WriteReplacePayloadFile(List<string[]> pairs)
+        {
+            string tempDir = Path.GetTempPath();
+            int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+            string filePath = Path.Combine(tempDir, string.Format("aicad_replace_{0}.txt", pid));
+            string fallbackPath = Path.Combine(tempDir, "aicad_ribbon_replace.txt");
+
+            var utf8NoBom = new System.Text.UTF8Encoding(false);
+            using (var sw = new StreamWriter(filePath, false, utf8NoBom))
+            {
+                sw.NewLine = "\r\n";
+                sw.WriteLine(pairs.Count);
+                for (int i = 0; i < pairs.Count; i++)
+                {
+                    sw.WriteLine(pairs[i][0] ?? string.Empty);
+                    sw.WriteLine(pairs[i][1] ?? string.Empty);
+                }
+            }
+
+            try
+            {
+                File.Copy(filePath, fallbackPath, true);
+            }
+            catch
+            {
+            }
+
+            return filePath;
         }
 
         // Split the multi-line search/value boxes into ordered replacement pairs.
@@ -787,16 +859,41 @@ namespace AICADRibbon
                 EnsureLispLoaded(document);
                 PreserveImpliedSelection(document.Editor);
 
-                document.SendStringToExecute(
-                    "(progn (setenv \"" + RibbonFindSearchVariable + "\" \"" + EscapeForLisp(searchText) + "\") (princ)) ",
-                    true,
-                    false,
-                    false);
+                if (searchText.Length > 100)
+                {
+                    string tempDir = Path.GetTempPath();
+                    int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                    string filePath = Path.Combine(tempDir, string.Format("aicad_find_{0}.txt", pid));
+                    string fallbackPath = Path.Combine(tempDir, "aicad_ribbon_find.txt");
+
+                    File.WriteAllText(filePath, searchText, new System.Text.UTF8Encoding(false));
+                    try { File.Copy(filePath, fallbackPath, true); } catch { }
+
+                    try
+                    {
+                        System.Environment.SetEnvironmentVariable(RibbonFindFileVariable, filePath);
+                    }
+                    catch
+                    {
+                    }
+
+                    string lispPath = filePath.Replace("\\", "/");
+                    document.SendStringToExecute("(progn (setenv \"" + RibbonFindFileVariable + "\" \"" + lispPath + "\") (princ)) ", true, false, false);
+                }
+                else
+                {
+                    document.SendStringToExecute(
+                        "(progn (setenv \"" + RibbonFindSearchVariable + "\" \"" + EscapeForLisp(searchText) + "\") (princ)) ",
+                        true,
+                        false,
+                        false);
+                }
+
                 document.SendStringToExecute("AICADRIBBONFIND ", true, false, false);
             }
             catch (System.Exception ex)
             {
-                WriteMessage(document.Editor, "AICAD \u67e5\u627e\u6846\u6267\u884c\u5931\u8d25\uff1a" + ex.Message);
+                WriteMessage(document.Editor, "AICAD 查找框执行失败：" + ex.Message);
             }
         }
 
@@ -1103,6 +1200,185 @@ namespace AICADRibbon
 
 
 
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        private static extern int SendMessage(IntPtr hWnd, int msg, int wParam, [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string lParam);
+        private const int EM_SETCUEBANNER = 0x1501;
+
+        private static void SetCueBanner(WinForms.TextBox textBox, string cueText)
+        {
+            if (textBox == null || string.IsNullOrEmpty(cueText))
+            {
+                return;
+            }
+            if (textBox.IsHandleCreated)
+            {
+                SendMessage(textBox.Handle, EM_SETCUEBANNER, 1, cueText);
+            }
+            else
+            {
+                textBox.HandleCreated += delegate
+                {
+                    SendMessage(textBox.Handle, EM_SETCUEBANNER, 1, cueText);
+                };
+            }
+        }
+
+        private static List<string[]> ParseRulesFromText(string text)
+        {
+            List<string[]> result = new List<string[]>();
+            if (string.IsNullOrEmpty(text))
+            {
+                return result;
+            }
+
+            string[] lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            foreach (string rawLine in lines)
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+
+                string search = string.Empty;
+                string value = string.Empty;
+
+                if (rawLine.Contains("\t"))
+                {
+                    string[] parts = rawLine.Split(new char[] { '\t' }, 2);
+                    search = parts[0].Trim();
+                    value = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                }
+                else if (line.Contains("->") || line.Contains("=>"))
+                {
+                    string sep = line.Contains("->") ? "->" : "=>";
+                    string[] parts = line.Split(new string[] { sep }, 2, StringSplitOptions.None);
+                    search = parts[0].Trim();
+                    value = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                }
+                else if (line.Contains("="))
+                {
+                    string[] parts = line.Split(new char[] { '=' }, 2);
+                    search = parts[0].Trim();
+                    value = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                }
+                else if (line.Contains(",") || line.Contains("，"))
+                {
+                    char sep = line.Contains(",") ? ',' : '，';
+                    string[] parts = line.Split(new char[] { sep }, 2);
+                    search = parts[0].Trim();
+                    value = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                }
+                else
+                {
+                    search = line;
+                    value = string.Empty;
+                }
+
+                if (search.Length > 0)
+                {
+                    result.Add(new string[] { search, value });
+                }
+            }
+
+            return result;
+        }
+
+        private sealed class BatchRulesDialogForm : WinForms.Form
+        {
+            private readonly WinForms.TextBox _textBox;
+            private List<string[]> _parsedRules;
+            public List<string[]> ParsedRules { get { return _parsedRules; } }
+            public bool IsAppend { get; private set; }
+
+            public BatchRulesDialogForm(string initialText)
+            {
+                Text = "批量导入 / 编辑规则";
+                FormBorderStyle = WinForms.FormBorderStyle.FixedDialog;
+                MaximizeBox = false;
+                MinimizeBox = false;
+                StartPosition = WinForms.FormStartPosition.CenterParent;
+                ClientSize = new Draw.Size(520, 420);
+                BackColor = Draw.Color.FromArgb(37, 37, 38);
+                ForeColor = Draw.Color.FromArgb(224, 224, 224);
+                Font = new Draw.Font("Segoe UI", 9f, Draw.FontStyle.Regular);
+
+                WinForms.TableLayoutPanel layout = new WinForms.TableLayoutPanel();
+                layout.Dock = WinForms.DockStyle.Fill;
+                layout.Padding = new WinForms.Padding(12);
+                layout.RowCount = 3;
+                layout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 46f));
+                layout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100f));
+                layout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 38f));
+
+                WinForms.Label hintLabel = new WinForms.Label();
+                hintLabel.Dock = WinForms.DockStyle.Fill;
+                hintLabel.ForeColor = Draw.Color.FromArgb(180, 180, 180);
+                hintLabel.Text = "在下方粘贴或编辑规则，每行一条。支持：\r\n1. Excel 两列复制（制表符 Tab 分隔） 2. 查找 -> 替换  3. 逗号分隔";
+                layout.Controls.Add(hintLabel, 0, 0);
+
+                _textBox = new WinForms.TextBox();
+                _textBox.Dock = WinForms.DockStyle.Fill;
+                _textBox.Multiline = true;
+                _textBox.ScrollBars = WinForms.ScrollBars.Both;
+                _textBox.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                _textBox.ForeColor = Draw.Color.FromArgb(235, 235, 235);
+                _textBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
+                _textBox.Font = new Draw.Font("Consolas", 9.5f, Draw.FontStyle.Regular);
+                _textBox.Text = initialText ?? string.Empty;
+                layout.Controls.Add(_textBox, 0, 1);
+
+                WinForms.FlowLayoutPanel btnPanel = new WinForms.FlowLayoutPanel();
+                btnPanel.Dock = WinForms.DockStyle.Fill;
+                btnPanel.FlowDirection = WinForms.FlowDirection.RightToLeft;
+                btnPanel.Margin = new WinForms.Padding(0);
+
+                WinForms.Button cancelBtn = new WinForms.Button();
+                cancelBtn.Text = "取消";
+                cancelBtn.Size = new Draw.Size(75, 28);
+                cancelBtn.FlatStyle = WinForms.FlatStyle.Flat;
+                cancelBtn.BackColor = Draw.Color.FromArgb(60, 60, 64);
+                cancelBtn.ForeColor = Draw.Color.FromArgb(220, 220, 220);
+                cancelBtn.DialogResult = WinForms.DialogResult.Cancel;
+                cancelBtn.Click += delegate { Close(); };
+
+                WinForms.Button appendBtn = new WinForms.Button();
+                appendBtn.Text = "追加导入";
+                appendBtn.Size = new Draw.Size(95, 28);
+                appendBtn.FlatStyle = WinForms.FlatStyle.Flat;
+                appendBtn.BackColor = Draw.Color.FromArgb(45, 90, 140);
+                appendBtn.ForeColor = Draw.Color.White;
+                appendBtn.Click += delegate
+                {
+                    _parsedRules = ParseRulesFromText(_textBox.Text);
+                    IsAppend = true;
+                    DialogResult = WinForms.DialogResult.OK;
+                    Close();
+                };
+
+                WinForms.Button replaceBtn = new WinForms.Button();
+                replaceBtn.Text = "覆盖导入";
+                replaceBtn.Size = new Draw.Size(95, 28);
+                replaceBtn.FlatStyle = WinForms.FlatStyle.Flat;
+                replaceBtn.BackColor = Draw.Color.FromArgb(0, 122, 204);
+                replaceBtn.ForeColor = Draw.Color.White;
+                replaceBtn.Click += delegate
+                {
+                    _parsedRules = ParseRulesFromText(_textBox.Text);
+                    IsAppend = false;
+                    DialogResult = WinForms.DialogResult.OK;
+                    Close();
+                };
+
+                btnPanel.Controls.Add(cancelBtn);
+                btnPanel.Controls.Add(appendBtn);
+                btnPanel.Controls.Add(replaceBtn);
+                layout.Controls.Add(btnPanel, 0, 2);
+
+                Controls.Add(layout);
+            }
+        }
+
         private sealed class ReplacePanelForm : WinForms.Form
         {
             private readonly AiRibbonPlugin _owner;
@@ -1123,7 +1399,7 @@ namespace AICADRibbon
             private Draw.Point _dragStart;
             private WinForms.Timer _statusTimer;
             private const string DefaultStatusText =
-                "\u63d0\u793a\uff1a\u5728 CAD \u4e2d\u9009\u4e2d\u6587\u5b57\u540e\uff0c\u7f16\u8f91\u4e0a\u65b9\u66ff\u6362\u89c4\u5219\uff0c\u70b9\u51fb\u201c\u66ff\u6362\u201d\u6216\u6309 Ctrl+Enter \u6267\u884c\uff1bESC \u5173\u95ed\u3002";
+                "提示：在 CAD 中选中文字后，编辑上方替换规则，点击“替换”或按 Ctrl+Enter 执行；ESC 关闭。";
 
             private sealed class ReplaceRuleRow
             {
@@ -1131,6 +1407,9 @@ namespace AICADRibbon
                 public WinForms.Label NumberLabel;
                 public WinForms.TextBox SearchBox;
                 public WinForms.TextBox ValueBox;
+                public WinForms.Button SwapButton;
+                public WinForms.Button CopyButton;
+                public WinForms.Button RemoveButton;
             }
 
             public ReplacePanelForm(AiRibbonPlugin owner)
@@ -1144,23 +1423,24 @@ namespace AICADRibbon
                 _syncing = false;
                 _dragging = false;
 
-                Text = "\u6587\u5b57\u66ff\u6362";
+                Text = "文字替换";
                 StartPosition = WinForms.FormStartPosition.CenterScreen;
                 FormBorderStyle = WinForms.FormBorderStyle.None;
                 ShowInTaskbar = false;
                 KeyPreview = true;
-                MinimumSize = new Draw.Size(560, 620);
-                ClientSize = new Draw.Size(620, 720);
-                BackColor = Draw.Color.FromArgb(45, 45, 48);
+                DoubleBuffered = true;
+                MinimumSize = new Draw.Size(580, 620);
+                ClientSize = new Draw.Size(630, 720);
+                BackColor = Draw.Color.FromArgb(32, 32, 35);
                 ForeColor = Draw.Color.FromArgb(224, 224, 224);
-                Padding = new WinForms.Padding(0);
+                Padding = new WinForms.Padding(1);
 
                 // Root: title bar / content / status bar
                 WinForms.TableLayoutPanel rootLayout = new WinForms.TableLayoutPanel();
                 rootLayout.ColumnCount = 1;
                 rootLayout.Dock = WinForms.DockStyle.Fill;
                 rootLayout.Margin = new WinForms.Padding(0);
-                rootLayout.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                rootLayout.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 rootLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 rootLayout.RowCount = 3;
                 rootLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 34f));
@@ -1170,57 +1450,77 @@ namespace AICADRibbon
                 // ---- Title bar ----
                 WinForms.Panel titleBar = new WinForms.Panel();
                 titleBar.Dock = WinForms.DockStyle.Fill;
-                titleBar.BackColor = Draw.Color.FromArgb(37, 37, 38);
+                titleBar.BackColor = Draw.Color.FromArgb(42, 42, 46);
                 titleBar.MouseDown += OnBackgroundMouseDown;
                 titleBar.MouseMove += OnBackgroundMouseMove;
                 titleBar.MouseUp += OnBackgroundMouseUp;
 
                 WinForms.Label titleLabel = new WinForms.Label();
                 titleLabel.AutoSize = true;
-                titleLabel.Text = "\u6587\u5b57\u66ff\u6362";
+                titleLabel.Text = "文字替换";
                 titleLabel.Font = new Draw.Font(Font.FontFamily, 10f, Draw.FontStyle.Bold);
-                titleLabel.ForeColor = Draw.Color.FromArgb(235, 235, 235);
+                titleLabel.ForeColor = Draw.Color.FromArgb(240, 240, 240);
                 titleLabel.Location = new Draw.Point(12, 8);
                 titleLabel.MouseDown += OnBackgroundMouseDown;
                 titleLabel.MouseMove += OnBackgroundMouseMove;
                 titleLabel.MouseUp += OnBackgroundMouseUp;
 
+                WinForms.FlowLayoutPanel titleButtons = new WinForms.FlowLayoutPanel();
+                titleButtons.Dock = WinForms.DockStyle.Right;
+                titleButtons.FlowDirection = WinForms.FlowDirection.RightToLeft;
+                titleButtons.Width = 80;
+                titleButtons.Margin = new WinForms.Padding(0);
+                titleButtons.BackColor = Draw.Color.Transparent;
+
                 WinForms.Button closeButton = new WinForms.Button();
                 closeButton.Text = "\u00d7";
-                closeButton.Size = new Draw.Size(32, 26);
-                closeButton.Anchor = WinForms.AnchorStyles.Top | WinForms.AnchorStyles.Right;
-                closeButton.Location = new Draw.Point(ClientSize.Width - 38, 4);
+                closeButton.Size = new Draw.Size(34, 26);
                 closeButton.FlatStyle = WinForms.FlatStyle.Flat;
                 closeButton.FlatAppearance.BorderSize = 0;
                 closeButton.FlatAppearance.MouseOverBackColor = Draw.Color.FromArgb(196, 43, 28);
-                closeButton.BackColor = Draw.Color.FromArgb(37, 37, 38);
+                closeButton.BackColor = Draw.Color.FromArgb(42, 42, 46);
                 closeButton.ForeColor = Draw.Color.FromArgb(220, 220, 220);
                 closeButton.Cursor = WinForms.Cursors.Hand;
                 closeButton.Font = new Draw.Font(Font.FontFamily, 11f, Draw.FontStyle.Bold);
                 closeButton.Click += delegate { Close(); };
 
+                WinForms.Button minButton = new WinForms.Button();
+                minButton.Text = "－";
+                minButton.Size = new Draw.Size(34, 26);
+                minButton.FlatStyle = WinForms.FlatStyle.Flat;
+                minButton.FlatAppearance.BorderSize = 0;
+                minButton.FlatAppearance.MouseOverBackColor = Draw.Color.FromArgb(60, 60, 65);
+                minButton.BackColor = Draw.Color.FromArgb(42, 42, 46);
+                minButton.ForeColor = Draw.Color.FromArgb(200, 200, 200);
+                minButton.Cursor = WinForms.Cursors.Hand;
+                minButton.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Regular);
+                minButton.Click += delegate { Hide(); };
+
+                titleButtons.Controls.Add(closeButton);
+                titleButtons.Controls.Add(minButton);
+
                 titleBar.Controls.Add(titleLabel);
-                titleBar.Controls.Add(closeButton);
+                titleBar.Controls.Add(titleButtons);
 
                 // ---- Content area ----
                 WinForms.TableLayoutPanel content = new WinForms.TableLayoutPanel();
                 content.ColumnCount = 1;
                 content.Dock = WinForms.DockStyle.Fill;
-                content.Padding = new WinForms.Padding(12, 8, 12, 8);
+                content.Padding = new WinForms.Padding(10, 6, 10, 6);
                 content.Margin = new WinForms.Padding(0);
-                content.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                content.BackColor = Draw.Color.FromArgb(32, 32, 35);
                 content.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 content.RowCount = 3;
                 content.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100f));
-                content.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 220f));
-                content.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 76f));
+                content.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 195f));
+                content.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 68f));
 
                 // ================= GroupBox 1: batch replace rules =================
                 WinForms.GroupBox rulesGroup = new WinForms.GroupBox();
                 rulesGroup.Dock = WinForms.DockStyle.Fill;
-                rulesGroup.Text = "  \u6279\u91cf\u66ff\u6362\u89c4\u5219  ";
-                rulesGroup.ForeColor = Draw.Color.FromArgb(210, 210, 210);
-                rulesGroup.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                rulesGroup.Text = "  批量替换规则  ";
+                rulesGroup.ForeColor = Draw.Color.FromArgb(215, 215, 215);
+                rulesGroup.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 rulesGroup.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Bold);
                 rulesGroup.Padding = new WinForms.Padding(8, 4, 8, 6);
 
@@ -1228,50 +1528,101 @@ namespace AICADRibbon
                 rulesGroupLayout.ColumnCount = 1;
                 rulesGroupLayout.Dock = WinForms.DockStyle.Fill;
                 rulesGroupLayout.Margin = new WinForms.Padding(0);
-                rulesGroupLayout.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                rulesGroupLayout.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 rulesGroupLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 rulesGroupLayout.RowCount = 2;
                 rulesGroupLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 32f));
                 rulesGroupLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100f));
 
-                // toolbar: add-rule button + count
+                // toolbar: add-rule, paste clipboard, batch edit, export, clear + count
                 WinForms.TableLayoutPanel rulesToolbar = new WinForms.TableLayoutPanel();
-                rulesToolbar.ColumnCount = 2;
+                rulesToolbar.ColumnCount = 6;
                 rulesToolbar.Dock = WinForms.DockStyle.Fill;
                 rulesToolbar.Margin = new WinForms.Padding(0, 0, 0, 4);
-                rulesToolbar.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                rulesToolbar.BackColor = Draw.Color.FromArgb(37, 37, 40);
+                rulesToolbar.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
+                rulesToolbar.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
+                rulesToolbar.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
+                rulesToolbar.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
                 rulesToolbar.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
                 rulesToolbar.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 rulesToolbar.RowCount = 1;
                 rulesToolbar.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100f));
 
                 WinForms.Button addRuleButton = new WinForms.Button();
-                addRuleButton.Text = "\uff0b \u6dfb\u52a0\u89c4\u5219";
-                addRuleButton.Size = new Draw.Size(96, 26);
-                addRuleButton.Anchor = WinForms.AnchorStyles.Left;
+                addRuleButton.Text = "＋ 添加";
+                addRuleButton.Size = new Draw.Size(68, 25);
                 addRuleButton.FlatStyle = WinForms.FlatStyle.Flat;
                 addRuleButton.FlatAppearance.BorderColor = Draw.Color.FromArgb(0, 150, 255);
-                addRuleButton.BackColor = Draw.Color.FromArgb(45, 45, 48);
-                addRuleButton.ForeColor = Draw.Color.FromArgb(0, 150, 255);
+                addRuleButton.BackColor = Draw.Color.FromArgb(45, 45, 50);
+                addRuleButton.ForeColor = Draw.Color.FromArgb(0, 160, 255);
                 addRuleButton.Cursor = WinForms.Cursors.Hand;
-                addRuleButton.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Regular);
+                addRuleButton.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
                 addRuleButton.Click += delegate { AddRuleRow(); };
                 rulesToolbar.Controls.Add(addRuleButton, 0, 0);
 
+                WinForms.Button pasteClipButton = new WinForms.Button();
+                pasteClipButton.Text = "📋 粘贴剪贴板";
+                pasteClipButton.Size = new Draw.Size(95, 25);
+                pasteClipButton.FlatStyle = WinForms.FlatStyle.Flat;
+                pasteClipButton.FlatAppearance.BorderColor = Draw.Color.FromArgb(70, 70, 75);
+                pasteClipButton.BackColor = Draw.Color.FromArgb(45, 45, 50);
+                pasteClipButton.ForeColor = Draw.Color.FromArgb(220, 220, 220);
+                pasteClipButton.Cursor = WinForms.Cursors.Hand;
+                pasteClipButton.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+                pasteClipButton.Click += delegate { PasteRulesFromClipboard(true); };
+                rulesToolbar.Controls.Add(pasteClipButton, 1, 0);
+
+                WinForms.Button batchEditButton = new WinForms.Button();
+                batchEditButton.Text = "📝 批量导入";
+                batchEditButton.Size = new Draw.Size(85, 25);
+                batchEditButton.FlatStyle = WinForms.FlatStyle.Flat;
+                batchEditButton.FlatAppearance.BorderColor = Draw.Color.FromArgb(70, 70, 75);
+                batchEditButton.BackColor = Draw.Color.FromArgb(45, 45, 50);
+                batchEditButton.ForeColor = Draw.Color.FromArgb(220, 220, 220);
+                batchEditButton.Cursor = WinForms.Cursors.Hand;
+                batchEditButton.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+                batchEditButton.Click += delegate { OpenBatchEditDialog(); };
+                rulesToolbar.Controls.Add(batchEditButton, 2, 0);
+
+                WinForms.Button exportAllButton = new WinForms.Button();
+                exportAllButton.Text = "📤 复制全部";
+                exportAllButton.Size = new Draw.Size(85, 25);
+                exportAllButton.FlatStyle = WinForms.FlatStyle.Flat;
+                exportAllButton.FlatAppearance.BorderColor = Draw.Color.FromArgb(70, 70, 75);
+                exportAllButton.BackColor = Draw.Color.FromArgb(45, 45, 50);
+                exportAllButton.ForeColor = Draw.Color.FromArgb(220, 220, 220);
+                exportAllButton.Cursor = WinForms.Cursors.Hand;
+                exportAllButton.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+                exportAllButton.Click += delegate { ExportAllRulesToClipboard(); };
+                rulesToolbar.Controls.Add(exportAllButton, 3, 0);
+
+                WinForms.Button clearButton = new WinForms.Button();
+                clearButton.Text = "🗑 清空";
+                clearButton.Size = new Draw.Size(65, 25);
+                clearButton.FlatStyle = WinForms.FlatStyle.Flat;
+                clearButton.FlatAppearance.BorderColor = Draw.Color.FromArgb(70, 70, 75);
+                clearButton.BackColor = Draw.Color.FromArgb(45, 45, 50);
+                clearButton.ForeColor = Draw.Color.FromArgb(190, 190, 190);
+                clearButton.Cursor = WinForms.Cursors.Hand;
+                clearButton.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+                clearButton.Click += delegate { ResetAllRules(); };
+                rulesToolbar.Controls.Add(clearButton, 4, 0);
+
                 _ruleCountLabel = new WinForms.Label();
                 _ruleCountLabel.AutoSize = true;
-                _ruleCountLabel.Text = "\u5171 1 \u6761\u89c4\u5219";
+                _ruleCountLabel.Text = "共 1 条规则";
                 _ruleCountLabel.Anchor = WinForms.AnchorStyles.Right;
                 _ruleCountLabel.ForeColor = Draw.Color.FromArgb(160, 160, 160);
                 _ruleCountLabel.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
-                rulesToolbar.Controls.Add(_ruleCountLabel, 1, 0);
+                rulesToolbar.Controls.Add(_ruleCountLabel, 5, 0);
                 rulesGroupLayout.Controls.Add(rulesToolbar, 0, 0);
 
                 // scrollable rule cards
                 _rulesScroll = new WinForms.Panel();
                 _rulesScroll.Dock = WinForms.DockStyle.Fill;
                 _rulesScroll.AutoScroll = true;
-                _rulesScroll.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                _rulesScroll.BackColor = Draw.Color.FromArgb(32, 32, 35);
                 _rulesScroll.Margin = new WinForms.Padding(0);
 
                 _rulesTable = new WinForms.TableLayoutPanel();
@@ -1280,7 +1631,7 @@ namespace AICADRibbon
                 _rulesTable.AutoSize = true;
                 _rulesTable.AutoSizeMode = WinForms.AutoSizeMode.GrowAndShrink;
                 _rulesTable.Margin = new WinForms.Padding(0);
-                _rulesTable.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                _rulesTable.BackColor = Draw.Color.FromArgb(32, 32, 35);
                 _rulesTable.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 _rulesTable.RowCount = 0;
 
@@ -1292,9 +1643,9 @@ namespace AICADRibbon
                 // ================= GroupBox 2: current selection find =================
                 WinForms.GroupBox findGroup = new WinForms.GroupBox();
                 findGroup.Dock = WinForms.DockStyle.Fill;
-                findGroup.Text = "  \u67e5\u627e\u5f53\u524d\u9009\u4e2d\u6587\u5b57  ";
-                findGroup.ForeColor = Draw.Color.FromArgb(210, 210, 210);
-                findGroup.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                findGroup.Text = "  查找当前选中文字  ";
+                findGroup.ForeColor = Draw.Color.FromArgb(215, 215, 215);
+                findGroup.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 findGroup.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Bold);
                 findGroup.Padding = new WinForms.Padding(8, 2, 8, 6);
 
@@ -1302,18 +1653,18 @@ namespace AICADRibbon
                 findLayout.ColumnCount = 3;
                 findLayout.Dock = WinForms.DockStyle.Fill;
                 findLayout.Margin = new WinForms.Padding(0);
-                findLayout.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                findLayout.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 findLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
                 findLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 findLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
                 findLayout.RowCount = 3;
                 findLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 28f));
-                findLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 26f));
+                findLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 24f));
                 findLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 100f));
 
                 WinForms.Label findLabel = new WinForms.Label();
                 findLabel.AutoSize = true;
-                findLabel.Text = "\u67e5\u627e";
+                findLabel.Text = "查找:";
                 findLabel.Anchor = WinForms.AnchorStyles.Left;
                 findLabel.Margin = new WinForms.Padding(0, 2, 8, 0);
                 findLabel.ForeColor = Draw.Color.FromArgb(180, 180, 180);
@@ -1323,15 +1674,16 @@ namespace AICADRibbon
                 _findTextBox = new WinForms.TextBox();
                 _findTextBox.Dock = WinForms.DockStyle.Fill;
                 _findTextBox.Margin = new WinForms.Padding(0, 2, 8, 0);
-                _findTextBox.BackColor = Draw.Color.FromArgb(62, 62, 66);
-                _findTextBox.ForeColor = Draw.Color.FromArgb(224, 224, 224);
+                _findTextBox.BackColor = Draw.Color.FromArgb(48, 48, 52);
+                _findTextBox.ForeColor = Draw.Color.FromArgb(230, 230, 230);
                 _findTextBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
                 _findTextBox.TextChanged += OnFindTextChanged;
                 _findTextBox.KeyDown += OnFindTextBoxKeyDown;
+                SetCueBanner(_findTextBox, "输入要在当前选中文字中查找的内容...");
                 findLayout.Controls.Add(_findTextBox, 1, 0);
 
                 WinForms.Button findButton = new WinForms.Button();
-                findButton.Text = "\u67e5\u627e";
+                findButton.Text = "查找";
                 findButton.Size = new Draw.Size(72, 26);
                 findButton.Anchor = WinForms.AnchorStyles.Right;
                 findButton.FlatStyle = WinForms.FlatStyle.Flat;
@@ -1344,7 +1696,7 @@ namespace AICADRibbon
 
                 _findSummaryLabel = new WinForms.Label();
                 _findSummaryLabel.AutoSize = true;
-                _findSummaryLabel.Text = "\u5728\u5f53\u524d\u9009\u4e2d\u7684\u6587\u5b57\u4e2d\u67e5\u627e\uff0c\u7ed3\u679c\u5c06\u663e\u793a\u5728\u4e0b\u65b9";
+                _findSummaryLabel.Text = "在当前选中的文字中查找，结果将显示在下方";
                 _findSummaryLabel.Anchor = WinForms.AnchorStyles.Left;
                 _findSummaryLabel.ForeColor = Draw.Color.FromArgb(140, 140, 140);
                 _findSummaryLabel.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
@@ -1354,7 +1706,7 @@ namespace AICADRibbon
                 _findResultsListBox = new WinForms.ListBox();
                 _findResultsListBox.Dock = WinForms.DockStyle.Fill;
                 _findResultsListBox.Margin = new WinForms.Padding(0, 2, 0, 0);
-                _findResultsListBox.BackColor = Draw.Color.FromArgb(52, 52, 56);
+                _findResultsListBox.BackColor = Draw.Color.FromArgb(42, 42, 46);
                 _findResultsListBox.ForeColor = Draw.Color.FromArgb(224, 224, 224);
                 _findResultsListBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
                 _findResultsListBox.HorizontalScrollbar = true;
@@ -1370,9 +1722,9 @@ namespace AICADRibbon
                 // ================= GroupBox 3: actions =================
                 WinForms.GroupBox actionGroup = new WinForms.GroupBox();
                 actionGroup.Dock = WinForms.DockStyle.Fill;
-                actionGroup.Text = "  \u64cd\u4f5c  ";
-                actionGroup.ForeColor = Draw.Color.FromArgb(210, 210, 210);
-                actionGroup.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                actionGroup.Text = "  操作  ";
+                actionGroup.ForeColor = Draw.Color.FromArgb(215, 215, 215);
+                actionGroup.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 actionGroup.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Bold);
                 actionGroup.Padding = new WinForms.Padding(8, 2, 8, 6);
 
@@ -1380,7 +1732,7 @@ namespace AICADRibbon
                 actionLayout.ColumnCount = 2;
                 actionLayout.Dock = WinForms.DockStyle.Fill;
                 actionLayout.Margin = new WinForms.Padding(0);
-                actionLayout.BackColor = Draw.Color.FromArgb(45, 45, 48);
+                actionLayout.BackColor = Draw.Color.FromArgb(37, 37, 40);
                 actionLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
                 actionLayout.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
                 actionLayout.RowCount = 1;
@@ -1388,14 +1740,14 @@ namespace AICADRibbon
 
                 WinForms.Label actionHint = new WinForms.Label();
                 actionHint.AutoSize = true;
-                actionHint.Text = "\u66ff\u6362\u5c06\u4f5c\u7528\u4e8e CAD \u4e2d\u5f53\u524d\u9009\u4e2d\u7684 TEXT/MTEXT \u6587\u5b57";
+                actionHint.Text = "替换将作用于 CAD 中当前选中的 TEXT/MTEXT 文字";
                 actionHint.Anchor = WinForms.AnchorStyles.Left;
                 actionHint.ForeColor = Draw.Color.FromArgb(160, 160, 160);
                 actionHint.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
                 actionLayout.Controls.Add(actionHint, 0, 0);
 
                 WinForms.Button replaceButton = new WinForms.Button();
-                replaceButton.Text = "\u66ff\u6362  (Ctrl+Enter)";
+                replaceButton.Text = "替换  (Ctrl+Enter)";
                 replaceButton.Size = new Draw.Size(170, 30);
                 replaceButton.Anchor = WinForms.AnchorStyles.Right;
                 replaceButton.FlatStyle = WinForms.FlatStyle.Flat;
@@ -1414,8 +1766,8 @@ namespace AICADRibbon
                 _statusLabel.Text = DefaultStatusText;
                 _statusLabel.TextAlign = Draw.ContentAlignment.MiddleLeft;
                 _statusLabel.Padding = new WinForms.Padding(12, 0, 0, 0);
-                _statusLabel.BackColor = Draw.Color.FromArgb(37, 37, 38);
-                _statusLabel.ForeColor = Draw.Color.FromArgb(150, 150, 150);
+                _statusLabel.BackColor = Draw.Color.FromArgb(30, 30, 32);
+                _statusLabel.ForeColor = Draw.Color.FromArgb(160, 160, 160);
                 _statusLabel.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
 
                 _statusTimer = new WinForms.Timer();
@@ -1442,6 +1794,15 @@ namespace AICADRibbon
                 }
             }
 
+            protected override void OnPaint(WinForms.PaintEventArgs e)
+            {
+                base.OnPaint(e);
+                using (Draw.Pen borderPen = new Draw.Pen(Draw.Color.FromArgb(0, 122, 204), 1))
+                {
+                    e.Graphics.DrawRectangle(borderPen, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
+                }
+            }
+
             protected override void OnKeyDown(WinForms.KeyEventArgs e)
             {
                 if (e.KeyCode == WinForms.Keys.Escape)
@@ -1459,8 +1820,310 @@ namespace AICADRibbon
             private void AddRuleRow()
             {
                 _syncing = true;
+                ReplaceRuleRow row;
                 try
                 {
+                    row = AddRuleRowCore(string.Empty, string.Empty);
+                }
+                finally
+                {
+                    _syncing = false;
+                }
+                RenumberRules();
+                UpdateRuleCount();
+                if (row != null)
+                {
+                    row.SearchBox.Focus();
+                }
+            }
+
+            private ReplaceRuleRow AddRuleRowCore(string searchText, string valueText)
+            {
+                ReplaceRuleRow row = new ReplaceRuleRow();
+
+                WinForms.Panel card = new WinForms.Panel();
+                card.Dock = WinForms.DockStyle.Top;
+                card.Height = 82;
+                card.Margin = new WinForms.Padding(0, 3, 0, 3);
+                card.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                card.BorderStyle = WinForms.BorderStyle.FixedSingle;
+                row.Card = card;
+
+                WinForms.TableLayoutPanel inner = new WinForms.TableLayoutPanel();
+                inner.Dock = WinForms.DockStyle.Fill;
+                inner.ColumnCount = 2;
+                inner.Padding = new WinForms.Padding(6, 4, 6, 4);
+                inner.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                inner.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
+                inner.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
+                inner.RowCount = 3;
+                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 22f));
+                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 25f));
+                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 25f));
+
+                // Row 0: number badge + actions
+                WinForms.FlowLayoutPanel numberFlow = new WinForms.FlowLayoutPanel();
+                numberFlow.Dock = WinForms.DockStyle.Fill;
+                numberFlow.FlowDirection = WinForms.FlowDirection.LeftToRight;
+                numberFlow.WrapContents = false;
+                numberFlow.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                numberFlow.Margin = new WinForms.Padding(0);
+
+                WinForms.Label number = new WinForms.Label();
+                number.AutoSize = false;
+                number.Size = new Draw.Size(26, 18);
+                number.Text = "1";
+                number.TextAlign = Draw.ContentAlignment.MiddleCenter;
+                number.Margin = new WinForms.Padding(0, 1, 6, 0);
+                number.BackColor = Draw.Color.FromArgb(0, 122, 204);
+                number.ForeColor = Draw.Color.White;
+                number.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Bold);
+                row.NumberLabel = number;
+
+                WinForms.Label caption = new WinForms.Label();
+                caption.AutoSize = true;
+                caption.Text = "规则";
+                caption.Anchor = WinForms.AnchorStyles.Left;
+                caption.Margin = new WinForms.Padding(0, 2, 0, 0);
+                caption.ForeColor = Draw.Color.FromArgb(160, 160, 160);
+                caption.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+
+                numberFlow.Controls.Add(number);
+                numberFlow.Controls.Add(caption);
+                inner.Controls.Add(numberFlow, 0, 0);
+
+                // Actions: Swap, Duplicate, Delete
+                WinForms.FlowLayoutPanel actionFlow = new WinForms.FlowLayoutPanel();
+                actionFlow.Dock = WinForms.DockStyle.Fill;
+                actionFlow.FlowDirection = WinForms.FlowDirection.RightToLeft;
+                actionFlow.WrapContents = false;
+                actionFlow.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                actionFlow.Margin = new WinForms.Padding(0);
+
+                WinForms.Button removeButton = new WinForms.Button();
+                removeButton.Text = "\u00d7";
+                removeButton.Size = new Draw.Size(22, 20);
+                removeButton.FlatStyle = WinForms.FlatStyle.Flat;
+                removeButton.FlatAppearance.BorderSize = 0;
+                removeButton.FlatAppearance.MouseOverBackColor = Draw.Color.FromArgb(196, 43, 28);
+                removeButton.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                removeButton.ForeColor = Draw.Color.FromArgb(180, 180, 180);
+                removeButton.Cursor = WinForms.Cursors.Hand;
+                removeButton.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Bold);
+                removeButton.Click += delegate { RemoveRuleRow(row); };
+                row.RemoveButton = removeButton;
+
+                WinForms.Button copyButton = new WinForms.Button();
+                copyButton.Text = "📄 复制";
+                copyButton.Size = new Draw.Size(56, 20);
+                copyButton.FlatStyle = WinForms.FlatStyle.Flat;
+                copyButton.FlatAppearance.BorderSize = 0;
+                copyButton.FlatAppearance.MouseOverBackColor = Draw.Color.FromArgb(60, 60, 66);
+                copyButton.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                copyButton.ForeColor = Draw.Color.FromArgb(180, 180, 180);
+                copyButton.Cursor = WinForms.Cursors.Hand;
+                copyButton.Font = new Draw.Font(Font.FontFamily, 8f, Draw.FontStyle.Regular);
+                copyButton.Click += delegate { DuplicateRuleRow(row); };
+                row.CopyButton = copyButton;
+
+                WinForms.Button swapButton = new WinForms.Button();
+                swapButton.Text = "⇄ 互换";
+                swapButton.Size = new Draw.Size(56, 20);
+                swapButton.FlatStyle = WinForms.FlatStyle.Flat;
+                swapButton.FlatAppearance.BorderSize = 0;
+                swapButton.FlatAppearance.MouseOverBackColor = Draw.Color.FromArgb(60, 60, 66);
+                swapButton.BackColor = Draw.Color.FromArgb(44, 44, 48);
+                swapButton.ForeColor = Draw.Color.FromArgb(180, 180, 180);
+                swapButton.Cursor = WinForms.Cursors.Hand;
+                swapButton.Font = new Draw.Font(Font.FontFamily, 8f, Draw.FontStyle.Regular);
+                swapButton.Click += delegate { SwapRuleRow(row); };
+                row.SwapButton = swapButton;
+
+                actionFlow.Controls.Add(removeButton);
+                actionFlow.Controls.Add(copyButton);
+                actionFlow.Controls.Add(swapButton);
+                inner.Controls.Add(actionFlow, 1, 0);
+
+                // Row 1: Search Box row
+                WinForms.TableLayoutPanel searchLine = new WinForms.TableLayoutPanel();
+                searchLine.Dock = WinForms.DockStyle.Fill;
+                searchLine.ColumnCount = 2;
+                searchLine.Margin = new WinForms.Padding(0, 1, 0, 1);
+                searchLine.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Absolute, 42f));
+                searchLine.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
+                searchLine.RowCount = 1;
+
+                WinForms.Label searchLbl = new WinForms.Label();
+                searchLbl.Text = "查找:";
+                searchLbl.Dock = WinForms.DockStyle.Fill;
+                searchLbl.TextAlign = Draw.ContentAlignment.MiddleLeft;
+                searchLbl.ForeColor = Draw.Color.FromArgb(170, 170, 170);
+                searchLbl.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+                searchLine.Controls.Add(searchLbl, 0, 0);
+
+                WinForms.TextBox searchBox = new WinForms.TextBox();
+                searchBox.Dock = WinForms.DockStyle.Fill;
+                searchBox.Margin = new WinForms.Padding(0);
+                searchBox.BackColor = Draw.Color.FromArgb(28, 28, 30);
+                searchBox.ForeColor = Draw.Color.FromArgb(235, 235, 235);
+                searchBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
+                searchBox.Font = new Draw.Font(Font.FontFamily, 9.5f, Draw.FontStyle.Regular);
+                searchBox.Text = searchText ?? string.Empty;
+                searchBox.TextChanged += OnRuleBoxTextChanged;
+                searchBox.KeyDown += OnRuleBoxKeyDown;
+                SetCueBanner(searchBox, "输入要查找的内容...");
+                row.SearchBox = searchBox;
+                searchLine.Controls.Add(searchBox, 1, 0);
+
+                inner.SetColumnSpan(searchLine, 2);
+                inner.Controls.Add(searchLine, 0, 1);
+
+                // Row 2: Value Box row
+                WinForms.TableLayoutPanel valueLine = new WinForms.TableLayoutPanel();
+                valueLine.Dock = WinForms.DockStyle.Fill;
+                valueLine.ColumnCount = 2;
+                valueLine.Margin = new WinForms.Padding(0, 1, 0, 1);
+                valueLine.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Absolute, 42f));
+                valueLine.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
+                valueLine.RowCount = 1;
+
+                WinForms.Label valueLbl = new WinForms.Label();
+                valueLbl.Text = "替换:";
+                valueLbl.Dock = WinForms.DockStyle.Fill;
+                valueLbl.TextAlign = Draw.ContentAlignment.MiddleLeft;
+                valueLbl.ForeColor = Draw.Color.FromArgb(170, 170, 170);
+                valueLbl.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
+                valueLine.Controls.Add(valueLbl, 0, 0);
+
+                WinForms.TextBox valueBox = new WinForms.TextBox();
+                valueBox.Dock = WinForms.DockStyle.Fill;
+                valueBox.Margin = new WinForms.Padding(0);
+                valueBox.BackColor = Draw.Color.FromArgb(28, 28, 30);
+                valueBox.ForeColor = Draw.Color.FromArgb(235, 235, 235);
+                valueBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
+                valueBox.Font = new Draw.Font(Font.FontFamily, 9.5f, Draw.FontStyle.Regular);
+                valueBox.Text = valueText ?? string.Empty;
+                valueBox.TextChanged += OnRuleBoxTextChanged;
+                valueBox.KeyDown += OnRuleBoxKeyDown;
+                SetCueBanner(valueBox, "替换为 (留空表示删除)...");
+                row.ValueBox = valueBox;
+                valueLine.Controls.Add(valueBox, 1, 0);
+
+                inner.SetColumnSpan(valueLine, 2);
+                inner.Controls.Add(valueLine, 0, 2);
+
+                card.Controls.Add(inner);
+                _rulesTable.Controls.Add(card);
+                _rulesTable.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 88f));
+                _ruleRows.Add(row);
+
+                if (!_syncing)
+                {
+                    SyncRulesToOwner();
+                }
+
+                return row;
+            }
+
+            private void DuplicateRuleRow(ReplaceRuleRow sourceRow)
+            {
+                int index = _ruleRows.IndexOf(sourceRow);
+                string search = sourceRow.SearchBox.Text;
+                string value = sourceRow.ValueBox.Text;
+
+                _syncing = true;
+                ReplaceRuleRow newRow;
+                try
+                {
+                    newRow = AddRuleRowCore(search, value);
+                    if (index >= 0 && index < _ruleRows.Count - 1)
+                    {
+                        // 移动到紧邻下方
+                        _ruleRows.Remove(newRow);
+                        _ruleRows.Insert(index + 1, newRow);
+                        RebuildTableCards();
+                    }
+                }
+                finally
+                {
+                    _syncing = false;
+                }
+
+                RenumberRules();
+                UpdateRuleCount();
+                SyncRulesToOwner();
+
+                newRow.SearchBox.Focus();
+                newRow.SearchBox.SelectAll();
+                FlashStatus("已复制第 " + (index + 1) + " 条规则到新行");
+            }
+
+            private void SwapRuleRow(ReplaceRuleRow row)
+            {
+                string temp = row.SearchBox.Text;
+                row.SearchBox.Text = row.ValueBox.Text;
+                row.ValueBox.Text = temp;
+                SyncRulesToOwner();
+                FlashStatus("已互换查找与替换内容");
+            }
+
+            private void RemoveRuleRow(ReplaceRuleRow row)
+            {
+                if (_ruleRows.Count <= 1)
+                {
+                    row.SearchBox.Text = string.Empty;
+                    row.ValueBox.Text = string.Empty;
+                    SyncRulesToOwner();
+                    FlashStatus("已清空当前规则");
+                    return;
+                }
+                _rulesTable.Controls.Remove(row.Card);
+                row.Card.Dispose();
+                _ruleRows.Remove(row);
+                RebuildTableCards();
+                RenumberRules();
+                UpdateRuleCount();
+                SyncRulesToOwner();
+            }
+
+            private void RebuildTableCards()
+            {
+                _rulesTable.SuspendLayout();
+                _rulesTable.Controls.Clear();
+                _rulesTable.RowStyles.Clear();
+                foreach (ReplaceRuleRow r in _ruleRows)
+                {
+                    _rulesTable.Controls.Add(r.Card);
+                    _rulesTable.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 88f));
+                }
+                _rulesTable.ResumeLayout(true);
+            }
+
+            private void RenumberRules()
+            {
+                for (int i = 0; i < _ruleRows.Count; i++)
+                {
+                    _ruleRows[i].NumberLabel.Text = (i + 1).ToString();
+                }
+            }
+
+            private void UpdateRuleCount()
+            {
+                _ruleCountLabel.Text = "共 " + _ruleRows.Count.ToString() + " 条规则";
+            }
+
+            private void ResetAllRules()
+            {
+                _syncing = true;
+                try
+                {
+                    _rulesTable.Controls.Clear();
+                    _rulesTable.RowStyles.Clear();
+                    foreach (ReplaceRuleRow r in _ruleRows)
+                    {
+                        r.Card.Dispose();
+                    }
+                    _ruleRows.Clear();
                     AddRuleRowCore(string.Empty, string.Empty);
                 }
                 finally
@@ -1469,161 +2132,147 @@ namespace AICADRibbon
                 }
                 RenumberRules();
                 UpdateRuleCount();
-                if (_ruleRows.Count > 0)
-                {
-                    _ruleRows[_ruleRows.Count - 1].SearchBox.Focus();
-                }
+                SyncRulesToOwner();
+                FlashStatus("已重置所有替换规则");
             }
 
-            private void AddRuleRowCore(string searchText, string valueText)
+            private void PasteRulesFromClipboard(bool append)
             {
-                ReplaceRuleRow row = new ReplaceRuleRow();
-
-                WinForms.Panel card = new WinForms.Panel();
-                card.Dock = WinForms.DockStyle.Top;
-                card.Height = 104;
-                card.Margin = new WinForms.Padding(0, 3, 0, 3);
-                card.BackColor = Draw.Color.FromArgb(52, 52, 56);
-                card.BorderStyle = WinForms.BorderStyle.FixedSingle;
-                row.Card = card;
-
-                WinForms.TableLayoutPanel inner = new WinForms.TableLayoutPanel();
-                inner.Dock = WinForms.DockStyle.Fill;
-                inner.ColumnCount = 2;
-                inner.Padding = new WinForms.Padding(8, 3, 8, 5);
-                inner.BackColor = Draw.Color.FromArgb(52, 52, 56);
-                inner.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.Percent, 100f));
-                inner.ColumnStyles.Add(new WinForms.ColumnStyle(WinForms.SizeType.AutoSize));
-                inner.RowCount = 4;
-                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 22f));
-                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 28f));
-                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 18f));
-                inner.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 28f));
-
-                // Row 0: number + caption (left), remove button (right)
-                WinForms.FlowLayoutPanel numberFlow = new WinForms.FlowLayoutPanel();
-                numberFlow.Dock = WinForms.DockStyle.Fill;
-                numberFlow.FlowDirection = WinForms.FlowDirection.LeftToRight;
-                numberFlow.WrapContents = false;
-                numberFlow.BackColor = Draw.Color.FromArgb(52, 52, 56);
-                numberFlow.Margin = new WinForms.Padding(0);
-
-                WinForms.Label number = new WinForms.Label();
-                number.AutoSize = true;
-                number.Text = "1";
-                number.Anchor = WinForms.AnchorStyles.Left;
-                number.Margin = new WinForms.Padding(0, 1, 8, 0);
-                number.ForeColor = Draw.Color.FromArgb(0, 150, 255);
-                number.Font = new Draw.Font(Font.FontFamily, 10f, Draw.FontStyle.Bold);
-                row.NumberLabel = number;
-
-                WinForms.Label searchCaption = new WinForms.Label();
-                searchCaption.AutoSize = true;
-                searchCaption.Text = "\u67e5\u627e\u6587\u5b57";
-                searchCaption.Anchor = WinForms.AnchorStyles.Left;
-                searchCaption.Margin = new WinForms.Padding(0, 2, 0, 0);
-                searchCaption.ForeColor = Draw.Color.FromArgb(170, 170, 170);
-                searchCaption.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
-                numberFlow.Controls.Add(number);
-                numberFlow.Controls.Add(searchCaption);
-                inner.Controls.Add(numberFlow, 0, 0);
-
-                WinForms.Button removeButton = new WinForms.Button();
-                removeButton.Text = "\u00d7";
-                removeButton.Size = new Draw.Size(26, 20);
-                removeButton.Anchor = WinForms.AnchorStyles.Right;
-                removeButton.FlatStyle = WinForms.FlatStyle.Flat;
-                removeButton.FlatAppearance.BorderSize = 0;
-                removeButton.FlatAppearance.MouseOverBackColor = Draw.Color.FromArgb(196, 43, 28);
-                removeButton.BackColor = Draw.Color.FromArgb(52, 52, 56);
-                removeButton.ForeColor = Draw.Color.FromArgb(170, 170, 170);
-                removeButton.Cursor = WinForms.Cursors.Hand;
-                removeButton.Font = new Draw.Font(Font.FontFamily, 9f, Draw.FontStyle.Bold);
-                removeButton.Click += delegate { RemoveRuleRow(row); };
-                inner.Controls.Add(removeButton, 1, 0);
-
-                // Row 1: search box
-                WinForms.TextBox searchBox = new WinForms.TextBox();
-                searchBox.Dock = WinForms.DockStyle.Fill;
-                searchBox.Margin = new WinForms.Padding(0, 2, 0, 0);
-                searchBox.BackColor = Draw.Color.FromArgb(62, 62, 66);
-                searchBox.ForeColor = Draw.Color.FromArgb(230, 230, 230);
-                searchBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
-                searchBox.Font = new Draw.Font(Font.FontFamily, 9.5f, Draw.FontStyle.Regular);
-                searchBox.TextChanged += OnRuleBoxTextChanged;
-                searchBox.KeyDown += OnRuleBoxKeyDown;
-                row.SearchBox = searchBox;
-                inner.SetColumnSpan(searchBox, 2);
-                inner.Controls.Add(searchBox, 0, 1);
-
-                // Row 2: value caption
-                WinForms.Label valueCaption = new WinForms.Label();
-                valueCaption.AutoSize = true;
-                valueCaption.Text = "\u66ff\u6362\u6587\u5b57";
-                valueCaption.Anchor = WinForms.AnchorStyles.Left;
-                valueCaption.Margin = new WinForms.Padding(0, 2, 0, 0);
-                valueCaption.ForeColor = Draw.Color.FromArgb(170, 170, 170);
-                valueCaption.Font = new Draw.Font(Font.FontFamily, 8.5f, Draw.FontStyle.Regular);
-                inner.SetColumnSpan(valueCaption, 2);
-                inner.Controls.Add(valueCaption, 0, 2);
-
-                // Row 3: value box
-                WinForms.TextBox valueBox = new WinForms.TextBox();
-                valueBox.Dock = WinForms.DockStyle.Fill;
-                valueBox.Margin = new WinForms.Padding(0, 2, 0, 0);
-                valueBox.BackColor = Draw.Color.FromArgb(62, 62, 66);
-                valueBox.ForeColor = Draw.Color.FromArgb(230, 230, 230);
-                valueBox.BorderStyle = WinForms.BorderStyle.FixedSingle;
-                valueBox.Font = new Draw.Font(Font.FontFamily, 9.5f, Draw.FontStyle.Regular);
-                valueBox.TextChanged += OnRuleBoxTextChanged;
-                valueBox.KeyDown += OnRuleBoxKeyDown;
-                row.ValueBox = valueBox;
-                inner.SetColumnSpan(valueBox, 2);
-                inner.Controls.Add(valueBox, 0, 3);
-
-                card.Controls.Add(inner);
-                _rulesTable.Controls.Add(card);
-                _rulesTable.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Absolute, 110f));
-                _ruleRows.Add(row);
-
-                if (!_syncing)
+                string clip = null;
+                try
                 {
-                    SyncRulesToOwner();
+                    if (WinForms.Clipboard.ContainsText())
+                    {
+                        clip = WinForms.Clipboard.GetText();
+                    }
                 }
-            }
-
-            private void RemoveRuleRow(ReplaceRuleRow row)
-            {
-                if (_ruleRows.Count <= 1)
+                catch
                 {
-                    FlashStatus("\u81f3\u5c11\u4fdd\u7559\u4e00\u6761\u89c4\u5219");
+                }
+
+                if (string.IsNullOrWhiteSpace(clip))
+                {
+                    FlashStatus("剪贴板中没有文本内容");
                     return;
                 }
-                _rulesTable.Controls.Remove(row.Card);
-                row.Card.Dispose();
-                _ruleRows.Remove(row);
+
+                List<string[]> pairs = ParseRulesFromText(clip);
+                if (pairs.Count == 0)
+                {
+                    FlashStatus("未从剪贴板识别出有效规则");
+                    return;
+                }
+
+                ApplyParsedRules(pairs, append);
+                FlashStatus("已从剪贴板" + (append ? "追加" : "导入") + " " + pairs.Count + " 条规则");
+            }
+
+            private void OpenBatchEditDialog()
+            {
+                // 将现有规则导出为文本供编辑
+                List<string> lines = new List<string>();
+                foreach (ReplaceRuleRow row in _ruleRows)
+                {
+                    if (!string.IsNullOrEmpty(row.SearchBox.Text) || !string.IsNullOrEmpty(row.ValueBox.Text))
+                    {
+                        lines.Add(row.SearchBox.Text + "\t" + row.ValueBox.Text);
+                    }
+                }
+
+                string currentText = string.Join("\r\n", lines);
+                if (string.IsNullOrEmpty(currentText))
+                {
+                    try
+                    {
+                        if (WinForms.Clipboard.ContainsText())
+                        {
+                            currentText = WinForms.Clipboard.GetText();
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                using (BatchRulesDialogForm dlg = new BatchRulesDialogForm(currentText))
+                {
+                    if (dlg.ShowDialog(this) == WinForms.DialogResult.OK && dlg.ParsedRules != null && dlg.ParsedRules.Count > 0)
+                    {
+                        ApplyParsedRules(dlg.ParsedRules, dlg.IsAppend);
+                        FlashStatus("已批量导入 " + dlg.ParsedRules.Count + " 条规则");
+                    }
+                }
+            }
+
+            private void ExportAllRulesToClipboard()
+            {
+                List<string> lines = new List<string>();
+                foreach (ReplaceRuleRow row in _ruleRows)
+                {
+                    if (!string.IsNullOrEmpty(row.SearchBox.Text) || !string.IsNullOrEmpty(row.ValueBox.Text))
+                    {
+                        lines.Add(row.SearchBox.Text + "\t" + row.ValueBox.Text);
+                    }
+                }
+
+                if (lines.Count == 0)
+                {
+                    FlashStatus("当前没有非空的替换规则可复制");
+                    return;
+                }
+
+                string text = string.Join("\r\n", lines);
+                try
+                {
+                    WinForms.Clipboard.SetText(text);
+                    FlashStatus("已复制 " + lines.Count + " 条规则到剪贴板 (Excel 制表符格式)");
+                }
+                catch (System.Exception ex)
+                {
+                    FlashStatus("复制到剪贴板失败: " + ex.Message);
+                }
+            }
+
+            private void ApplyParsedRules(List<string[]> pairs, bool append)
+            {
+                _syncing = true;
+                try
+                {
+                    if (!append)
+                    {
+                        _rulesTable.Controls.Clear();
+                        _rulesTable.RowStyles.Clear();
+                        foreach (ReplaceRuleRow r in _ruleRows)
+                        {
+                            r.Card.Dispose();
+                        }
+                        _ruleRows.Clear();
+                    }
+                    else if (_ruleRows.Count == 1 && string.IsNullOrEmpty(_ruleRows[0].SearchBox.Text) && string.IsNullOrEmpty(_ruleRows[0].ValueBox.Text))
+                    {
+                        // 如果仅有一条空白规则，直接覆盖
+                        _rulesTable.Controls.Clear();
+                        _rulesTable.RowStyles.Clear();
+                        _ruleRows[0].Card.Dispose();
+                        _ruleRows.Clear();
+                    }
+
+                    foreach (string[] pair in pairs)
+                    {
+                        AddRuleRowCore(pair[0], pair[1]);
+                    }
+                }
+                finally
+                {
+                    _syncing = false;
+                }
+
                 RenumberRules();
                 UpdateRuleCount();
                 SyncRulesToOwner();
             }
 
-            private void RenumberRules()
-            {
-                for (int i = 0; i < _ruleRows.Count; i++)
-                {
-                    _ruleRows[i].NumberLabel.Text = i < 20
-                        ? ((char)(0x2460 + i)).ToString()
-                        : (i + 1).ToString();
-                }
-            }
-
-            private void UpdateRuleCount()
-            {
-                _ruleCountLabel.Text = "\u5171 " + _ruleRows.Count.ToString() + " \u6761\u89c4\u5219";
-            }
-
-            // ---- External sync (the rest of the plugin still works on two
-            //      newline-joined multi-line strings; rule cards map 1:1 to lines) ----
+            // ---- External sync ----
 
             private void SyncRulesToOwner()
             {
@@ -1642,10 +2291,6 @@ namespace AICADRibbon
                 }
                 _syncedSearchText = string.Join("\n", searchLines);
                 _syncedValueText = string.Join("\n", valueLines);
-                // The values below come from this panel itself. Suppress the
-                // owner's sync-echo (Update* -> SyncReplaceTextToPanel) so the
-                // stale cached counterpart is not pushed back and does not
-                // trigger a rebuild while the user is typing.
                 _owner._replacePanelSuppressSync = true;
                 try
                 {
@@ -1689,10 +2334,6 @@ namespace AICADRibbon
             public void SetReplaceSearchText(string value)
             {
                 string text = value ?? string.Empty;
-                // Guard against the sync echo: when the value coming back from
-                // the owner is identical to what the panel already holds, do not
-                // rebuild the rule cards (rebuilding mid-typing would destroy the
-                // focused TextBox and swallow the typed character).
                 bool sameAsPanel = string.Equals(_syncedSearchText, text, StringComparison.Ordinal);
                 if (sameAsPanel && _ruleRows.Count > 0)
                 {
@@ -1754,8 +2395,8 @@ namespace AICADRibbon
                 string text = searchText ?? string.Empty;
                 FindMatchItem[] items = matches ?? new FindMatchItem[0];
 
-                _findSummaryLabel.Text = "\u67e5\u627e\u201c" + text + "\u201d\uff0c\u5171 " + items.Length +
-                    " \u6761" + (items.Length > 0 ? "\uff1b\u53cc\u51fb\u6216\u6309 Enter \u5b9a\u4f4d" : string.Empty);
+                _findSummaryLabel.Text = "查找“" + text + "”，共 " + items.Length +
+                    " 条" + (items.Length > 0 ? "；双击或按 Enter 定位" : string.Empty);
                 _findSummaryLabel.ForeColor = items.Length > 0
                     ? Draw.Color.FromArgb(180, 180, 180)
                     : Draw.Color.FromArgb(220, 150, 90);
@@ -1816,10 +2457,56 @@ namespace AICADRibbon
 
             private void OnRuleBoxKeyDown(object sender, WinForms.KeyEventArgs e)
             {
+                WinForms.TextBox currentBox = sender as WinForms.TextBox;
+                ReplaceRuleRow currentRow = null;
+                foreach (ReplaceRuleRow r in _ruleRows)
+                {
+                    if (r.SearchBox == currentBox || r.ValueBox == currentBox)
+                    {
+                        currentRow = r;
+                        break;
+                    }
+                }
+
+                // Ctrl+Enter: 立即执行替换
                 if (e.KeyCode == WinForms.Keys.Enter && e.Control)
                 {
                     e.SuppressKeyPress = true;
                     ExecuteReplaceNow();
+                    return;
+                }
+
+                // Ctrl+D: 复制当前规则
+                if (e.KeyCode == WinForms.Keys.D && e.Control && currentRow != null)
+                {
+                    e.SuppressKeyPress = true;
+                    DuplicateRuleRow(currentRow);
+                    return;
+                }
+
+                // 单独 Enter 键跳格
+                if (e.KeyCode == WinForms.Keys.Enter && !e.Shift && !e.Alt && currentRow != null)
+                {
+                    e.SuppressKeyPress = true;
+                    if (currentBox == currentRow.SearchBox)
+                    {
+                        currentRow.ValueBox.Focus();
+                        currentRow.ValueBox.SelectAll();
+                    }
+                    else if (currentBox == currentRow.ValueBox)
+                    {
+                        int idx = _ruleRows.IndexOf(currentRow);
+                        if (idx >= 0 && idx < _ruleRows.Count - 1)
+                        {
+                            _ruleRows[idx + 1].SearchBox.Focus();
+                            _ruleRows[idx + 1].SearchBox.SelectAll();
+                        }
+                        else
+                        {
+                            AddRuleRow();
+                        }
+                    }
+                    return;
                 }
             }
 
@@ -1832,7 +2519,7 @@ namespace AICADRibbon
             {
                 SyncRulesToOwner();
                 _owner.ExecuteReplaceFromFloatingPanel(_syncedSearchText, _syncedValueText);
-                FlashStatus("\u66ff\u6362\u547d\u4ee4\u5df2\u53d1\u9001\uff0c\u7ed3\u679c\u8bf7\u67e5\u770b CAD \u547d\u4ee4\u884c");
+                FlashStatus("替换命令已发送，结果请查看 CAD 命令行");
             }
 
             private void FlashStatus(string message)
@@ -1845,7 +2532,7 @@ namespace AICADRibbon
             private void OnFindTextChanged(object sender, EventArgs e)
             {
                 _owner.UpdateFindText(_findTextBox.Text);
-                _findSummaryLabel.Text = "\u5728\u5f53\u524d\u9009\u4e2d\u7684\u6587\u5b57\u4e2d\u67e5\u627e\uff0c\u7ed3\u679c\u5c06\u663e\u793a\u5728\u4e0b\u65b9";
+                _findSummaryLabel.Text = "在当前选中的文字中查找，结果将显示在下方";
                 _findSummaryLabel.ForeColor = Draw.Color.FromArgb(140, 140, 140);
                 _findResultsListBox.Items.Clear();
             }
@@ -1861,7 +2548,7 @@ namespace AICADRibbon
                 if (item != null)
                 {
                     _owner.ExecuteFindResultJump(item.Handle);
-                    FlashStatus("\u5df2\u5b9a\u4f4d\u5230\u7b2c " + item.Index + " \u6761\u67e5\u627e\u7ed3\u679c");
+                    FlashStatus("已定位到第 " + item.Index + " 条查找结果");
                 }
             }
 

@@ -130,9 +130,17 @@ def run_command_checks():
     checks = [
         'check_fdx_static.py',
         'check_cc_static.py',
+        'check_c1c2_static.py',
         'check_des_static.py',
         'check_gtx_static.py',
         'check_xy_static.py',
+        'check_hddl_static.py',
+        'check_xyg_static.py',
+        'check_hb_static.py',
+        'check_ys1_static.py',
+        'check_aicad_static.py',
+        'check_ming_static.py',
+        'check_atw_static.py',
     ]
     for name in checks:
         path = tools / name

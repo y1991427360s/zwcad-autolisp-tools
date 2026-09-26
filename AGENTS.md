@@ -26,10 +26,20 @@
 - 排序统一使用 `aa:merge-sort`；禁止大列表使用 `vl-sort`。ZTF 小列表沿用 `aa:insert-sort`。
 - AutoLISP 的 `last` 直接返回最后一个元素，不是末尾子列表；取最后一个坐标点使用 `(last pts)`，不得误写成 `(car (last pts))`。
 - `FDX` 分配后直接复用 `dx:apply-group`，不得调用交互式 `c:DX` 造成二次选择或嵌套撤销组；保留本批恢复逻辑。离线检查运行 `python tools/check_fdx_static.py`。
-- `CC` 读取已有剪贴板，预选单个文字后按两点位移复制，仅替换副本完整内容；不得改回提取源文字到剪贴板或调用 `c:QE`。离线检查运行 `python tools/check_cc_static.py`，使用说明见 `docs/CC.md`。
-- 改动 AA整合版本.lsp 后，交付前优先运行一键静态检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对，并串跑 FDX/CC/DES/GTX/XY 专项检查）。
+- `CC` 读取已有剪贴板，预选单个文字后按基点连续复制并替换副本完整内容；不得改回提取源文字到剪贴板或调用 `c:QE`。离线检查运行 `python tools/check_cc_static.py`，使用说明见 `docs/CC.md`。
+- `HB` 用于电缆清册并入行合并，就地修改主电缆芯数（如3改4）并在原理号末尾向后堆积追加，消除并入行；无需新建表格。离线检查运行 `python tools/check_hb_static.py`，使用说明见 `docs/HB.md`。
+- 改动 AA整合版本.lsp 后，交付前优先运行一键静态检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对，并串跑 FDX/CC/C1C2/DES/GTX/XY/HDDL/XYG/HB 专项检查）。
 - `ZHONG`、`ZUO`、`YOU`、`SHANG`、`XIA` 共用 `aa:align-text-cmd`；`SYAN`、`XYAN` 共用 `aa:extend-line-cmd`。
 - 文字对齐优先使用 COM 的 `Alignment` / `AttachmentPoint`，用 `vl-catch-all-error-p` 判断结果，并补偿外包框位置。
+
+## ActiveX (COM) 规范与防御
+
+- 初始化保证: 凡使用 `vla-` 或 `vlax-` 的模块或命令，文件顶层或命令入口必须确保 `(vl-load-com)`。
+- 几何与复杂计算优先 ActiveX，基础属性修改优先 entmod: 几何包围盒与面积优先 `vla-GetBoundingBox` 和 `vla-get-Area`；坐标使用 `(vlax-make-safearray vlax-vbDouble '(0 . 2))` 与 `(vlax-safearray->list)`；已有基础图元图层/颜色沿用 `entmod`。
+- COM 变体类型约束: 调用 `vla-` 方法传点坐标时，必须显式使用 `(vlax-3d-point pt)` 包装。
+- 防御性属性/方法检查: 混合图元操作前使用 `(vlax-property-available-p obj 'Prop)` 或 `(vlax-method-applicable-p obj 'Method)` 预检，或用 `(vl-catch-all-apply ...)` 保护。
+- 防内存与句柄泄漏: 大批量处理实体时局部临时 vlaObj 显式使用 `(vlax-release-object vlaObj)` 释放；大集合遍历禁止在循环体内部直接删除致索引错乱，先收集再统一操作。
+- 内置探针与调试辅助: 增加/保留内置调试命令 `c:DUMP` (`(vlax-dump-object (vlax-ename->vla-object (car (entsel))) T)`)。
 
 ## 批处理性能
 

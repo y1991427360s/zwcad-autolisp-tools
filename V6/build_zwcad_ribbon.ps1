@@ -43,6 +43,25 @@ foreach ($path in $requiredFiles) {
 
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
+function Prepare-TargetOutput([string]$targetPath) {
+  if (Test-Path -LiteralPath $targetPath) {
+    try {
+      $stream = [System.IO.File]::OpenWrite($targetPath)
+      $stream.Close()
+    } catch {
+      $oldPath = "$targetPath.old"
+      if (Test-Path -LiteralPath $oldPath) {
+        try { Remove-Item -LiteralPath $oldPath -Force -ErrorAction SilentlyContinue } catch { }
+      }
+      if (Test-Path -LiteralPath $oldPath) {
+        $oldPath = "$targetPath.old." + [System.IO.Path]::GetRandomFileName()
+      }
+      Rename-Item -LiteralPath $targetPath -NewName (Split-Path -Leaf $oldPath) -Force
+      Write-Host "Target $targetPath is locked by a running process; renamed to $oldPath for new build."
+    }
+  }
+}
+
 $references = @(
   (Join-Path $ZWCADDir "ZwManaged.dll"),
   (Join-Path $ZWCADDir "ZwDatabaseMgd.dll"),
@@ -55,6 +74,8 @@ $references = @(
   (Join-Path $wpfDir "PresentationFramework.dll"),
   (Join-Path $wpfDir "WindowsBase.dll")
 ) | ForEach-Object { "/reference:" + $_ }
+
+Prepare-TargetOutput $outputPath
 
 $arguments = @(
   "/nologo"
@@ -76,6 +97,8 @@ if ($LASTEXITCODE -ne 0) {
 if (-not (Test-Path -LiteralPath $outputPath)) {
   throw "Build failed. Output not found: $outputPath"
 }
+
+Prepare-TargetOutput $managerPath
 
 $managerArguments = @(
   "/nologo", "/target:winexe", "/platform:x64", "/optimize+",

@@ -37,7 +37,8 @@ def evaluate(node, env):
         if node.startswith('"'):
             return node[1:-1]
         try:
-            return float(node)
+            val = float(node)
+            return int(val) if val.is_integer() else val
         except ValueError:
             return env.get(node)
     if not node:
@@ -52,6 +53,20 @@ def evaluate(node, env):
     if op == 'if':
         branch = 1 if evaluate(args[0], env) else 2
         return evaluate(args[branch], env) if branch < len(args) else None
+    if op == 'cond':
+        for branch in args:
+            test = evaluate(branch[0], env)
+            if test or branch[0] == 't':
+                result = test
+                for expr in branch[1:]:
+                    result = evaluate(expr, env)
+                return result
+        return None
+    if op == 'while':
+        while evaluate(args[0], env):
+            for body in args[1:]:
+                evaluate(body, env)
+        return None
     if op in ('and', 'or'):
         for arg in args:
             result = evaluate(arg, env)
@@ -114,21 +129,36 @@ def query(mode, p1, p2, kind):
     return ['candidate']
 
 
+layers = {'LAYER_GREEN': [(0, 'LAYER'), (2, 'LAYER_GREEN'), (62, 3)],
+          'LAYER_WHITE': [(0, 'LAYER'), (2, 'LAYER_WHITE'), (62, 7)]}
+
 native = {
     '+': lambda *a: sum(a), '-': lambda a, *b: a - sum(b) if b else -a,
-    '*': lambda a, b: a * b, '/': lambda a, b: a / b,
+    '*': lambda a, b: a * b,
+    '/': lambda a, b: a // b if isinstance(a, int) and isinstance(b, int) and b != 0 else a / b,
     '<': lambda a, b: a < b, '<=': lambda a, b: a <= b,
-    '>=': lambda a, b: a >= b, '=': lambda a, b: a == b, 'eq': lambda a, b: a == b,
-    'car': lambda a: a[0], 'cdr': lambda a: a[1] if isinstance(a, tuple) else a[1:],
-    'cadr': lambda a: a[1], 'caddr': lambda a: a[2], 'list': lambda *a: list(a),
-    'assoc': lambda key, data: next((v for v in data if v[0] == key), None),
+    '>': lambda a, b: a > b, '>=': lambda a, b: a >= b,
+    '=': lambda a, b: a == b, '/=': lambda a, b: a != b,
+    'eq': lambda a, b: a == b, 'abs': abs,
+    'car': lambda a: a[0] if a else None,
+    'cdr': lambda a: (a[1] if isinstance(a, tuple) else a[1:]) if a else None,
+    'cadr': lambda a: a[1] if a and len(a) > 1 else None,
+    'caddr': lambda a: a[2] if a and len(a) > 2 else None,
+    'list': lambda *a: list(a),
+    'assoc': lambda key, data: next((v for v in (data or []) if v[0] == key), None),
     'entget': entities.get, 'ssadd': add, 'ssget': query, 'min': min, 'max': max,
     'trans': lambda p, a, b: p,
+    'not': lambda x: not bool(x), 'null': lambda x: not bool(x),
+    '1+': lambda x: x + 1,
+    'sslength': lambda s: len(s) if s is not None else 0,
+    'ssname': lambda s, i: s[i] if s is not None and 0 <= i < len(s) else None,
+    'tblsearch': lambda table, name: layers.get(name),
     'xy:ss->list': lambda x: x,
     'xy:filter-vertical-lines': lambda x: x,
+    'length': lambda x: len(x) if x is not None else 0,
     'xy:get-vrecs-for-hline-ed': lambda ed, data: records,
 }
-env = {'*xy-geom-tol*': 0.0001, '*xy-hit-half-width*': 1, '*xy-ray-len*': 20}
+env = {'*xy-geom-tol*': 0.0001, '*xy-hit-half-width*': 1, '*xy-ray-len*': 20, 'pi': math.pi}
 for selected in [['h1'], ['h1', 'h2']]:
     queries.clear()
     invoke('xy:collect-vlines', [selected], env)
@@ -168,5 +198,24 @@ for p1, p2, expected_code in [([0, 5, 3], [100, 5, 3], 11),
     assert next(v[1] for v in data if v[0] == other_code) == [0, 5, 3]
 assert 'xy:selection-bounds' not in str(targets['xy:run-xin'])
 assert 'xy:selection-bounds' not in str(targets['xy:run-yuan'])
-print(f'PASS: whole-file parse; {len(targets)} XY functions; single/multiple horizontal lines; '
+
+entities.update({
+    'line_green_h': [(0, 'LINE'), (8, '0'), (62, 3), (10, [0, 10, 0]), (11, [100, 10, 0])],
+    'line_red_h': [(0, 'LINE'), (8, '0'), (62, 1), (10, [0, 10, 0]), (11, [100, 10, 0])],
+    'line_green_v': [(0, 'LINE'), (8, '0'), (62, 3), (10, [10, 0, 0]), (11, [10, 100, 0])],
+    'line_bylayer_green_h': [(0, 'LINE'), (8, 'LAYER_GREEN'), (10, [0, 20, 0]), (11, [50, 20, 0])],
+    'line_bylayer_white_h': [(0, 'LINE'), (8, 'LAYER_WHITE'), (10, [0, 20, 0]), (11, [50, 20, 0])],
+    'text_sample': [(0, 'TEXT'), (1, 'HELLO'), (10, [0, 0, 0]), (40, 3.0)],
+    'text_v': [(0, 'TEXT'), (1, 'BS01'), (10, [0, 0, 0]), (40, 3.0), (50, math.pi / 2)],
+})
+assert invoke('xy:is-green-hline-p', ['line_green_h'], env)
+assert not invoke('xy:is-green-hline-p', ['line_red_h'], env)
+assert not invoke('xy:is-green-hline-p', ['line_green_v'], env)
+assert invoke('xy:is-green-hline-p', ['line_bylayer_green_h'], env)
+assert not invoke('xy:is-green-hline-p', ['line_bylayer_white_h'], env)
+assert not invoke('xy:is-green-hline-p', ['text_sample'], env)
+filtered = invoke('xy:filter-green-hlines', [['line_green_h', 'line_red_h', 'line_green_v', 'line_bylayer_green_h', 'text_sample']], env)
+assert filtered == ['line_green_h', 'line_bylayer_green_h']
+
+print(f'PASS: whole-file parse; {len(targets)} XY functions; green horizontal line filter; single/multiple horizontal lines; '
       'remote UP/DOWN labels; deduplication; rotated UCS; red warning extends right endpoint by 200')
