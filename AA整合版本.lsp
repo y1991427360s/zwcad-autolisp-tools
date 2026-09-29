@@ -52,7 +52,7 @@
 ;;;   - SYI   : 预选对象中非竖直对象向上移动 5X，竖直直线向上拉伸 5X。
 ;;;   - XYI   : 预选对象中非竖直对象向下移动 5X，竖直直线向下拉伸 5X。
 ;;;   - SS    : 拉伸对象并记忆方向与距离，支持动态拉伸实时预览，后续可直接回车重复。
-;;;   - SSS   : 将预选对象按 CAD 原生拉伸规则向右拉伸 3 个单位。
+;;;   - SSS   : 预先交叉框选表格上方对象，按选区下沿所在行自动拉伸至高度 10。
 ;;;   - SJ    : 在选中直线顶端生成上接短线。
 ;;;   - XJ    : 在选中直线底端生成下接短线。
 ;;;   - SYJ   : 将选中竖直直线向上延长 5 个单位，再生成上接短线。
@@ -83,6 +83,7 @@
 ;;;   - DX2   : 按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
+;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
 ;;;   - JACC  : ZZ 的同功能入口。
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
 ;;;   - DF    : 删除每个选中文字开头的 N 个字符。
@@ -93,6 +94,7 @@
 ;;;   - AF    : 在每个选中文字开头增加输入的文字。
 ;;;   - QW    : 提取选中文字，同一行用顿号连接，不同行之间也用顿号分隔，并复制到剪贴板。
 ;;;   - QW2   : 提取选中文字及坐标，每项一行“x,y 文字”，坐标保留 2 位小数，复制到剪贴板。
+;;;   - QW3   : 导出选中对象的类型、图层、坐标、几何及文字属性为结构化文本并复制到剪贴板。
 ;;;   - REP   : 将选中的柜名文字按内置映射表替换为标准柜名。
 ;;;   - QE    : 用 Windows 剪贴板中的文字批量替换选中文字；文字含“至”字时只替换“至”后的部分。
 ;;;   - CC    : 读取 Windows 剪贴板，连续复制并替换副本文字，使用原生拖动预览和对象捕捉。
@@ -4424,18 +4426,146 @@
 
 ;;; =======================================================================================
 ;;; 命令: SSS
-;;; 功能: 将命令启动前的预选对象按 CAD 原生拉伸规则向右拉伸 3 个单位。
+;;; 功能: 预先交叉框选表格上方对象，按选区下沿所在行自动拉伸至高度 10。
 ;;; =======================================================================================
-(defun c:SSS (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss)
-  (aa:cmd-begin "SSS")
-  (if (setq ss (ssget "_I"))
-    (progn
-      (command "_.STRETCH" ss "" "_NON" '(0.0 0.0 0.0) "_NON" '(3.0 0.0 0.0))
-      (princ "\r\n已向右拉伸 3 个单位。"))
-    (princ "\r\n请先选择要拉伸的对象，再输入 SSS。"))
-  (aa:cmd-end)
-)
+(defun aa:sss-horizontal-segments (ss / i en ed pts p q out)
+  (setq i 0 out nil)
+  (repeat (sslength ss)
+    (setq en (ssname ss i) ed (entget en)
+          pts (aa:zdwi-vertices en))
+    (if (and pts (= 1 (logand 1 (cond ((cdr (assoc 70 ed))) (T 0)))))
+      (setq pts (append pts (list (car pts)))))
+    (while (and pts (cdr pts))
+      (setq p (car pts) q (cadr pts))
+      (if (and (equal (cadr p) (cadr q) 1e-6)
+               (> (abs (- (car p) (car q))) 1e-5))
+        (setq out (cons
+          (list (cadr p) (min (car p) (car q))
+                (max (car p) (car q)) (cdr (assoc 8 ed))) out)))
+      (setq pts (cdr pts)))
+    (setq i (1+ i)))
+  out)
 
+(defun aa:sss-find-pair (segments border-y left right
+                         / above below overlap score best best-score)
+  (setq best nil best-score nil)
+  (foreach above segments
+    (if (and (> (car above) (+ border-y 1e-5))
+             (> (min (nth 2 above) right)
+                (+ (max (cadr above) left) 1e-5)))
+      (foreach below segments
+        (if (and (< (car below) (- border-y 1e-5))
+                 (= (nth 3 above) (nth 3 below))
+                 (> (min (nth 2 below) right)
+                    (+ (max (cadr below) left) 1e-5)))
+          (progn
+            (setq overlap (- (min (nth 2 above) (nth 2 below) right)
+                             (max (cadr above) (cadr below) left)))
+            (if (and (> overlap 1e-5)
+                     (>= overlap
+                         (* 0.8 (min (- (nth 2 above) (cadr above))
+                                     (- (nth 2 below) (cadr below))))))
+              (progn
+                (setq score (- (car above) (car below)))
+                (if (or (null best-score) (< score best-score))
+                  (setq best (list above below)
+                        best-score score)))))))))
+  best)
+
+(defun aa:sss-pickfirst-box (ss / data rec id desc pt left right low high)
+  (setq data (vl-catch-all-apply 'ssnamex (list ss)) id nil)
+  (if (not (vl-catch-all-error-p data))
+    (progn
+      (foreach rec data
+        (if (and (numberp (car rec)) (= (car rec) 3)
+                 (numberp (last rec)) (< (last rec) 0))
+          (setq id (last rec))))
+      (if id
+        (foreach rec data
+          (if (and (numberp (car rec)) (= (car rec) id))
+            (foreach desc (cdr rec)
+              (setq pt (cadr desc))
+              (if (and (listp pt) (numberp (car pt))
+                       (numberp (cadr pt)))
+                (if left
+                  (setq left (min left (car pt))
+                        right (max right (car pt))
+                        low (min low (cadr pt))
+                        high (max high (cadr pt)))
+                  (setq left (car pt) right (car pt)
+                        low (cadr pt) high (cadr pt))))))))))
+  (if (and left right low high
+           (> (- right left) 1e-5) (> (- high low) 1e-5))
+    (list left low right high)))
+
+(defun aa:sss-lowest-row-line (ss / segments seg best max-width)
+  (setq segments (aa:sss-horizontal-segments ss) max-width 0.0)
+  (foreach seg segments
+    (setq max-width (max max-width (- (nth 2 seg) (cadr seg)))))
+  (setq best nil)
+  (foreach seg segments
+    (if (and (> max-width 1e-5)
+             (>= (- (nth 2 seg) (cadr seg)) (* 0.8 max-width))
+             (or (null best) (< (car seg) (car best))))
+      (setq best seg)))
+  best)
+
+(defun c:SSS (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                ss box seed left right lower scan pair old-height delta
+                p1 p2)
+  (vl-load-com)
+  (if (or (not (equal (getvar "UCSXDIR") '(1.0 0.0 0.0) 1e-8))
+          (not (equal (getvar "UCSYDIR") '(0.0 1.0 0.0) 1e-8)))
+    (princ "\r\n[SSS] 请先切换到水平的世界坐标系后再使用。")
+    (progn
+      (setq ss (ssget "_I"))
+      (if (null ss)
+        (princ "\r\n[SSS] 请先用交叉窗口框选要拉伸的对象，再输入 SSS。")
+        (progn
+          (setq box (aa:sss-pickfirst-box ss)
+                seed (aa:sss-lowest-row-line ss))
+          (cond
+            (box
+             (setq left (car box) lower (cadr box) right (caddr box)))
+            (seed
+             (setq left (cadr seed) right (nth 2 seed)
+                   lower (- (car seed) 1e-4))))
+          (if (null lower)
+            (princ "\r\n[SSS] 预选对象中没有可识别的表格横线，未修改。")
+            (progn
+              (setq scan (ssget "_C"
+                           (trans (list left (- lower 1000.0) 0.0) 0 1)
+                           (trans (list right (+ lower 1000.0) 0.0) 0 1)
+                           '((0 . "LINE,LWPOLYLINE,POLYLINE"))))
+              (setq pair (if scan
+                           (aa:sss-find-pair
+                             (aa:sss-horizontal-segments scan)
+                             lower left right)))
+              (if (null pair)
+                (princ "\r\n[SSS] 预选区域下沿两侧没有匹配的表格横线，未修改。")
+                (progn
+                  (setq old-height (- (caar pair) (caadr pair))
+                        delta (- 10.0 old-height))
+                  (if (equal delta 0.0 1e-6)
+                    (princ "\r\n[SSS] 目标行的高度已经是 10。")
+                    (progn
+                      (aa:cmd-begin "SSS")
+                      (if box
+                        (progn
+                          (setq p1 (trans (list (car box) (cadr box) 0.0) 0 1)
+                                p2 (trans (list (caddr box) (cadddr box) 0.0) 0 1))
+                          (command "_.STRETCH" "_C" p1 p2 ""
+                                   "_NON" '(0.0 0.0 0.0)
+                                   "_NON" (list 0.0 delta 0.0)))
+                        (command "_.STRETCH" ss ""
+                                 "_NON" '(0.0 0.0 0.0)
+                                 "_NON" (list 0.0 delta 0.0)))
+                      (aa:cmd-end)
+                      (princ (strcat "\r\n[SSS] 目标行高度 "
+                                     (rtos old-height 2 2) " -> 10.00，"
+                                     (if (> delta 0.0) "向上拉伸 " "向下缩短 ")
+                                     (rtos (abs delta) 2 2) "。"))))))))))))
+  (princ))
 
 ;;; --- 命令 1: 向上延长 (SYAN) ---
 (defun aa:extend-line-cmd (tag hint up-p dist
@@ -10910,6 +11040,288 @@
   (princ)
 )
 
+;;; ZDWI: fit each column of an axis-aligned line table to its text.
+(defun aa:zdwi-seed (ss / i en ed pts p q item best)
+  (setq i 0 best nil)
+  (repeat (sslength ss)
+    (setq en (ssname ss i) ed (entget en) pts (aa:zdwi-vertices en))
+    (if (and pts (= 1 (logand 1 (cond ((cdr (assoc 70 ed))) (T 0)))))
+      (setq pts (append pts (list (car pts)))))
+    (while (and pts (cdr pts))
+      (setq p (car pts) q (cadr pts))
+      (if (equal (cadr p) (cadr q) aa:zdwi-tol)
+        (progn
+          (setq item (list (min (car p) (car q))
+                           (max (car p) (car q)) (cadr p)
+                           (cdr (assoc 8 ed))))
+          (if (or (null best)
+                  (> (- (cadr item) (car item))
+                     (- (cadr best) (car best))))
+            (setq best item))))
+      (setq pts (cdr pts)))
+    (setq i (1+ i)))
+  best)
+
+(defun aa:zdwi-border-range (ss x seed-y / lo hi again i en pts p q a b)
+  (setq lo seed-y hi seed-y again T)
+  (while again
+    (setq again nil i 0)
+    (repeat (sslength ss)
+      (setq en (ssname ss i) pts (aa:zdwi-vertices en))
+      (while (and pts (cdr pts))
+        (setq p (car pts) q (cadr pts))
+        (if (and (equal (car p) x aa:zdwi-tol)
+                 (equal (car q) x aa:zdwi-tol))
+          (progn
+            (setq a (min (cadr p) (cadr q))
+                  b (max (cadr p) (cadr q)))
+            (if (and (<= a (+ hi aa:zdwi-tol))
+                     (>= b (- lo aa:zdwi-tol)))
+              (progn
+                (if (< a (- lo 1e-5)) (setq lo a again T))
+                (if (> b (+ hi 1e-5)) (setq hi b again T))))))
+        (setq pts (cdr pts)))
+      (setq i (1+ i))))
+  (if (> (- hi lo) aa:zdwi-tol) (list lo hi)))
+
+(defun aa:zdwi-expand-selection (selected / seed x1 x2 y layer search left-range
+                                  right-range lower upper nearby result i en ed typ
+                                  pts p inside bbox)
+  (setq seed (aa:zdwi-seed selected))
+  (if seed
+    (progn
+      (setq x1 (car seed) x2 (cadr seed) y (caddr seed)
+            layer (nth 3 seed)
+            search (ssget "_C"
+                      (trans (list (- x1 aa:zdwi-tol) (- y 1000.0) 0.0) 0 1)
+                      (trans (list (+ x2 aa:zdwi-tol) (+ y 1000.0) 0.0) 0 1)
+                      (list (cons 0 "LINE,LWPOLYLINE,POLYLINE")
+                            (cons 8 layer))))
+      (if search
+        (progn
+          (setq left-range (aa:zdwi-border-range search x1 y)
+                right-range (aa:zdwi-border-range search x2 y))
+          (if (and left-range right-range
+                   (equal (car left-range) (car right-range) aa:zdwi-tol)
+                   (equal (cadr left-range) (cadr right-range) aa:zdwi-tol))
+            (progn
+              (setq lower (car left-range) upper (cadr left-range)
+                    nearby (ssget "_C"
+                             (trans (list (- x1 aa:zdwi-tol)
+                                          (- lower aa:zdwi-tol) 0.0) 0 1)
+                             (trans (list (+ x2 aa:zdwi-tol)
+                                          (+ upper aa:zdwi-tol) 0.0) 0 1)
+                             '((0 . "LINE,LWPOLYLINE,POLYLINE,TEXT,MTEXT")))
+                    result (ssadd) i 0)
+              (if nearby
+                (repeat (sslength nearby)
+                  (setq en (ssname nearby i) ed (entget en)
+                        typ (cdr (assoc 0 ed)) inside T)
+                  (if (member typ '("TEXT" "MTEXT"))
+                    (progn
+                      (setq bbox (aa:safe-get-bbox nil en))
+                      (setq inside
+                        (and bbox
+                             (>= (caar bbox) (- x1 aa:zdwi-tol))
+                             (<= (caadr bbox) (+ x2 aa:zdwi-tol))
+                             (>= (cadar bbox) (- lower aa:zdwi-tol))
+                             (<= (cadadr bbox) (+ upper aa:zdwi-tol)))))
+                    (progn
+                      (setq pts (aa:zdwi-vertices en)
+                            inside (and pts (= (cdr (assoc 8 ed)) layer)))
+                      (foreach p pts
+                        (if (or (< (car p) (- x1 aa:zdwi-tol))
+                                (> (car p) (+ x2 aa:zdwi-tol))
+                                (< (cadr p) (- lower aa:zdwi-tol))
+                                (> (cadr p) (+ upper aa:zdwi-tol)))
+                          (setq inside nil)))))
+                  (if inside (ssadd en result))
+                  (setq i (1+ i))))
+              (if (> (sslength result) 0) result))))))))
+
+(defun aa:zdwi-unique (x values tol / found v)
+  (setq found nil)
+  (foreach v values (if (equal x v tol) (setq found T)))
+  (if found values (cons x values)))
+
+(defun aa:zdwi-add-span (x y1 y2 spans / record found out)
+  (setq found nil out nil)
+  (foreach record spans
+    (if (equal x (car record) aa:zdwi-tol)
+      (progn
+        (setq out (cons (list (car record)
+                              (min y1 (cadr record))
+                              (max y2 (caddr record))) out)
+              found T))
+      (setq out (cons record out))))
+  (if found (reverse out) (cons (list x y1 y2) spans)))
+
+(defun aa:zdwi-vertices (en / ed typ v out)
+  (setq ed (entget en) typ (cdr (assoc 0 ed)) out nil)
+  (cond
+    ((= typ "LINE") (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed))))
+    ((= typ "LWPOLYLINE")
+     (foreach v ed (if (= (car v) 10) (setq out (cons (cdr v) out))))
+     (reverse out))
+    ((= typ "POLYLINE")
+     (setq v (entnext en))
+     (while (and v (/= (cdr (assoc 0 (entget v))) "SEQEND"))
+       (setq out (cons (cdr (assoc 10 (entget v))) out) v (entnext v)))
+     (reverse out))))
+
+(defun aa:zdwi-column (x xs / i answer)
+  (setq i 0 answer nil)
+  (while (and (< (1+ i) (length xs)) (null answer))
+    (if (and (>= x (- (nth i xs) aa:zdwi-tol))
+             (<= x (+ (nth (1+ i) xs) aa:zdwi-tol)))
+      (setq answer i)
+      (setq i (1+ i))))
+  answer)
+
+(defun aa:zdwi-set-nth (values index value / i out v)
+  (setq i 0 out nil)
+  (foreach v values
+    (setq out (cons (if (= i index) value v) out)
+          i (1+ i)))
+  (reverse out))
+
+(defun aa:zdwi-new-x (x old new / i result)
+  (setq i (aa:zdwi-column x old))
+  (cond
+    ((null i) x)
+    ((equal x (nth i old) aa:zdwi-tol) (nth i new))
+    ((equal x (nth (1+ i) old) aa:zdwi-tol) (nth (1+ i) new))
+    (T (+ (nth i new)
+          (* (/ (- x (nth i old)) (- (nth (1+ i) old) (nth i old)))
+             (- (nth (1+ i) new) (nth i new)))))))
+
+(defun aa:zdwi-map-entity (en old new / ed typ v vd next result)
+  (setq ed (entget en) typ (cdr (assoc 0 ed)))
+  (cond
+    ((= typ "LINE")
+     (setq result
+       (mapcar '(lambda (a)
+         (if (member (car a) '(10 11))
+           (cons (car a) (cons (aa:zdwi-new-x (cadr a) old new) (cddr a))) a)) ed))
+     (entmod result))
+    ((= typ "LWPOLYLINE")
+     (setq result
+       (mapcar '(lambda (a)
+         (if (= (car a) 10)
+           (cons 10 (cons (aa:zdwi-new-x (cadr a) old new) (cddr a))) a)) ed))
+     (entmod result))
+    ((= typ "POLYLINE")
+     (setq next (entnext en) result T)
+     (while (and next (/= (cdr (assoc 0 (entget next))) "SEQEND"))
+       (setq vd (entget next) v (assoc 10 vd))
+       (if (not (entmod (subst
+                      (cons 10 (cons (aa:zdwi-new-x (cadr v) old new) (cddr v)))
+                      v vd))) (setq result nil))
+       (setq next (entnext next)))
+     result)))
+
+(defun c:ZDWI (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho aa:zdwi-tol
+                 ss lines texts i en typ pts p q xs spans record min-y max-y old widths items bbox
+                 left right center col new width item target moved failed valid
+                 tol x1 x2)
+  (vl-load-com)
+  ;; Half a drawing unit absorbs small endpoint gaps without merging the
+  ;; 10-unit columns in the supplied sample drawing.
+  (setq aa:zdwi-tol 0.5)
+  (setq ss (ssget "_I" '((0 . "LINE,LWPOLYLINE,POLYLINE,TEXT,MTEXT"))))
+  (if (null ss)
+    (progn
+      (princ "\r\n[ZDWI] 请选择整张表格的线和文字: ")
+      (setq ss (ssget '((0 . "LINE,LWPOLYLINE,POLYLINE,TEXT,MTEXT"))))))
+  (if ss (setq ss (aa:zdwi-expand-selection ss)))
+  (if ss
+    (progn
+      (setq lines (ssadd) texts (ssadd) i 0 xs nil spans nil
+            min-y nil max-y nil valid T)
+      (repeat (sslength ss)
+        (setq en (ssname ss i) typ (cdr (assoc 0 (entget en))))
+        (if (member typ '("TEXT" "MTEXT")) (ssadd en texts) (ssadd en lines))
+        (setq i (1+ i)))
+      (if (and (> (sslength lines) 0) (> (sslength texts) 0))
+        (progn
+          (setq i 0)
+          (repeat (sslength lines)
+            (setq en (ssname lines i) pts (aa:zdwi-vertices en))
+            (if (or (null pts) (< (length pts) 2)) (setq valid nil))
+            (if (= 1 (logand 1 (cond ((cdr (assoc 70 (entget en)))) (T 0))))
+              (setq pts (append pts (list (car pts)))))
+            (while (and pts (cdr pts))
+              (setq p (car pts) q (cadr pts))
+              (setq min-y (if min-y (min min-y (cadr p) (cadr q))
+                            (min (cadr p) (cadr q)))
+                    max-y (if max-y (max max-y (cadr p) (cadr q))
+                            (max (cadr p) (cadr q))))
+              (cond
+                ((equal (car p) (car q) aa:zdwi-tol)
+                 (setq xs (aa:zdwi-unique (car p) xs aa:zdwi-tol)
+                       spans (aa:zdwi-add-span (car p)
+                                  (min (cadr p) (cadr q))
+                                  (max (cadr p) (cadr q)) spans)))
+                ((equal (cadr p) (cadr q) aa:zdwi-tol))
+                (T (setq valid nil)))
+              (setq pts (cdr pts)))
+            (setq i (1+ i)))
+          (setq old (aa:merge-sort xs '<))
+          ;; Local/merged columns need not run from the table top to bottom.
+          ;; The expanded selection already includes all connected rows.
+          (if (or (not valid) (< (length old) 2))
+            (princ "\r\n[ZDWI] 未找到至少两条近似竖直列线，或存在明显斜线；未修改。")
+            (progn
+              (setq widths nil i 0 items nil)
+              (repeat (1- (length old))
+                (setq widths (append widths (list 0.0))))
+              (repeat (sslength texts)
+                (setq en (ssname texts i)
+                      bbox (aa:safe-get-bbox nil en))
+                (if bbox
+                  (progn
+                    (setq left (caar bbox) right (caadr bbox)
+                          center (/ (+ left right) 2.0)
+                          col (aa:zdwi-column center old))
+                    ;; Assign by bbox center. Existing text may overhang a
+                    ;; narrow cell; fitting that full width is the purpose.
+                    (if col
+                      (progn
+                        (setq widths (aa:zdwi-set-nth widths col
+                                       (max (nth col widths) (- right left))))
+                        (setq items (cons (list en col center) items)))
+                      (setq valid nil)))
+                  (setq valid nil))
+                (setq i (1+ i)))
+              (if (not valid)
+                (princ "\r\n[ZDWI] 有文字中心不在表格内，或无法读取包围盒；未修改。")
+                (progn
+                  (setq new (list (car old)))
+                  (foreach width widths
+                    (setq new (append new (list (+ (last new) width 6.0)))))
+                  (aa:cmd-begin "ZDWI")
+                  (setq i 0 failed 0 moved 0)
+                  (repeat (sslength lines)
+                    (if (not (aa:zdwi-map-entity (ssname lines i) old new))
+                      (setq failed (1+ failed)))
+                    (setq i (1+ i)))
+                  (foreach item items
+                    (setq col (cadr item)
+                          target (/ (+ (nth col new) (nth (1+ col) new)) 2.0))
+                    (if (aa:zz-move-text (car item) (caddr item) 0.0 target 0.0)
+                      (setq moved (1+ moved))
+                      (setq failed (1+ failed))))
+                  (redraw)
+                  (aa:cmd-end)
+                  (princ (strcat "\r\n[ZDWI] 已调整 "
+                                 (itoa (length widths)) " 列，移动 "
+                                 (itoa moved) " 个文字。"
+                                 (if (> failed 0)
+                                   (strcat " 修改失败 " (itoa failed) " 个对象。") ""))))))))
+        (princ "\r\n[ZDWI] 请选择表格线及 TEXT/MTEXT 文字。")))
+    (princ "\r\n[ZDWI] 未找到完整表格。请预选表格中的一条整行横线及文字。"))
+  (princ))
+
 ;;;========================================================================================
 ;;; DF-DB-AF-AB  文字批量增删 (DB=删末尾 DF=删开头 AB=尾部加字 AF=头部加字)
 ;;;========================================================================================
@@ -11404,6 +11816,255 @@
   )
   (aa:cmd-end)
 )
+
+;;; QW3: compact, paste-ready inspection of selected CAD entities.
+(defun aa:qw3-number (value)
+  (if (numberp value) (rtos value 2 4) "?"))
+
+(defun aa:qw3-point (pt / z)
+  (if (and (listp pt) (numberp (car pt)) (numberp (cadr pt)))
+    (progn
+      (setq z (if (numberp (caddr pt)) (caddr pt) 0.0))
+      (strcat "(" (aa:qw3-number (car pt)) ","
+              (aa:qw3-number (cadr pt)) ","
+              (aa:qw3-number z) ")"))
+    "?"))
+
+(defun aa:qw3-escape (value / i ch out)
+  (setq value (if value value "") i 1 out "")
+  (while (<= i (strlen value))
+    (setq ch (substr value i 1)
+          out (strcat out
+                (cond
+                  ((= ch "\"") "\\\"")
+                  ((= ch "\\") "\\\\")
+                  ((= ch (chr 10)) "\\n")
+                  ((= ch (chr 13)) "")
+                  (T ch)))
+          i (1+ i)))
+  (strcat "\"" out "\""))
+
+(defun aa:qw3-color (ed / aci rgb)
+  (setq aci (cdr (assoc 62 ed)) rgb (cdr (assoc 420 ed)))
+  (cond
+    (rgb (strcat "RGB=(" (itoa (fix (/ rgb 65536))) ","
+                 (itoa (rem (fix (/ rgb 256)) 256)) ","
+                 (itoa (rem rgb 256)) ")"))
+    ((null aci) "ByLayer")
+    ((= aci 256) "ByLayer")
+    ((= aci 0) "ByBlock")
+    (T (strcat "ACI=" (itoa aci)))))
+
+(defun aa:qw3-type-name (typ)
+  (cond
+    ((= typ "LINE") "直线")
+    ((= typ "LWPOLYLINE") "轻量多段线")
+    ((= typ "POLYLINE") "多段线")
+    ((= typ "CIRCLE") "圆")
+    ((= typ "ARC") "圆弧")
+    ((= typ "TEXT") "单行文字")
+    ((= typ "MTEXT") "多行文字")
+    ((= typ "INSERT") "块参照")
+    ((= typ "DIMENSION") "标注")
+    ((= typ "HATCH") "填充")
+    ((= typ "SPLINE") "样条曲线")
+    (T "其他")))
+
+(defun aa:qw3-text-align (ed / h v a)
+  (if (= (cdr (assoc 0 ed)) "MTEXT")
+    (progn
+      (setq a (cdr (assoc 71 ed)))
+      (if (and a (<= 1 a) (<= a 9))
+        (nth (1- a)
+          '("左上" "中上" "右上" "左中" "正中" "右中"
+            "左下" "中下" "右下"))
+        "未知"))
+    (progn
+      (setq h (cdr (assoc 72 ed))
+            v (cdr (assoc (if (member (cdr (assoc 0 ed))
+                                   '("ATTRIB" "ATTDEF")) 74 73) ed)))
+      (strcat
+        (nth (if (and h (<= 0 h) (<= h 5)) h 0)
+             '("左" "中" "右" "对齐" "中点" "拟合"))
+        (nth (if (and v (<= 0 v) (<= v 3)) v 0)
+             '("基线" "下" "中" "上"))))))
+
+(defun aa:qw3-poly-vertices (en ed / typ pair vertex vd pt count shown out)
+  (setq typ (cdr (assoc 0 ed)) count 0 shown 0 out "")
+  (cond
+    ((= typ "LWPOLYLINE")
+     (foreach pair ed
+       (if (= (car pair) 10)
+         (progn
+           (setq count (1+ count))
+           (if (< shown 100)
+             (setq out (strcat out (if (= shown 0) "" ";")
+                               (aa:qw3-point (cdr pair)))
+                   shown (1+ shown)))))))
+    ((= typ "POLYLINE")
+     (setq vertex (entnext en))
+     (while (and vertex (/= (cdr (assoc 0 (entget vertex))) "SEQEND"))
+       (setq vd (entget vertex) pt (cdr (assoc 10 vd)))
+       (if (= (cdr (assoc 0 vd)) "VERTEX")
+         (progn
+           (setq count (1+ count))
+           (if (< shown 100)
+             (setq out (strcat out (if (= shown 0) "" ";")
+                               (aa:qw3-point pt))
+                   shown (1+ shown)))))
+       (setq vertex (entnext vertex)))))
+  (strcat " | 顶点数=" (itoa count)
+          " | 闭合=" (if (= 1 (logand 1 (cond ((cdr (assoc 70 ed))) (T 0))))
+                         "是" "否")
+          " | 顶点(DXF对象坐标)=" out
+          (if (> count shown)
+            (strcat ";…其余" (itoa (- count shown)) "点省略") "")))
+
+(defun aa:qw3-block-attrs (en / next ed out)
+  (setq next (if (equal (cdr (assoc 66 (entget en))) 1) (entnext en))
+        out "")
+  (while (and next (/= (cdr (assoc 0 (entget next))) "SEQEND"))
+    (setq ed (entget next))
+    (if (= (cdr (assoc 0 ed)) "ATTRIB")
+      (setq out (strcat out (if (= out "") "" ";")
+                        (cdr (assoc 2 ed)) "="
+                        (aa:qw3-escape (cdr (assoc 1 ed))))))
+    (setq next (entnext next)))
+  (if (= out "") "" (strcat " | 属性=" out)))
+
+(defun aa:qw3-details (en ed / typ raw plain p a b radius angle)
+  (setq typ (cdr (assoc 0 ed)))
+  (cond
+    ((member typ '("TEXT" "MTEXT" "ATTRIB" "ATTDEF"))
+     (setq raw (aa:ysdl-get-raw-text ed)
+           plain (if (= typ "MTEXT")
+                   (aa:ysdl-strip-mtext-format raw) raw)
+           p (cdr (assoc 10 ed)))
+     (strcat " | 内容=" (aa:qw3-escape plain)
+             (if (/= raw plain)
+               (strcat " | MTEXT原始=" (aa:qw3-escape raw)) "")
+             " | 对齐=" (aa:qw3-text-align ed)
+             " | 插入点=" (aa:qw3-point (if p (trans p en 0)))
+             (if (and (/= typ "MTEXT") (assoc 11 ed)
+                      (or (not (equal (cond ((cdr (assoc 72 ed))) (T 0)) 0))
+                          (not (equal
+                            (cond
+                              ((cdr (assoc (if (member typ '("ATTRIB" "ATTDEF"))
+                                             74 73) ed)))
+                              (T 0)) 0))))
+               (strcat " | 对齐点="
+                       (aa:qw3-point (trans (cdr (assoc 11 ed)) en 0))) "")
+             (if (and (= typ "MTEXT") (assoc 11 ed))
+               (strcat " | 方向向量(DXF)="
+                       (aa:qw3-point (cdr (assoc 11 ed)))) "")
+             " | 字高=" (aa:qw3-number (cdr (assoc 40 ed)))
+             (cond
+               ((and (= typ "TEXT") (assoc 41 ed))
+                (strcat " | 宽度系数=" (aa:qw3-number (cdr (assoc 41 ed)))))
+               ((and (= typ "MTEXT") (assoc 41 ed))
+                (strcat " | 文本框宽=" (aa:qw3-number (cdr (assoc 41 ed)))))
+               (T ""))
+             " | 样式=" (cond ((cdr (assoc 7 ed))) (T "?"))
+             " | 旋转角="
+             (aa:qw3-number (* (/ 180.0 pi)
+                               (cond ((cdr (assoc 50 ed))) (T 0.0))))))
+    ((= typ "LINE")
+     (setq a (cdr (assoc 10 ed)) b (cdr (assoc 11 ed)))
+     (strcat " | 起点=" (aa:qw3-point a)
+             " | 终点=" (aa:qw3-point b)
+             " | 长度=" (aa:qw3-number (distance a b))))
+    ((member typ '("LWPOLYLINE" "POLYLINE"))
+     (aa:qw3-poly-vertices en ed))
+    ((member typ '("CIRCLE" "ARC"))
+     (setq p (cdr (assoc 10 ed)) radius (cdr (assoc 40 ed)))
+     (strcat " | 圆心=" (aa:qw3-point (if p (trans p en 0)))
+             " | 半径=" (aa:qw3-number radius)
+             (if (= typ "ARC")
+               (strcat " | 起始角="
+                       (aa:qw3-number (* (/ 180.0 pi) (cdr (assoc 50 ed))))
+                       " | 终止角="
+                       (aa:qw3-number (* (/ 180.0 pi) (cdr (assoc 51 ed)))))
+               "")))
+    ((= typ "INSERT")
+     (strcat " | 块名=" (cdr (assoc 2 ed))
+             " | 插入点=" (aa:qw3-point (trans (cdr (assoc 10 ed)) en 0))
+             " | 缩放="
+             (aa:qw3-point
+               (list (cond ((cdr (assoc 41 ed))) (T 1.0))
+                     (cond ((cdr (assoc 42 ed))) (T 1.0))
+                     (cond ((cdr (assoc 43 ed))) (T 1.0))))
+             " | 旋转角="
+             (aa:qw3-number (* (/ 180.0 pi)
+                               (cond ((cdr (assoc 50 ed))) (T 0.0))))
+             (aa:qw3-block-attrs en)))
+    ((= typ "DIMENSION")
+     (strcat " | 标注样式=" (cond ((cdr (assoc 3 ed))) (T "?"))
+             (if (assoc 42 ed)
+               (strcat " | 测量值=" (aa:qw3-number (cdr (assoc 42 ed)))) "")
+             (if (assoc 1 ed)
+               (strcat " | 覆盖文字=" (aa:qw3-escape (cdr (assoc 1 ed)))) "")))
+    (T
+     (if (assoc 10 ed)
+       (strcat " | 参考点=" (aa:qw3-point (cdr (assoc 10 ed)))) ""))))
+
+(defun aa:qw3-record (en idx / ed typ bbox lo hi cx cy line)
+  (setq ed (entget en) typ (cdr (assoc 0 ed))
+        bbox (aa:safe-get-bbox nil en))
+  (if bbox
+    (setq lo (car bbox) hi (cadr bbox)
+          cx (/ (+ (car lo) (car hi)) 2.0)
+          cy (/ (+ (cadr lo) (cadr hi)) 2.0))
+    (setq lo nil hi nil cx 0.0 cy 0.0))
+  (setq line
+    (strcat "类型=" typ "(" (aa:qw3-type-name typ) ")"
+            " | 句柄=" (cond ((cdr (assoc 5 ed))) (T "?"))
+            " | 图层=" (cond ((cdr (assoc 8 ed))) (T "?"))
+            " | 颜色=" (aa:qw3-color ed)
+            " | 线型=" (cond ((cdr (assoc 6 ed))) (T "ByLayer"))
+            (if bbox
+              (strcat " | 范围(WCS)=" (aa:qw3-point lo)
+                      "~" (aa:qw3-point hi)) "")
+            (aa:qw3-details en ed)))
+  (list cy cx idx line))
+
+(defun c:QW3 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               ss i items item out ok)
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn
+      (princ "\r\n[QW3] 请选择要导出信息的 CAD 对象: ")
+      (setq ss (ssget))))
+  (if ss
+    (progn
+      (aa:cmd-begin "QW3")
+      (setq i 0 items nil)
+      (repeat (sslength ss)
+        (setq items (cons (aa:qw3-record (ssname ss i) i) items)
+              i (1+ i)))
+      (setq items (aa:merge-sort items
+                    '(lambda (a b)
+                       (if (equal (car a) (car b) 1e-8)
+                         (if (equal (cadr a) (cadr b) 1e-8)
+                           (< (caddr a) (caddr b))
+                           (< (cadr a) (cadr b)))
+                         (> (car a) (car b))))))
+      (setq out
+        (strcat "CAD对象信息 (QW3)\r\n图纸=" (getvar "DWGNAME")
+                " | 对象数=" (itoa (sslength ss))
+                " | 范围/插入点坐标=WCS，顶点坐标=DXF对象坐标"
+                " | 单位代码INSUNITS=" (itoa (getvar "INSUNITS"))
+                "\r\n"))
+      (setq i 1)
+      (foreach item items
+        (setq out (strcat out "\r\n[" (itoa i) "] " (nth 3 item) "\r\n")
+              i (1+ i)))
+      (setq ok (zi:to-clip out))
+      (aa:cmd-end)
+      (princ (strcat "\r\n[QW3] 已整理 " (itoa (sslength ss))
+                     " 个对象的信息"
+                     (if ok "并复制到剪贴板。" "，但复制剪贴板失败。"))))
+    (princ "\r\n[QW3] 未选择对象。"))
+  (princ))
 
 ;; 白色及其他颜色与 QW2 相同，每项一行 "x,y 文字"；青色为 "x,y 文字 端子名"
 ;; DX1 提取选中文字及坐标，青色文字额外标注“端子名”，复制到剪贴板
