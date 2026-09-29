@@ -76,6 +76,8 @@
 ;;;   - CE    : 测量点序列形成的多段线总长度。
 ;;;   - CU    : 将选中对象按 5 个单位的递增间距向上复制指定份数。
 ;;;   - CD    : 将选中对象按 5 个单位的递增间距向下复制指定份数。
+;;;   - CZ    : 将选中对象按 5 个单位的递增间距向左复制指定份数。
+;;;   - CY    : 将选中对象按 5 个单位的递增间距向右复制指定份数。
 ;;;   - JZ    : 将矩形水平中线对齐到1条或2条直线中心线，可同步居中文字。
 ;;;   - DX    : 批量整理 100×100 方格内的端子号、原理号和终点柜文字，并将整组文字居中。
 ;;;   - FDX   : 先选方框，再连续选择每批文字，按空格依次移动到下一方框并自动按 DX 规则排列。
@@ -4381,7 +4383,9 @@
                                       ss move-ss i ent ed p1 p2 delta x tol top-code top-y)
   (aa:cmd-begin tag)
   (if (setq ss (ssget "_I"))
-    (if (setq delta (getreal (strcat "\r\n请输入 X 值（" hint " 5X）: ")))
+    (progn
+      (setq delta (getreal (strcat "\r\n请输入 X 值（" hint " 5X，默认 1）<1>: ")))
+      (if (null delta) (setq delta 1.0))
       (progn
         ;; 方向由命令决定，X 只取距离，避免 XYI 因负输入再次反向。
         (setq delta (* 5.0 (abs delta) (if up-p 1.0 -1.0))
@@ -4416,7 +4420,7 @@
         (redraw)
         (princ (strcat "\r\n已完成：非竖直对象" hint "移动 " (rtos (abs delta) 2 3)
                        "，竖直直线" hint "拉伸相同距离。")))
-      (princ "\r\n已取消：X 值无效。"))
+      )
     (princ "\r\n请先选择对象，再输入命令。"))
   (aa:cmd-end)
 )
@@ -4565,6 +4569,7 @@
                                      (rtos old-height 2 2) " -> 10.00，"
                                      (if (> delta 0.0) "向上拉伸 " "向下缩短 ")
                                      (rtos (abs delta) 2 2) "。"))))))))))))
+  (sssetfirst nil nil) ; 命令结束后清除选择与亮显
   (princ))
 
 ;;; --- 命令 1: 向上延长 (SYAN) ---
@@ -11320,6 +11325,7 @@
                                    (strcat " 修改失败 " (itoa failed) " 个对象。") ""))))))))
         (princ "\r\n[ZDWI] 请选择表格线及 TEXT/MTEXT 文字。")))
     (princ "\r\n[ZDWI] 未找到完整表格。请预选表格中的一条整行横线及文字。"))
+  (sssetfirst nil nil) ; 命令结束后清除选择与亮显
   (princ))
 
 ;;;========================================================================================
@@ -15558,10 +15564,10 @@
   (princ))
 
 ;;;----------------------------------------------------------------------------------------
-;;; CU / CD：按 5 个单位的递增间距向上或向下复制
+;;; CU / CD / CZ / CY：按 5 个单位的递增间距向指定方向复制
 ;;;----------------------------------------------------------------------------------------
 
-(defun cu:copy-vertical (direction / *error* doc undo-open ss count level i obj clone
+(defun cu:copy-direction (axis direction / *error* doc undo-open ss count level i obj clone
                                      move-result copied failed offset delta)
   (vl-load-com)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
@@ -15594,7 +15600,7 @@
                 level 1)
           (repeat count
             (setq offset (* direction 5.0 level)
-                  delta (trans (list 0.0 offset 0.0) 1 0 T)
+                  delta (trans (if (= axis 'x) (list offset 0.0 0.0) (list 0.0 offset 0.0)) 1 0 T)
                   i 0)
             (repeat (sslength ss)
               (setq obj (vlax-ename->vla-object (ssname ss i))
@@ -15630,11 +15636,19 @@
 
 ;;; CU：将选中对象向上复制到 5、10、15……单位的位置。
 (defun c:CU ()
-  (cu:copy-vertical 1.0))
+  (cu:copy-direction 'y 1.0))
 
 ;;; CD：将选中对象向下复制到 5、10、15……单位的位置。
 (defun c:CD ()
-  (cu:copy-vertical -1.0))
+  (cu:copy-direction 'y -1.0))
+
+;;; CZ：将选中对象向左复制到 5、10、15……单位的位置。
+(defun c:CZ ()
+  (cu:copy-direction 'x -1.0))
+
+;;; CY：将选中对象向右复制到 5、10、15……单位的位置。
+(defun c:CY ()
+  (cu:copy-direction 'x 1.0))
 ;;; =======================================================================================
 ;;;              --- HS 命令: 选中物体单向横向缩放（宽度改变，高度不变） ---
 ;;; =======================================================================================
