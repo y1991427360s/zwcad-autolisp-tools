@@ -14716,8 +14716,8 @@
                   (cons 1 txt) (cons 7 style) (cons 50 rot) '(62 . 1))))
 
 (defun hddl:tail-duplicate-p (row / rest seen v hit one)
-  ;; YSDL 导出行的第 5 列起是芯线/原理号区域；同一行重复值通常表示原理号填错。
-  (setq rest (hddl:skip row 4) seen '() hit nil)
+  ;; 第 6 列起是原理号；芯数不参与原理号重复判断。
+  (setq rest (hddl:skip row 5) seen '() hit nil)
   (while (and rest (not hit))
     (setq one (car rest)
           v (if (and (= (type one) 'LIST) (cdr one))
@@ -14742,6 +14742,58 @@
     (if (/= v "") (setq n (1+ n))))
   n)
 
+(defun hddl:color-cell (row n / rec)
+  (if (setq rec (hddl:item row n))
+    (if (car rec) (hddl:color (car rec) 1)))
+  nil)
+
+(defun hddl:color-core-count-diff (a b)
+  ;; 原理号数量不一致时，标红两行对应的电缆芯数。
+  (hddl:color-cell a 4)
+  (hddl:color-cell b 4))
+
+(defun hddl:color-cabinet-diffs (a b / a0 a2 b0 b2)
+  ;; 镜像端点柜名不匹配时，只标红不相等的柜名文字。
+  (setq a0 (hddl:cabinet (hddl:cell a 0))
+        a2 (hddl:cabinet (hddl:cell a 2))
+        b0 (hddl:cabinet (hddl:cell b 0))
+        b2 (hddl:cabinet (hddl:cell b 2)))
+  (if (/= a0 b2)
+    (progn (hddl:color-cell a 0) (hddl:color-cell b 2)))
+  (if (/= a2 b0)
+    (progn (hddl:color-cell a 2) (hddl:color-cell b 0))))
+
+(defun hddl:color-tail-duplicates (row / i j value other)
+  ;; 同一行重复的原理号双方都标红，其他字段保持原色。
+  (setq i 5)
+  (while (hddl:item row i)
+    (setq value (strcase (hddl:cell row i)) j 5)
+    (while (< j i)
+      (setq other (strcase (hddl:cell row j)))
+      (if (and (/= value "") (= value other))
+        (progn (hddl:color-cell row i) (hddl:color-cell row j)))
+      (setq j (1+ j)))
+    (setq i (1+ i))))
+
+(defun hddl:tail-different-p (a b / i va vb hit)
+  ;; 第 6 列起为原理号；逐列比较镜像行的实际内容，而不只比较数量。
+  (setq i 5 hit nil)
+  (while (and (not hit) (or (hddl:item a i) (hddl:item b i)))
+    (setq va (hddl:cell a i) vb (hddl:cell b i))
+    (if (/= (strcase va) (strcase vb)) (setq hit T))
+    (setq i (1+ i)))
+  hit)
+
+(defun hddl:color-tail-diffs (row other / i va vb rec)
+  ;; 仅将镜像行中内容不同的原理号单元格标红，芯数及相同原理号保持原色。
+  (setq i 5)
+  (while (or (hddl:item row i) (hddl:item other i))
+    (setq va (hddl:cell row i) vb (hddl:cell other i))
+    (if (/= (strcase va) (strcase vb))
+      (foreach rec (list (hddl:item row i) (hddl:item other i))
+        (if (and rec (car rec)) (hddl:color (car rec) 1))))
+    (setq i (1+ i))))
+
 (defun hddl:cabinet (s / blank z-len)
   ;; 柜名比较忽略内部空白，不修改图中原文字。核对时一律先去掉空格再对比。
   (setq s (if s s ""))
@@ -14762,7 +14814,7 @@
           (strcase (hddl:cabinet (hddl:cell b 0))))))
 
 (defun c:HDDL (/ aa:doc aa:undo-open ss i e d items sorted rows cur lasty rec row id groups grp
-                 issue bad marker made mirror-ok olderr stage)
+                 issue bad marker made mirror-ok olderr stage highlight-type)
   (setq olderr *error*)
   (defun *error* (msg)
     (aa:undo-mark-off)
@@ -14800,29 +14852,45 @@
             (setq groups (cons (cons (strcase id) (list row)) groups)))))
       (setq stage "检查编号和原理号" bad 0 made 0)
       (foreach row rows
-        (setq id (hddl:cell row 1) issue nil)
+        (setq id (hddl:cell row 1) issue nil highlight-type nil)
         (if (/= id "")
           (progn
             (setq grp (cdr (assoc (strcase id) groups))
                   mirror-ok (and (= (length grp) 2)
                                  (hddl:mirror-p (car grp) (cadr grp))))
             (cond
-              ((hddl:tail-duplicate-p row) (setq issue "[原理号重复]"))
+              ((hddl:tail-duplicate-p row)
+               (setq issue "[原理号重复]" highlight-type 'duplicate-principle))
               ((and mirror-ok (/= (hddl:tail-count (car grp))
                                   (hddl:tail-count (cadr grp))))
-               (setq issue "[原理号不一致]"))
-              ((not mirror-ok) (setq issue "[编号重复]")))))
+               (setq issue "[原理号数量不一致]" highlight-type 'core-count))
+              ((and mirror-ok
+                    (hddl:tail-different-p (car grp) (cadr grp)))
+               (setq issue "[原理号不一致]" highlight-type 'principle))
+              ((and (= (length grp) 2) (not mirror-ok))
+               (setq issue "[柜名不一致]" highlight-type 'cabinet))
+              ((not mirror-ok)
+               (setq issue "[电缆编号重复]" highlight-type 'cable-id)))))
         (if issue
           (progn
             (setq bad (1+ bad))
-            (foreach rec row (hddl:color (car rec) 1))
+            (cond
+              ((= highlight-type 'duplicate-principle)
+               (hddl:color-tail-duplicates row))
+              ((= highlight-type 'core-count)
+               (hddl:color-core-count-diff (car grp) (cadr grp)))
+              ((= highlight-type 'principle)
+               (hddl:color-tail-diffs (car grp) (cadr grp)))
+              ((= highlight-type 'cabinet)
+               (hddl:color-cabinet-diffs (car grp) (cadr grp)))
+              (T (hddl:color-cell row 1)))
             (setq marker (hddl:make-marker (car row) issue))
             (if marker (setq made (1+ made))))))
       (setq stage "绘制问题标记")
       (redraw)
       (alert (strcat "HDDL 校核完成\r\n\r\n问题行: " (itoa bad)
                      "\r\n已生成红色标记: " (itoa made)
-                     "\r\n\r\n规则：合法的起终点互换镜像行不标红；同向重复、镜像原理号数量不一致或行内原理号重复会标红。")))
+                     "\r\n\r\n规则：合法的起终点互换镜像行不标红；同向重复、原理号数量不一致会标红芯数，柜名不一致会标红柜名，原理号内容不一致或重复会标红对应原理号。")))
       (princ "\r\n未选择文字。"))
   (aa:undo-mark-off)
   (setq *error* olderr)
