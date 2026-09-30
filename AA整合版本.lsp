@@ -52,7 +52,7 @@
 ;;;   - SYI   : 预选对象中非竖直对象向上移动 5X，竖直直线向上拉伸 5X。
 ;;;   - XYI   : 预选对象中非竖直对象向下移动 5X，竖直直线向下拉伸 5X。
 ;;;   - SS    : 拉伸对象并记忆方向与距离，支持动态拉伸实时预览，后续可直接回车重复。
-;;;   - SSS   : 预先交叉框选表格上方对象，按选区下沿所在行自动拉伸至高度 10。
+;;;   - SSS   : 预先交叉框选表格上方对象，输入目标行高度拉伸，支持小数，默认 10。
 ;;;   - SJ    : 在选中直线顶端生成上接短线。
 ;;;   - XJ    : 在选中直线底端生成下接短线。
 ;;;   - SYJ   : 将选中竖直直线向上延长 5 个单位，再生成上接短线。
@@ -4430,7 +4430,7 @@
 
 ;;; =======================================================================================
 ;;; 命令: SSS
-;;; 功能: 预先交叉框选表格上方对象，按选区下沿所在行自动拉伸至高度 10。
+;;; 功能: 按选区下沿所在行拉伸；输入正数目标高度，支持小数，回车默认 10。
 ;;; =======================================================================================
 (defun aa:sss-horizontal-segments (ss / i en ed pts p q out)
   (setq i 0 out nil)
@@ -4515,16 +4515,18 @@
   best)
 
 (defun c:SSS (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                tag target-height
                 ss box seed left right lower scan pair old-height delta
                 p1 p2)
   (vl-load-com)
+  (setq tag "SSS")
   (if (or (not (equal (getvar "UCSXDIR") '(1.0 0.0 0.0) 1e-8))
           (not (equal (getvar "UCSYDIR") '(0.0 1.0 0.0) 1e-8)))
-    (princ "\r\n[SSS] 请先切换到水平的世界坐标系后再使用。")
+    (princ (strcat "\r\n[" tag "] 请先切换到水平的世界坐标系后再使用。"))
     (progn
       (setq ss (ssget "_I"))
       (if (null ss)
-        (princ "\r\n[SSS] 请先用交叉窗口框选要拉伸的对象，再输入 SSS。")
+        (princ (strcat "\r\n[" tag "] 请先用交叉窗口框选要拉伸的对象，再输入 " tag "。"))
         (progn
           (setq box (aa:sss-pickfirst-box ss)
                 seed (aa:sss-lowest-row-line ss))
@@ -4535,7 +4537,7 @@
              (setq left (cadr seed) right (nth 2 seed)
                    lower (- (car seed) 1e-4))))
           (if (null lower)
-            (princ "\r\n[SSS] 预选对象中没有可识别的表格横线，未修改。")
+            (princ (strcat "\r\n[" tag "] 预选对象中没有可识别的表格横线，未修改。"))
             (progn
               (setq scan (ssget "_C"
                            (trans (list left (- lower 1000.0) 0.0) 0 1)
@@ -4546,14 +4548,23 @@
                              (aa:sss-horizontal-segments scan)
                              lower left right)))
               (if (null pair)
-                (princ "\r\n[SSS] 预选区域下沿两侧没有匹配的表格横线，未修改。")
+                (princ (strcat "\r\n[" tag "] 预选区域下沿两侧没有匹配的表格横线，未修改。"))
                 (progn
-                  (setq old-height (- (caar pair) (caadr pair))
-                        delta (- 10.0 old-height))
-                  (if (equal delta 0.0 1e-6)
-                    (princ "\r\n[SSS] 目标行的高度已经是 10。")
+                  ;; Capture the preselection and row before prompting for height.
+                  ;; initget 6 rejects zero/negative values; Enter uses 10.
+                  (if (null target-height)
                     (progn
-                      (aa:cmd-begin "SSS")
+                      (initget 6)
+                      (setq target-height
+                        (cond ((getreal (strcat "\r\n[" tag "] 输入目标行高度 <10>: ")))
+                              (T 10.0)))))
+                  (setq old-height (- (caar pair) (caadr pair))
+                        delta (- target-height old-height))
+                  (if (equal delta 0.0 1e-6)
+                    (princ (strcat "\r\n[" tag "] 目标行的高度已经是 "
+                                   (rtos target-height 2 2) "。"))
+                    (progn
+                      (aa:cmd-begin tag)
                       (if box
                         (progn
                           (setq p1 (trans (list (car box) (cadr box) 0.0) 0 1)
@@ -4565,8 +4576,9 @@
                                  "_NON" '(0.0 0.0 0.0)
                                  "_NON" (list 0.0 delta 0.0)))
                       (aa:cmd-end)
-                      (princ (strcat "\r\n[SSS] 目标行高度 "
-                                     (rtos old-height 2 2) " -> 10.00，"
+                      (princ (strcat "\r\n[" tag "] 目标行高度 "
+                                     (rtos old-height 2 2) " -> "
+                                     (rtos target-height 2 2) "，"
                                      (if (> delta 0.0) "向上拉伸 " "向下缩短 ")
                                      (rtos (abs delta) 2 2) "。"))))))))))))
   (sssetfirst nil nil) ; 命令结束后清除选择与亮显
