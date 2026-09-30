@@ -4,7 +4,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$branch = 'optimize/robustness-and-cleanup'
+$branch = 'main'
 Set-Location -LiteralPath $root
 function Git-Run {
     param([string[]]$GitArgs)
