@@ -11105,19 +11105,18 @@
       (setq i (1+ i))))
   (if (> (- hi lo) aa:zdwi-tol) (list lo hi)))
 
-(defun aa:zdwi-expand-selection (selected / seed x1 x2 y layer search left-range
+(defun aa:zdwi-expand-selection (selected / seed x1 x2 y search left-range
                                   right-range lower upper nearby result i en ed typ
                                   pts p inside bbox)
   (setq seed (aa:zdwi-seed selected))
   (if seed
     (progn
       (setq x1 (car seed) x2 (cadr seed) y (caddr seed)
-            layer (nth 3 seed)
             search (ssget "_C"
                       (trans (list (- x1 aa:zdwi-tol) (- y 1000.0) 0.0) 0 1)
                       (trans (list (+ x2 aa:zdwi-tol) (+ y 1000.0) 0.0) 0 1)
-                      (list (cons 0 "LINE,LWPOLYLINE,POLYLINE")
-                            (cons 8 layer))))
+                      ;; Table borders and separators may use different layers.
+                      '((0 . "LINE,LWPOLYLINE,POLYLINE"))))
       (if search
         (progn
           (setq left-range (aa:zdwi-border-range search x1 y)
@@ -11149,7 +11148,7 @@
                              (<= (cadadr bbox) (+ upper aa:zdwi-tol)))))
                     (progn
                       (setq pts (aa:zdwi-vertices en)
-                            inside (and pts (= (cdr (assoc 8 ed)) layer)))
+                            inside (not (null pts)))
                       (foreach p pts
                         (if (or (< (car p) (- x1 aa:zdwi-tol))
                                 (> (car p) (+ x2 aa:zdwi-tol))
