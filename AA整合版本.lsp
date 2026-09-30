@@ -11073,6 +11073,10 @@
     (setq again nil i 0)
     (repeat (sslength ss)
       (setq en (ssname ss i) pts (aa:zdwi-vertices en))
+      ;; Include the implicit last-to-first edge of closed row rectangles.
+      ;; Their left border may exist only on this closing segment.
+      (if (and pts (= 1 (logand 1 (cond ((cdr (assoc 70 (entget en)))) (T 0)))))
+        (setq pts (append pts (list (car pts)))))
       (while (and pts (cdr pts))
         (setq p (car pts) q (cadr pts))
         (if (and (equal (car p) x aa:zdwi-tol)

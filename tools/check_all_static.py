@@ -141,6 +141,7 @@ def run_command_checks():
         'check_aicad_static.py',
         'check_ming_static.py',
         'check_atw_static.py',
+        'check_zdwi_static.py',
     ]
     for name in checks:
         path = tools / name
