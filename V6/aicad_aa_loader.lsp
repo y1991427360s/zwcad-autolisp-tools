@@ -7,6 +7,7 @@
   '("CMDECHO" "OSMODE" "PICKFIRST" "FILEDIA" "CMDDIA")
 )
 
+;;; Generated from common/aicad_pure.lsp: aicadloader:error-message; run scripts/sync_common.py.
 (defun aicadloader:error-message (err)
   (cond
     ((vl-catch-all-error-p err) (vl-catch-all-error-message err))
@@ -74,6 +75,7 @@
   (princ)
 )
 
+;;; Generated from common/aicad_pure.lsp: aicadloader:normalize-path; run scripts/sync_common.py.
 (defun aicadloader:normalize-path (path)
   (if path
     (vl-string-translate "/" "\\" path)
@@ -81,6 +83,7 @@
   )
 )
 
+;;; Generated from common/aicad_pure.lsp: aicadloader:not-empty-p; run scripts/sync_common.py.
 (defun aicadloader:not-empty-p (value)
   (and value (/= value ""))
 )
@@ -222,7 +225,7 @@
   )
 )
 
-(defun aicadloader:show-replace-panel ()
+(defun aicadloader:show-replace-panel (/ replace-panel-result)
   (setq replace-panel-result (vl-catch-all-apply 'vl-cmdf (list "AICADREPLACEPANEL")))
   (if (vl-catch-all-error-p replace-panel-result)
     (princ (strcat "\nAICADREPLACEPANEL failed: " (aicadloader:error-message replace-panel-result)))

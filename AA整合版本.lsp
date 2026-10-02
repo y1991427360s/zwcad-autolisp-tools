@@ -1236,7 +1236,7 @@
 (defun c:YSDL (/ aa:doc aa:undo-open *error* ss i ent edata text-data-list sorted-data
                csv-path f fuzz userprofile file-mode action-msg
                ename targetColor text-string ins-point all-rows current-row
-               last-y item current-y line-str cell cell-safe)
+               last-y item current-y line-str cell cell-safe row)
 
   ;; 自定义错误处理函数
   (defun *error* (msg)
@@ -1595,7 +1595,7 @@
 )
 
 ;; 提取 LWPOLYLINE 的所有线段
-(defun txt2:lwpoly-segments (ename edata / pts closed segs p0 prev cur p)
+(defun txt2:lwpoly-segments (ename edata / pts closed segs p0 prev cur p item)
   (setq closed (= 1 (logand 1 (cdr (assoc 70 edata))))
         pts    '()
         segs   '())
@@ -1788,7 +1788,7 @@
                                              nudge-offsets best-sol test-height
                                              cur-h cur-dx cur-dy cur-box
                                              cur-cx cur-cy target-cx target-cy
-                                             shift-x shift-y vla-obj final-box)
+                                             shift-x shift-y vla-obj final-box seg)
   (setq doc (vla-get-activedocument (vlax-get-acad-object)))
   (if (and ename (= "TEXT" (cdr (assoc 0 (setq edata (entget ename))))))
     (progn
@@ -11670,7 +11670,7 @@
 
 ;; QW 内部: 把 (y x 文字 字高 序号) 列表按行分组，
 ;; 同一行用顿号连接，行与行之间也用顿号连接，返回 (连接结果 行数)
-(defun qw:join (items / rows row row-y row-h tol res line)
+(defun qw:join (items / rows row row-y row-h tol res line it r)
   ;; 先整体按 y 从大到小(从上到下)排序，序号作为最后一级比较，
   ;; 序号兜底保证比较严格；归并排序本身也不会丢弃同坐标元素
   (setq items
@@ -15415,7 +15415,7 @@
       (vl-string-trim " \t" (cadr row)) "")
     ""))
 
-(defun hddl:tail-count (row / rest n v one)
+(defun hddl:tail-count (row / rest n v one rec)
   (setq rest (hddl:skip row 4) n 0)
   (foreach rec rest
     (setq one rec
@@ -16305,7 +16305,7 @@
 ;;;----------------------------------------------------------------------------------------
 (defun c:TONG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                  ss i ename edata raw-str val unique-list sorted-list
-                 pt pt-wcs cur-pt count sty-name)
+                 pt pt-wcs cur-pt count sty-name txt)
   (aa:cmd-begin "TONG")
   (princ "\r\n选择要统计去重的文字对象: ")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))

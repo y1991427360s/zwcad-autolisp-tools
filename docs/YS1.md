@@ -12,6 +12,6 @@
 
 ![YS1 线条预览](YS1-preview.png)
 
-验证命令：`python tools/check_all_static.py`、`python tools/check_ys1_static.py`。后者解释实际 LISP 几何构造，检查高度、平移、缩放和零长度边，并输出白底预览；生成预览需要 matplotlib。
+验证命令：`python tools/check_all_static.py`、`python tools/check_ys1_static.py`。后者解释实际 LISP 几何构造，检查高度、平移、缩放和零长度边。生成白底预览需显式运行 `python tools/check_ys1_static.py --preview` 并安装 matplotlib；普通静态检查无需绘图库。
 
 本次仅做静态检查和离线几何预览，未连接 CAD，未在原生 ZWCAD 中加载或运行验证。

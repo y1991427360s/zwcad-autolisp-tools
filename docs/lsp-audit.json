@@ -1,0 +1,7231 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "file": "AA整合版本.lsp",
+      "bytes": 625853,
+      "top_level_forms": 676,
+      "functions": 590,
+      "commands": 130
+    },
+    {
+      "file": "common/aicad_pure.lsp",
+      "bytes": 483,
+      "top_level_forms": 3,
+      "functions": 3,
+      "commands": 0
+    },
+    {
+      "file": "V6/aicad_aa_loader.lsp",
+      "bytes": 9584,
+      "top_level_forms": 32,
+      "functions": 24,
+      "commands": 3
+    },
+    {
+      "file": "V6/aicad_extension.lsp",
+      "bytes": 60691,
+      "top_level_forms": 142,
+      "functions": 112,
+      "commands": 10
+    }
+  ],
+  "commands": [
+    {
+      "command": "0",
+      "file": "AA整合版本.lsp",
+      "line": 14018,
+      "description": "将所选对象中的文字旋转角度统一改为 0 度。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTDEF",
+        "ATTRIB",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "9",
+      "file": "AA整合版本.lsp",
+      "line": 14101,
+      "description": "以所选对象整体包围框中心为基点，整体顺时针旋转 90 度。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:rotate-90-run"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:rotate-90-run"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "99",
+      "file": "AA整合版本.lsp",
+      "line": 14113,
+      "description": "以所选对象整体包围框中心为基点，整体逆时针旋转 90 度。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:rotate-90-run"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:rotate-90-run"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AAE",
+      "file": "AA整合版本.lsp",
+      "line": 8723,
+      "description": "选择块内属性文字，在自定义窗口中编辑并按回车直接保存。",
+      "params": [],
+      "inputs": [
+        "nentsel",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n选择要编辑的属性文字: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aae:locate-dcl",
+        "aae:resolve-val",
+        "aae:split-lines"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:str-replace-all",
+        "aae:clean-mtext-format",
+        "aae:locate-dcl",
+        "aae:resolve-val",
+        "aae:split-lines"
+      ],
+      "external_files": [
+        "AAE.DCL",
+        "\\\\AAE.DCL"
+      ],
+      "object_candidates": [
+        "ATTRIB"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AB",
+      "file": "AA整合版本.lsp",
+      "line": 11458,
+      "description": "在每个选中文字末尾增加输入的文字。",
+      "params": [],
+      "inputs": [
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入要增加的文字: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:add"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:add",
+        "db:get-str",
+        "db:sel",
+        "db:set-str"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AF",
+      "file": "AA整合版本.lsp",
+      "line": 11464,
+      "description": "在每个选中文字开头增加输入的文字。",
+      "params": [],
+      "inputs": [
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入要增加的文字: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:add"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:add",
+        "db:get-str",
+        "db:sel",
+        "db:set-str"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICAD",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1785,
+      "description": "根据自然语言指令或对话修改选中的 CAD 对象",
+      "params": [],
+      "inputs": [
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\nDescribe the change for the selected objects: ",
+        "\\nExecute this action? [Yes/No] <No>: "
+      ],
+      "direct_dependencies": [
+        "aicad:command-aicad",
+        "aicad:safe-apply"
+      ],
+      "reachable_dependencies": [
+        "aicad:align-left-top",
+        "aicad:allowed-commands",
+        "aicad:apply-color",
+        "aicad:apply-hei",
+        "aicad:apply-line-edit",
+        "aicad:apply-move",
+        "aicad:apply-shang",
+        "aicad:apply-text-height",
+        "aicad:apply-text-replacements",
+        "aicad:apply-text-width",
+        "aicad:apply-xia",
+        "aicad:apply-you",
+        "aicad:apply-zhong",
+        "aicad:apply-zuo",
+        "aicad:assoc-inc",
+        "aicad:call-bridge",
+        "aicad:cancel-message-p",
+        "aicad:command-aicad",
+        "aicad:confirm-execution",
+        "aicad:dispatch",
+        "aicad:error-message",
+        "aicad:escape-json",
+        "aicad:execution-preview",
+        "aicad:file-exists-p",
+        "aicad:filter-selection",
+        "aicad:get-bbox-lists",
+        "aicad:get-leftmost-reference",
+        "aicad:get-leftmost-top-reference",
+        "aicad:get-top-entity",
+        "aicad:join",
+        "aicad:justify-text-selection",
+        "aicad:kv-get",
+        "aicad:line-length",
+        "aicad:line-side-points",
+        "aicad:make-request-json",
+        "aicad:nonempty-search-p",
+        "aicad:normalize-path",
+        "aicad:not-empty-p",
+        "aicad:point-add-scaled",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:read-kv-file",
+        "aicad:replace-pairs-from-result",
+        "aicad:replace-pairs-preview",
+        "aicad:replacement-selection",
+        "aicad:resolve-bridge-path",
+        "aicad:resolve-launcher-path",
+        "aicad:resolve-selection",
+        "aicad:restore-system-variables",
+        "aicad:run-command",
+        "aicad:run-request",
+        "aicad:safe-apply",
+        "aicad:save-system-variables",
+        "aicad:selection-count",
+        "aicad:selection-summary",
+        "aicad:set-dxf",
+        "aicad:sleep-millis",
+        "aicad:trim",
+        "aicad:unit-vector",
+        "aicad:wait-for-file",
+        "aicad:write-text-file"
+      ],
+      "external_files": [
+        "AICAD_BRIDGE.PS1",
+        "AICAD_LAUNCH.VBS",
+        "WSCRIPT.EXE"
+      ],
+      "object_candidates": [
+        "ATTRIB",
+        "INSERT",
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICADCLEANUI",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1936,
+      "description": "清理残留的旧版临时 UI 与界面元素",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicad:cleanup-legacy-ui",
+        "aicad:safe-apply"
+      ],
+      "reachable_dependencies": [
+        "aicad:cancel-message-p",
+        "aicad:cleanup-legacy-ui",
+        "aicad:delete-legacy-toolbars",
+        "aicad:error-message",
+        "aicad:hide-toolbar-by-command",
+        "aicad:legacy-toolbar-name-p",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:restore-system-variables",
+        "aicad:safe-apply",
+        "aicad:safe-toolbar-name",
+        "aicad:save-system-variables",
+        "aicad:trim"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICADREPLACEPANELSHOW",
+      "file": "V6/aicad_aa_loader.lsp",
+      "line": 304,
+      "description": "打开 AICAD 查找替换浮动面板",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicadloader:safe-apply",
+        "aicadloader:show-replace-panel"
+      ],
+      "reachable_dependencies": [
+        "aicadloader:error-message",
+        "aicadloader:pop-environment",
+        "aicadloader:push-environment",
+        "aicadloader:restore-system-variables",
+        "aicadloader:safe-apply",
+        "aicadloader:save-system-variables",
+        "aicadloader:show-replace-panel"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICADRIBBON",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1826,
+      "description": "执行 Ribbon 功能区输入框中提交的自然语言指令",
+      "params": [],
+      "inputs": [
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\nExecute this action? [Yes/No] <No>: "
+      ],
+      "direct_dependencies": [
+        "aicad:command-ribbon",
+        "aicad:safe-apply"
+      ],
+      "reachable_dependencies": [
+        "aicad:align-left-top",
+        "aicad:allowed-commands",
+        "aicad:apply-color",
+        "aicad:apply-hei",
+        "aicad:apply-line-edit",
+        "aicad:apply-move",
+        "aicad:apply-shang",
+        "aicad:apply-text-height",
+        "aicad:apply-text-replacements",
+        "aicad:apply-text-width",
+        "aicad:apply-xia",
+        "aicad:apply-you",
+        "aicad:apply-zhong",
+        "aicad:apply-zuo",
+        "aicad:assoc-inc",
+        "aicad:call-bridge",
+        "aicad:cancel-message-p",
+        "aicad:command-ribbon",
+        "aicad:confirm-execution",
+        "aicad:dispatch",
+        "aicad:error-message",
+        "aicad:escape-json",
+        "aicad:execution-preview",
+        "aicad:file-exists-p",
+        "aicad:filter-selection",
+        "aicad:get-bbox-lists",
+        "aicad:get-leftmost-reference",
+        "aicad:get-leftmost-top-reference",
+        "aicad:get-top-entity",
+        "aicad:join",
+        "aicad:justify-text-selection",
+        "aicad:kv-get",
+        "aicad:line-length",
+        "aicad:line-side-points",
+        "aicad:make-request-json",
+        "aicad:nonempty-search-p",
+        "aicad:normalize-path",
+        "aicad:not-empty-p",
+        "aicad:point-add-scaled",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:read-kv-file",
+        "aicad:read-text-file",
+        "aicad:replace-pairs-from-result",
+        "aicad:replace-pairs-preview",
+        "aicad:replacement-selection",
+        "aicad:resolve-bridge-path",
+        "aicad:resolve-launcher-path",
+        "aicad:resolve-selection",
+        "aicad:restore-system-variables",
+        "aicad:run-command",
+        "aicad:run-request",
+        "aicad:safe-apply",
+        "aicad:save-system-variables",
+        "aicad:selection-count",
+        "aicad:selection-summary",
+        "aicad:set-dxf",
+        "aicad:sleep-millis",
+        "aicad:trim",
+        "aicad:unit-vector",
+        "aicad:wait-for-file",
+        "aicad:write-text-file"
+      ],
+      "external_files": [
+        "AICAD_BRIDGE.PS1",
+        "AICAD_LAUNCH.VBS",
+        "WSCRIPT.EXE"
+      ],
+      "object_candidates": [
+        "ATTRIB",
+        "INSERT",
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICADRIBBONFIND",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1919,
+      "description": "执行 Ribbon 查找面板中的文字查找与定位",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicad:command-ribbon-find",
+        "aicad:safe-apply"
+      ],
+      "reachable_dependencies": [
+        "aicad:cancel-message-p",
+        "aicad:clear-last-find-highlight",
+        "aicad:command-ribbon-find",
+        "aicad:error-message",
+        "aicad:focus-find-match",
+        "aicad:get-bbox-lists",
+        "aicad:get-entity-handle",
+        "aicad:get-entity-text",
+        "aicad:index-of",
+        "aicad:join",
+        "aicad:matching-text-entities",
+        "aicad:pick-find-match",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:read-text-file",
+        "aicad:replacement-selection",
+        "aicad:reset-find-state",
+        "aicad:resolve-selection",
+        "aicad:restore-system-variables",
+        "aicad:run-ribbon-find",
+        "aicad:safe-apply",
+        "aicad:save-system-variables",
+        "aicad:selection-count",
+        "aicad:text-contains-p",
+        "aicad:text-property",
+        "aicad:trim",
+        "aicad:zoom-to-entity",
+        "aicad:zoom-to-entity-window"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTRIB",
+        "INSERT",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICADRIBBONFOCUSMATCH",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1931,
+      "description": "聚焦并定位 Ribbon 查找匹配的目标图元",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicad:command-ribbon-focus-match",
+        "aicad:safe-apply"
+      ],
+      "reachable_dependencies": [
+        "aicad:cancel-message-p",
+        "aicad:clear-last-find-highlight",
+        "aicad:command-ribbon-focus-match",
+        "aicad:error-message",
+        "aicad:focus-find-match",
+        "aicad:get-bbox-lists",
+        "aicad:get-entity-handle",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:restore-system-variables",
+        "aicad:run-ribbon-find-focus",
+        "aicad:safe-apply",
+        "aicad:save-system-variables",
+        "aicad:trim",
+        "aicad:zoom-to-entity",
+        "aicad:zoom-to-entity-window"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AICADRIBBONREPLACE",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1886,
+      "description": "执行 Ribbon 替换面板中的批量查找替换",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicad:command-ribbon-replace",
+        "aicad:safe-apply"
+      ],
+      "reachable_dependencies": [
+        "aicad:apply-text-replacements",
+        "aicad:cancel-message-p",
+        "aicad:command-ribbon-replace",
+        "aicad:error-message",
+        "aicad:nonempty-search-p",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:read-replace-payload-file",
+        "aicad:replacement-selection",
+        "aicad:resolve-selection",
+        "aicad:restore-system-variables",
+        "aicad:run-ribbon-replacement-pairs",
+        "aicad:safe-apply",
+        "aicad:save-system-variables",
+        "aicad:selection-count"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTRIB",
+        "INSERT",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "ASCAD",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1790,
+      "description": "AICAD 启动命令别名",
+      "params": [],
+      "inputs": [
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\nDescribe the change for the selected objects: ",
+        "\\nExecute this action? [Yes/No] <No>: "
+      ],
+      "direct_dependencies": [
+        "c:aicad"
+      ],
+      "reachable_dependencies": [
+        "aicad:align-left-top",
+        "aicad:allowed-commands",
+        "aicad:apply-color",
+        "aicad:apply-hei",
+        "aicad:apply-line-edit",
+        "aicad:apply-move",
+        "aicad:apply-shang",
+        "aicad:apply-text-height",
+        "aicad:apply-text-replacements",
+        "aicad:apply-text-width",
+        "aicad:apply-xia",
+        "aicad:apply-you",
+        "aicad:apply-zhong",
+        "aicad:apply-zuo",
+        "aicad:assoc-inc",
+        "aicad:call-bridge",
+        "aicad:cancel-message-p",
+        "aicad:command-aicad",
+        "aicad:confirm-execution",
+        "aicad:dispatch",
+        "aicad:error-message",
+        "aicad:escape-json",
+        "aicad:execution-preview",
+        "aicad:file-exists-p",
+        "aicad:filter-selection",
+        "aicad:get-bbox-lists",
+        "aicad:get-leftmost-reference",
+        "aicad:get-leftmost-top-reference",
+        "aicad:get-top-entity",
+        "aicad:join",
+        "aicad:justify-text-selection",
+        "aicad:kv-get",
+        "aicad:line-length",
+        "aicad:line-side-points",
+        "aicad:make-request-json",
+        "aicad:nonempty-search-p",
+        "aicad:normalize-path",
+        "aicad:not-empty-p",
+        "aicad:point-add-scaled",
+        "aicad:pop-environment",
+        "aicad:print-error",
+        "aicad:push-environment",
+        "aicad:read-kv-file",
+        "aicad:replace-pairs-from-result",
+        "aicad:replace-pairs-preview",
+        "aicad:replacement-selection",
+        "aicad:resolve-bridge-path",
+        "aicad:resolve-launcher-path",
+        "aicad:resolve-selection",
+        "aicad:restore-system-variables",
+        "aicad:run-command",
+        "aicad:run-request",
+        "aicad:safe-apply",
+        "aicad:save-system-variables",
+        "aicad:selection-count",
+        "aicad:selection-summary",
+        "aicad:set-dxf",
+        "aicad:sleep-millis",
+        "aicad:trim",
+        "aicad:unit-vector",
+        "aicad:wait-for-file",
+        "aicad:write-text-file",
+        "c:aicad"
+      ],
+      "external_files": [
+        "AICAD_BRIDGE.PS1",
+        "AICAD_LAUNCH.VBS",
+        "WSCRIPT.EXE"
+      ],
+      "object_candidates": [
+        "ATTRIB",
+        "INSERT",
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ASHANG",
+      "file": "AA整合版本.lsp",
+      "line": 3439,
+      "description": "选择一条水平直线作为基准线，框选其他所有对象作为一个整体整体移动并向上对齐到该直线。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[ASHANG] 请选择作为对齐基准的水平直线: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ATW",
+      "file": "AA整合版本.lsp",
+      "line": 3965,
+      "description": "拾取两点指定最大宽度，将超宽单行文字的宽度比例缩小至两点间距的 95% 并保持左侧不动。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[ATW] 请指定最大宽度第一点: ",
+        "\\r\\n[ATW] 请指定最大宽度第二点: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AW",
+      "file": "AA整合版本.lsp",
+      "line": 12410,
+      "description": "自动微移选中文字，尽量避开旁边线段、文字和其他对象重叠。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aw:get-selection",
+        "aw:process-one"
+      ],
+      "reachable_dependencies": [
+        "aw:3d",
+        "aw:bbox",
+        "aw:bbox->ucs-window",
+        "aw:bbox-move",
+        "aw:bbox-size",
+        "aw:blocked-p",
+        "aw:expand-bbox",
+        "aw:get-selection",
+        "aw:max2",
+        "aw:move-object",
+        "aw:process-one",
+        "aw:ss-has-other-p",
+        "aw:text-unit",
+        "aw:try-offset",
+        "aw:ucs-disp->wcs",
+        "aw:v*",
+        "aw:v+"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AXIA",
+      "file": "AA整合版本.lsp",
+      "line": 3570,
+      "description": "选择一条水平直线作为基准线，框选其他所有对象作为一个整体整体移动并向下对齐到该直线。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[AXIA] 请选择作为对齐基准的水平直线: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AYOU",
+      "file": "AA整合版本.lsp",
+      "line": 3307,
+      "description": "选择一条竖直直线作为基准线，框选其他所有对象作为一个整体整体移动并右对齐到该直线。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[AYOU] 请选择作为对齐基准的竖直直线: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-right-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-right-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "AZUO",
+      "file": "AA整合版本.lsp",
+      "line": 2884,
+      "description": "选择一条竖直直线作为基准线，框选其他所有对象作为一个整体整体移动并左对齐到该直线。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[AZUO] 请选择作为对齐基准的竖直直线: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-left-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-left-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "BIAN",
+      "file": "AA整合版本.lsp",
+      "line": 5559,
+      "description": "根据选中直线生成方向三角、至字样和电缆规格标注。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "bian-draw-one"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "bian-draw-one",
+        "bian-make-text",
+        "bian-right-point"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "BK",
+      "file": "AA整合版本.lsp",
+      "line": 15252,
+      "description": "选中文字后只保留最后一对括号内的内容，括号外有“至”时保留“至”。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "bk:extract-inner",
+        "de:end-undo",
+        "de:get-text",
+        "de:set-text"
+      ],
+      "reachable_dependencies": [
+        "bk:extract-inner",
+        "de:end-undo",
+        "de:find-pair",
+        "de:get-text",
+        "de:rfind",
+        "de:rfind-before",
+        "de:set-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTRIB",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "BY",
+      "file": "AA整合版本.lsp",
+      "line": 14663,
+      "description": "选中两条水平线后向右生成短线、矩形并居中标注B+、B-及同步时钟主机柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "BZ",
+      "file": "AA整合版本.lsp",
+      "line": 14657,
+      "description": "选中两条水平线后向左生成短线、矩形并居中标注B+、B-及同步时钟主机柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "C1",
+      "file": "AA整合版本.lsp",
+      "line": 13428,
+      "description": "复制文字并递增减号右侧编号，使用原生拖动预览和捕捉连续放置。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n指定基点: "
+      ],
+      "direct_dependencies": [
+        "c1c2:run"
+      ],
+      "reachable_dependencies": [
+        "c1c2:change-number",
+        "c1c2:first-number-span",
+        "c1c2:is-digit",
+        "c1c2:itoa-pad",
+        "c1c2:place-one",
+        "c1c2:repeat-char",
+        "c1c2:run",
+        "c1c2:safe-end-undo",
+        "c1c2:select-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "C2",
+      "file": "AA整合版本.lsp",
+      "line": 13432,
+      "description": "复制文字并递减减号右侧编号，使用原生拖动预览和捕捉连续放置。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n指定基点: "
+      ],
+      "direct_dependencies": [
+        "c1c2:run"
+      ],
+      "reachable_dependencies": [
+        "c1c2:change-number",
+        "c1c2:first-number-span",
+        "c1c2:is-digit",
+        "c1c2:itoa-pad",
+        "c1c2:place-one",
+        "c1c2:repeat-char",
+        "c1c2:run",
+        "c1c2:safe-end-undo",
+        "c1c2:select-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "C3",
+      "file": "AA整合版本.lsp",
+      "line": 13436,
+      "description": "复制文字并每次将减号右侧编号加 2，使用原生拖动预览和捕捉连续放置。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n指定基点: "
+      ],
+      "direct_dependencies": [
+        "c1c2:run"
+      ],
+      "reachable_dependencies": [
+        "c1c2:change-number",
+        "c1c2:first-number-span",
+        "c1c2:is-digit",
+        "c1c2:itoa-pad",
+        "c1c2:place-one",
+        "c1c2:repeat-char",
+        "c1c2:run",
+        "c1c2:safe-end-undo",
+        "c1c2:select-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "CC",
+      "file": "AA整合版本.lsp",
+      "line": 11595,
+      "description": "读取 Windows 剪贴板，连续复制并替换副本文字，使用原生拖动预览和对象捕捉。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\n指定第一个点（基点）: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "qe:get-clip-text"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "qe:get-clip-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTDEF",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "CD",
+      "file": "AA整合版本.lsp",
+      "line": 15657,
+      "description": "将选中对象按 5 个单位的递增间距向下复制指定份数。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入复制份数（每份间距为 5）: "
+      ],
+      "direct_dependencies": [
+        "cu:copy-direction"
+      ],
+      "reachable_dependencies": [
+        "cu:copy-direction"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "CE",
+      "file": "AA整合版本.lsp",
+      "line": 12193,
+      "description": "测量点序列形成的多段线总长度。",
+      "params": [],
+      "inputs": [
+        "getpoint"
+      ],
+      "input_prompts": [
+        "\\r\\n请点击下一个点 (回车/空格结束): ",
+        "\\r\\n请点击第一个点 (回车/空格结束): "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "ce-redraw"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "ce-redraw"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LWPOLYLINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "CU",
+      "file": "AA整合版本.lsp",
+      "line": 15653,
+      "description": "将选中对象按 5 个单位的递增间距向上复制指定份数。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入复制份数（每份间距为 5）: "
+      ],
+      "direct_dependencies": [
+        "cu:copy-direction"
+      ],
+      "reachable_dependencies": [
+        "cu:copy-direction"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "CY",
+      "file": "AA整合版本.lsp",
+      "line": 15665,
+      "description": "将选中对象按 5 个单位的递增间距向右复制指定份数。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入复制份数（每份间距为 5）: "
+      ],
+      "direct_dependencies": [
+        "cu:copy-direction"
+      ],
+      "reachable_dependencies": [
+        "cu:copy-direction"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "CZ",
+      "file": "AA整合版本.lsp",
+      "line": 15661,
+      "description": "将选中对象按 5 个单位的递增间距向左复制指定份数。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入复制份数（每份间距为 5）: "
+      ],
+      "direct_dependencies": [
+        "cu:copy-direction"
+      ],
+      "reachable_dependencies": [
+        "cu:copy-direction"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DAO",
+      "file": "AA整合版本.lsp",
+      "line": 14986,
+      "description": "将选中文字按垂直位置上下颠倒排列（最下面的文字放到最上面）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "dao:insert-sorted",
+        "dao:move-text"
+      ],
+      "reachable_dependencies": [
+        "dao:insert-sorted",
+        "dao:move-text",
+        "dao:upper-p"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DB",
+      "file": "AA整合版本.lsp",
+      "line": 11446,
+      "description": "删除每个选中文字末尾的 N 个字符。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入要删除的字符个数: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:del"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:del",
+        "db:get-str",
+        "db:sel",
+        "db:set-str"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DE",
+      "file": "AA整合版本.lsp",
+      "line": 13594,
+      "description": "删除选中文字的最右侧括号及括号内容。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "de:run"
+      ],
+      "reachable_dependencies": [
+        "de:end-undo",
+        "de:find-pair",
+        "de:get-text",
+        "de:rfind",
+        "de:rfind-before",
+        "de:rstrip-digits",
+        "de:run",
+        "de:set-text",
+        "de:strip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTRIB",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DE2",
+      "file": "AA整合版本.lsp",
+      "line": 13595,
+      "description": "用最右侧括号内容替换括号前连续数字。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "de:run"
+      ],
+      "reachable_dependencies": [
+        "de:end-undo",
+        "de:find-pair",
+        "de:get-text",
+        "de:rfind",
+        "de:rfind-before",
+        "de:rstrip-digits",
+        "de:run",
+        "de:set-text",
+        "de:strip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTRIB",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DEA",
+      "file": "AA整合版本.lsp",
+      "line": 3862,
+      "description": "删除所选对象中高度小于 0.1 的 TEXT/MTEXT 文字。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DEK",
+      "file": "AA整合版本.lsp",
+      "line": 3892,
+      "description": "删除选中内容中的所有块参照 (INSERT)。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DES",
+      "file": "AA整合版本.lsp",
+      "line": 527,
+      "description": "所选直线共线重叠时删除短线、保留长线；完全重复留一条，跨图层处理并跳过锁定图层。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "des:key-less-p",
+        "des:overlap-p"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "des:dot",
+        "des:key-less-p",
+        "des:overlap-p"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DF",
+      "file": "AA整合版本.lsp",
+      "line": 11452,
+      "description": "删除每个选中文字开头的 N 个字符。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入要删除的字符个数: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:del"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "db:del",
+        "db:get-str",
+        "db:sel",
+        "db:set-str"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DL1",
+      "file": "AA整合版本.lsp",
+      "line": 14205,
+      "description": "创建电缆柜、电缆路径、电缆竖井相关的 1F / 2F 图层。",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "dl1:make-layer"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "dl1:make-layer"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DUMP",
+      "file": "AA整合版本.lsp",
+      "line": 13174,
+      "description": "打印选中图元的 ActiveX 属性与可用方法（调试辅助）。",
+      "params": [],
+      "inputs": [
+        "entsel"
+      ],
+      "input_prompts": [
+        "\\r\\n请选择要检查 ActiveX 属性的图元: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": false
+    },
+    {
+      "command": "DX",
+      "file": "AA整合版本.lsp",
+      "line": 10214,
+      "description": "批量整理 100×100 方格内的端子号、原理号和终点柜文字，并将整组文字居中。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:zz-filter-text-ss",
+        "aa:zz-group-by-rect",
+        "aa:zz-text-info",
+        "dx:apply-group"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:zz-add-seg",
+        "aa:zz-between-p",
+        "aa:zz-build-line-cache",
+        "aa:zz-collect-lwpoly-pts",
+        "aa:zz-filter-text-ss",
+        "aa:zz-find-bound-lines",
+        "aa:zz-group-by-rect",
+        "aa:zz-move-text",
+        "aa:zz-near-line-tol",
+        "aa:zz-poly-closed-p",
+        "aa:zz-rect-match-p",
+        "aa:zz-text-info",
+        "dx:apply-group",
+        "dx:color-kind",
+        "dx:effective-color",
+        "dx:has-hanzi-p",
+        "dx:item-from-info",
+        "dx:max-item-value",
+        "dx:move-item-center",
+        "dx:pair-rows",
+        "dx:sort-y-desc",
+        "dx:text-string",
+        "dx:true-color-rgb"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "DX1",
+      "file": "AA整合版本.lsp",
+      "line": 12092,
+      "description": "提取选中文字及坐标，青色文字额外标注“端子名”，复制到剪贴板。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "dx:color-kind",
+        "zi:pt",
+        "zi:to-clip"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "dx:color-kind",
+        "dx:effective-color",
+        "dx:true-color-rgb",
+        "zi:pt",
+        "zi:to-clip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "DX2",
+      "file": "AA整合版本.lsp",
+      "line": 10414,
+      "description": "按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:zz-filter-text-ss",
+        "aa:zz-group-by-rect",
+        "aa:zz-text-info",
+        "dx2:export-group",
+        "dx2:sort-groups",
+        "zi:to-clip"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:try-get-bbox",
+        "aa:zz-add-seg",
+        "aa:zz-between-p",
+        "aa:zz-build-line-cache",
+        "aa:zz-collect-lwpoly-pts",
+        "aa:zz-filter-text-ss",
+        "aa:zz-find-bound-lines",
+        "aa:zz-group-by-rect",
+        "aa:zz-near-line-tol",
+        "aa:zz-poly-closed-p",
+        "aa:zz-rect-match-p",
+        "aa:zz-text-info",
+        "dx2:append-text",
+        "dx2:export-group",
+        "dx2:group-before-p",
+        "dx2:group-record",
+        "dx2:group-rows",
+        "dx2:insert-group",
+        "dx2:insert-x-asc",
+        "dx2:insert-y-desc",
+        "dx2:sort-groups",
+        "dx2:sort-x-asc",
+        "dx2:sort-y-desc",
+        "dx2:text-record",
+        "dx:item-from-info",
+        "dx:text-string",
+        "zi:to-clip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "FDX",
+      "file": "AA整合版本.lsp",
+      "line": 9962,
+      "description": "先选方框，再连续选择每批文字，按空格依次移动到下一方框并自动按 DX 规则排列。",
+      "params": [],
+      "inputs": [
+        "getkword",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[FDX] 方框顺序 [按行(R)/按列(C)] <R>: "
+      ],
+      "direct_dependencies": [
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "fdx:frames",
+        "fdx:place",
+        "fdx:show-frame",
+        "fdx:sort-frames"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:zz-move-text",
+        "aa:zz-poly-closed-p",
+        "dx:apply-group",
+        "dx:color-kind",
+        "dx:effective-color",
+        "dx:has-hanzi-p",
+        "dx:item-from-info",
+        "dx:max-item-value",
+        "dx:move-item-center",
+        "dx:pair-rows",
+        "dx:sort-y-desc",
+        "dx:text-string",
+        "dx:true-color-rgb",
+        "fdx:add-rect",
+        "fdx:arrange",
+        "fdx:frames",
+        "fdx:line-rects",
+        "fdx:place",
+        "fdx:poly-rect",
+        "fdx:rect-from-points",
+        "fdx:restore",
+        "fdx:shift-data",
+        "fdx:show-frame",
+        "fdx:sort-frames"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "FIVE",
+      "file": "AA整合版本.lsp",
+      "line": 9548,
+      "description": "将测得高度按比例缩放为 5。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\nFIVE - 请点取当前格子高度的第一个点: ",
+        "\\r\\n请点取当前格子高度的第二个点: ",
+        "\\r\\n请点取缩放基点: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "GE",
+      "file": "AA整合版本.lsp",
+      "line": 13682,
+      "description": "选中同一水平行的单行文字，按文字间隙绘制单行表格。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "ge:end-undo",
+        "ge:get-item",
+        "ge:make-line",
+        "ge:sort-items"
+      ],
+      "reachable_dependencies": [
+        "ge:end-undo",
+        "ge:get-item",
+        "ge:insert-item",
+        "ge:make-line",
+        "ge:sort-items",
+        "ge:text-point-wcs"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "GG",
+      "file": "AA整合版本.lsp",
+      "line": 2444,
+      "description": "将选中对象快速改为绿色。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd",
+        "aa:set-entity-aci-color"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "GTX",
+      "file": "AA整合版本.lsp",
+      "line": 4873,
+      "description": "按自动容差整理单行/多行电缆文字并自然排序汇总。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[GTX] 请指定汇总结果的插入点: "
+      ],
+      "direct_dependencies": [
+        "aa:gtx-create-text-entity",
+        "aa:gtx-find-last-char",
+        "aa:gtx-key",
+        "aa:gtx-rows",
+        "aa:gtx-select-prefix-text",
+        "aa:merge-sort",
+        "aa:try-get-bbox",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:ysdl-get-plain-text"
+      ],
+      "reachable_dependencies": [
+        "aa:gtx-create-text-entity",
+        "aa:gtx-find-last-char",
+        "aa:gtx-first-text-from-ss",
+        "aa:gtx-key",
+        "aa:gtx-rows",
+        "aa:gtx-select-prefix-text",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aa:try-get-bbox",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:ysdl-get-plain-text",
+        "aa:ysdl-get-raw-text",
+        "aa:ysdl-strip-mtext-format"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "GTY",
+      "file": "AA整合版本.lsp",
+      "line": 5159,
+      "description": "汇总并按电缆编号排序整理电缆文字。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:gty-build-sort-key",
+        "aa:gty-get-item-ename",
+        "aa:gty-get-item-pt",
+        "aa:gty-get-item-width",
+        "aa:gty-get-item-x",
+        "aa:gty-get-item-y",
+        "aa:gty-get-item-z",
+        "aa:gty-get-text-width",
+        "aa:gty-move-entity",
+        "aa:gty-update-nth",
+        "aa:insert-sort"
+      ],
+      "reachable_dependencies": [
+        "aa:gty-build-sort-key",
+        "aa:gty-get-item-ename",
+        "aa:gty-get-item-pt",
+        "aa:gty-get-item-text",
+        "aa:gty-get-item-width",
+        "aa:gty-get-item-x",
+        "aa:gty-get-item-y",
+        "aa:gty-get-item-z",
+        "aa:gty-get-text-width",
+        "aa:gty-move-entity",
+        "aa:gty-normalize-key",
+        "aa:gty-pad-left",
+        "aa:gty-update-nth",
+        "aa:insert-sort"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "GTZ",
+      "file": "AA整合版本.lsp",
+      "line": 5346,
+      "description": "将选中的交替柜名与电缆编号单列文字，按前后柜与编号重组为3列表格输出。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[GTZ] 请指定新表格的放置点: "
+      ],
+      "direct_dependencies": [
+        "aa:gty-get-text-width",
+        "aa:gty-move-entity",
+        "aa:merge-sort"
+      ],
+      "reachable_dependencies": [
+        "aa:gty-get-text-width",
+        "aa:gty-move-entity",
+        "aa:merge-sort",
+        "aa:msort-merge"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "H",
+      "file": "AA整合版本.lsp",
+      "line": 2042,
+      "description": "先将选中文字统一为左中对正，再按指定间距从上到下排列。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入上下间距 <5>: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:normalize-text-horizontal-align"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-left-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:normalize-text-horizontal-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-horizontal-align",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "H2",
+      "file": "AA整合版本.lsp",
+      "line": 2173,
+      "description": "先将选中文字统一为左中对正，右侧文字在最上、越靠左越靠下，按指定间距从上到下排列。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入上下间距 <5>: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:normalize-text-horizontal-align"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-left-x",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:normalize-text-horizontal-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-horizontal-align",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HAO",
+      "file": "AA整合版本.lsp",
+      "line": 8827,
+      "description": "选中图框后批量填写页码和档案号。",
+      "params": [],
+      "inputs": [
+        "getint",
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入档案号（直接回车跳过不填写）: ",
+        "\\r\\n请输入比例（直接回车跳过不填写）: ",
+        "\\r\\n请输入起始页码（默认为1，直接回车使用默认值）: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "fillframes-run"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "att-tag",
+        "blk-insertpt",
+        "collect-frames-from-ss",
+        "fill-one-frame",
+        "fillframes-run",
+        "find-att-by-keywords",
+        "get-att-objects",
+        "is-attblock",
+        "is-frame-block",
+        "page-keywords",
+        "proj-num-keywords",
+        "scale-keywords",
+        "set-att-value",
+        "sort-frames-by-position",
+        "total-page-keywords"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HAO2",
+      "file": "AA整合版本.lsp",
+      "line": 9073,
+      "description": "指定基准块参照与图号矩形范围，批量居中填充或更新递增图号文字。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "getcorner",
+        "getint",
+        "getpoint",
+        "getstring",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[HAO2] 请点击选择基准图框块参照: ",
+        "\\r\\n[HAO2] 请输入图号前缀 (例如 D260020S-D0205-): ",
+        "\\r\\n[HAO2] 请输入编号位数 (不足补零，例如 2 位为 01) <2>: ",
+        "\\r\\n[HAO2] 请输入起始编号数字 <1>: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "blk-insertpt",
+        "hao2:block-name",
+        "hao2:find-existing-text-fast",
+        "hao2:format-num",
+        "hao2:sort-blocks",
+        "tktj:current-space",
+        "tktj:ensure-text-style",
+        "zdml2:collect-all-texts"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aae:clean-mtext-format",
+        "blk-insertpt",
+        "hao2:block-name",
+        "hao2:find-existing-text-fast",
+        "hao2:format-num",
+        "hao2:sort-blocks",
+        "tktj:clean-val",
+        "tktj:current-space",
+        "tktj:ensure-text-style",
+        "tktj:trim",
+        "zdml2:collect-all-texts"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HB",
+      "file": "AA整合版本.lsp",
+      "line": 7536,
+      "description": "框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并合并排序原理号。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ysdl-get-plain-text",
+        "hb:apply-merge-in-place",
+        "hb:cluster-rows",
+        "hb:parse-row"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aa:ysdl-get-plain-text",
+        "aa:ysdl-get-raw-text",
+        "aa:ysdl-strip-mtext-format",
+        "hb:apply-merge-in-place",
+        "hb:cluster-rows",
+        "hb:create-text-matching",
+        "hb:extract-target-cable-id",
+        "hb:find-cable-index",
+        "hb:find-core-index",
+        "hb:parse-row",
+        "hb:update-text-content"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HDDL",
+      "file": "AA整合版本.lsp",
+      "line": 15498,
+      "description": "直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "hddl:add-row",
+        "hddl:cell",
+        "hddl:clear-markers",
+        "hddl:color-cabinet-diffs",
+        "hddl:color-cell",
+        "hddl:color-core-count-diff",
+        "hddl:color-tail-diffs",
+        "hddl:color-tail-duplicates",
+        "hddl:ensure-layer",
+        "hddl:make-marker",
+        "hddl:mirror-p",
+        "hddl:point",
+        "hddl:sort-rows",
+        "hddl:tail-count",
+        "hddl:tail-different-p",
+        "hddl:tail-duplicate-p",
+        "hddl:text"
+      ],
+      "reachable_dependencies": [
+        "aa:str-replace-all",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:ysdl-get-plain-text",
+        "aa:ysdl-get-raw-text",
+        "aa:ysdl-strip-mtext-format",
+        "hddl:add-row",
+        "hddl:cabinet",
+        "hddl:cell",
+        "hddl:clear-markers",
+        "hddl:color",
+        "hddl:color-cabinet-diffs",
+        "hddl:color-cell",
+        "hddl:color-core-count-diff",
+        "hddl:color-tail-diffs",
+        "hddl:color-tail-duplicates",
+        "hddl:coord",
+        "hddl:ensure-layer",
+        "hddl:insert-sorted",
+        "hddl:item",
+        "hddl:make-marker",
+        "hddl:mirror-p",
+        "hddl:point",
+        "hddl:row-sort",
+        "hddl:skip",
+        "hddl:sort",
+        "hddl:sort-rows",
+        "hddl:tail-count",
+        "hddl:tail-different-p",
+        "hddl:tail-duplicate-p",
+        "hddl:text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HE",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "description": "将同一行的两个或以上文字合并。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:insert-sort"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:insert-sort"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HH",
+      "file": "AA整合版本.lsp",
+      "line": 2454,
+      "description": "将选中对象快速改为洋红色。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd",
+        "aa:set-entity-aci-color"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HP",
+      "file": "AA整合版本.lsp",
+      "line": 3009,
+      "description": "将选中文字按从左到右排列，使相邻文字首尾间距为指定值，并按最左文字上边对齐。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入相邻文字首尾间距 <5>: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HP2",
+      "file": "AA整合版本.lsp",
+      "line": 3152,
+      "description": "将选中文字改为正中对齐，按中心点指定间距从左到右横向排列。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入相邻文字中心间距 <50>: "
+      ],
+      "direct_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:normalize-text-horizontal-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-top-y",
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:normalize-text-horizontal-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-horizontal-align",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HS",
+      "file": "AA整合版本.lsp",
+      "line": 15719,
+      "description": "选中物体单向横向缩放，左右宽度改变，高度保持不变。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        ":L",
+        "\\r\\n指定新长度: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:hs-filter-unlocked",
+        "aa:hs-get-ss-bbox"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:hs-filter-unlocked",
+        "aa:hs-get-ss-bbox",
+        "aa:safe-get-bbox",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "HUI",
+      "file": "AA整合版本.lsp",
+      "line": 2730,
+      "description": "将选中对象快速改为颜色 8；遇到引线先分解再改色，遇到块参照连块内实体一起改。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:deep-color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:deep-color-attributes",
+        "aa:deep-color-block-definition",
+        "aa:deep-color-cmd",
+        "aa:deep-color-dimension",
+        "aa:deep-explode-and-color",
+        "aa:explode-lead-recursive",
+        "aa:set-entity-aci-color",
+        "aa:strip-mtext-color-format"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "DIMENSION",
+        "INSERT",
+        "LEADER",
+        "MTEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "JACC",
+      "file": "AA整合版本.lsp",
+      "line": 10826,
+      "description": "ZZ 的同功能入口。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:zz-run"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-top-y",
+        "aa:normalize-text-vertical-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-vertical-align",
+        "aa:try-get-bbox",
+        "aa:zz-add-seg",
+        "aa:zz-apply-group",
+        "aa:zz-between-p",
+        "aa:zz-build-line-cache",
+        "aa:zz-collect-lwpoly-pts",
+        "aa:zz-filter-text-ss",
+        "aa:zz-find-bound-lines",
+        "aa:zz-group-by-rect",
+        "aa:zz-insert-y-desc",
+        "aa:zz-move-text",
+        "aa:zz-near-line-tol",
+        "aa:zz-poly-closed-p",
+        "aa:zz-rect-match-p",
+        "aa:zz-run",
+        "aa:zz-sort-y-desc",
+        "aa:zz-text-info"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "JZ",
+      "file": "AA整合版本.lsp",
+      "line": 9609,
+      "description": "将矩形水平中线对齐到1条或2条直线中心线，可同步居中文字。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-top-y",
+        "aa:jz-line-center-y",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-top-y",
+        "aa:jz-line-center-y",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "KAI",
+      "file": "AA整合版本.lsp",
+      "line": 8027,
+      "description": "将 TEXT/MTEXT 中由空格分隔的内容拆分为多个独立文字。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:kai-add-texts-after-explode",
+        "aa:kai-process-text"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:kai-add-texts-after-explode",
+        "aa:kai-adjust-left-by-bbox",
+        "aa:kai-aligned-text-p",
+        "aa:kai-base-point",
+        "aa:kai-dxf-int",
+        "aa:kai-make-text",
+        "aa:kai-offset-point",
+        "aa:kai-prefix-width-real",
+        "aa:kai-process-text",
+        "aa:kai-real-text-width",
+        "aa:kai-remove-dxf",
+        "aa:kai-replace-pair",
+        "aa:kai-set-position",
+        "aa:kai-space-p",
+        "aa:kai-split-spaces",
+        "aa:kai-text-box",
+        "aa:kai-text-left",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "KMY",
+      "file": "AA整合版本.lsp",
+      "line": 14627,
+      "description": "选中两条水平线后向右生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "KMZ",
+      "file": "AA整合版本.lsp",
+      "line": 14621,
+      "description": "选中两条水平线后向左生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "LAN",
+      "file": "AA整合版本.lsp",
+      "line": 5612,
+      "description": "竖直线/斜线/水平线联动复制+移动插件。",
+      "params": [],
+      "inputs": [
+        "getkword",
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "lan-get-option"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "lan-get-option"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "LNY",
+      "file": "AA整合版本.lsp",
+      "line": 14639,
+      "description": "选中两条水平线后向右生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "LNZ",
+      "file": "AA整合版本.lsp",
+      "line": 14633,
+      "description": "选中两条水平线后向左生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "LOADAICADAA",
+      "file": "V6/aicad_aa_loader.lsp",
+      "line": 292,
+      "description": "加载并初始化 AICAD Ribbon 功能区面板",
+      "params": [],
+      "inputs": [
+        "getfiled"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicadloader:command-load",
+        "aicadloader:safe-apply",
+        "aicadloader:show-replace-panel"
+      ],
+      "reachable_dependencies": [
+        "aicadloader:base-directory",
+        "aicadloader:candidate-directories",
+        "aicadloader:combine-path",
+        "aicadloader:command-load",
+        "aicadloader:directory-for-found-file",
+        "aicadloader:directory-score",
+        "aicadloader:error-message",
+        "aicadloader:file-exists-p",
+        "aicadloader:normalize-path",
+        "aicadloader:not-empty-p",
+        "aicadloader:pop-environment",
+        "aicadloader:prompt-for-base-directory",
+        "aicadloader:push-environment",
+        "aicadloader:remember-base-directory",
+        "aicadloader:restore-system-variables",
+        "aicadloader:safe-apply",
+        "aicadloader:save-system-variables",
+        "aicadloader:select-best-directory",
+        "aicadloader:show-replace-panel"
+      ],
+      "external_files": [
+        "AICADRIBBON.DLL",
+        "AICADRIBBONHOST.DLL",
+        "AICADRIBBONHOSTV5.DLL",
+        "AICADRIBBONHOSTV6.DLL",
+        "AICAD_EXTENSION.LSP",
+        "LOCATE AICAD_EXTENSION.LSP OR AICADRIBBONHOST.DLL"
+      ],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "LOADAICADZW",
+      "file": "V6/aicad_aa_loader.lsp",
+      "line": 300,
+      "description": "加载并初始化 AICAD Ribbon 功能区面板（别名）",
+      "params": [],
+      "inputs": [
+        "getfiled"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "c:loadaicadaa"
+      ],
+      "reachable_dependencies": [
+        "aicadloader:base-directory",
+        "aicadloader:candidate-directories",
+        "aicadloader:combine-path",
+        "aicadloader:command-load",
+        "aicadloader:directory-for-found-file",
+        "aicadloader:directory-score",
+        "aicadloader:error-message",
+        "aicadloader:file-exists-p",
+        "aicadloader:normalize-path",
+        "aicadloader:not-empty-p",
+        "aicadloader:pop-environment",
+        "aicadloader:prompt-for-base-directory",
+        "aicadloader:push-environment",
+        "aicadloader:remember-base-directory",
+        "aicadloader:restore-system-variables",
+        "aicadloader:safe-apply",
+        "aicadloader:save-system-variables",
+        "aicadloader:select-best-directory",
+        "aicadloader:show-replace-panel",
+        "c:loadaicadaa"
+      ],
+      "external_files": [
+        "AICADRIBBON.DLL",
+        "AICADRIBBONHOST.DLL",
+        "AICADRIBBONHOSTV5.DLL",
+        "AICADRIBBONHOSTV6.DLL",
+        "AICAD_EXTENSION.LSP",
+        "LOCATE AICAD_EXTENSION.LSP OR AICADRIBBONHOST.DLL"
+      ],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "MING",
+      "file": "AA整合版本.lsp",
+      "line": 9375,
+      "description": "按行列网格顺序，批量将单行文字填充到对应属性块的图名属性中。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "blk-insertpt",
+        "ming:cluster-and-sort",
+        "ming:find-title-attrib",
+        "ming:get-block-height",
+        "ming:get-text-info"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aae:clean-mtext-format",
+        "blk-insertpt",
+        "ming:cluster-and-sort",
+        "ming:find-title-attrib",
+        "ming:get-block-height",
+        "ming:get-text-info",
+        "tktj:clean-val",
+        "tktj:trim"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "MJ",
+      "file": "AA整合版本.lsp",
+      "line": 10971,
+      "description": "框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:mj-collect-text-data",
+        "aa:mj-frame-bounds",
+        "aa:mj-horizontal-ys",
+        "aa:mj-move-cached-texts",
+        "aa:mj-scale-line-x"
+      ],
+      "reachable_dependencies": [
+        "aa:mj-add-unique-y",
+        "aa:mj-collect-text-data",
+        "aa:mj-frame-bounds",
+        "aa:mj-horizontal-ys",
+        "aa:mj-move-cached-texts",
+        "aa:mj-row-center-y",
+        "aa:mj-scale-line-x",
+        "aa:mj-scale-point-x",
+        "aa:mj-scale-polyline-x",
+        "aa:mj-scale-simple-entity-x",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox",
+        "aa:zz-move-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "NU",
+      "file": "AA整合版本.lsp",
+      "line": 7792,
+      "description": "材料表数字加数字，从选中文字中提取数字并执行加法运算。",
+      "params": [],
+      "inputs": [
+        "getreal",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[NU] 请输入要相加的数值: "
+      ],
+      "direct_dependencies": [
+        "aa:nu-rewrite-text"
+      ],
+      "reachable_dependencies": [
+        "aa:digit-char-p",
+        "aa:nu-find-first-number",
+        "aa:nu-format-number",
+        "aa:nu-number-token-at",
+        "aa:nu-rewrite-text",
+        "aa:nu-string-all-digits-p",
+        "aa:nu-trim-number-string"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "QE",
+      "file": "AA整合版本.lsp",
+      "line": 11525,
+      "description": "用 Windows 剪贴板中的文字批量替换选中文字；文字含“至”字时只替换“至”后的部分。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "qe:get-clip-text"
+      ],
+      "reachable_dependencies": [
+        "qe:get-clip-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ATTDEF",
+        "ATTRIB",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "QH",
+      "file": "AA整合版本.lsp",
+      "line": 15071,
+      "description": "只选中已选文字所在行、且位于当前屏幕内、参考文字左右各 1000 内的所有文字（跨多行时逐行选择）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:merge-sort"
+      ],
+      "reachable_dependencies": [
+        "aa:merge-sort",
+        "aa:msort-merge"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "QR",
+      "file": "AA整合版本.lsp",
+      "line": 3791,
+      "description": "快速修改文字高度。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入新的文字高度: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "QR2",
+      "file": "AA整合版本.lsp",
+      "line": 3834,
+      "description": "连续选择文字并逐轮输入高度进行修改，按 Esc 退出。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入新的文字高度: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "QSTXT",
+      "file": "AA整合版本.lsp",
+      "line": 1366,
+      "description": "快速从当前选择中仅选中所有文字对象。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": false
+    },
+    {
+      "command": "QW",
+      "file": "AA整合版本.lsp",
+      "line": 11738,
+      "description": "提取选中文字，同一行用顿号连接，不同行之间也用顿号分隔，并复制到剪贴板。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "qw:join",
+        "zi:pt",
+        "zi:to-clip"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "qw:join",
+        "zi:pt",
+        "zi:to-clip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "QW2",
+      "file": "AA整合版本.lsp",
+      "line": 11779,
+      "description": "提取选中文字及坐标，每项一行“x,y 文字”，坐标保留 2 位小数，复制到剪贴板。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "zi:pt",
+        "zi:to-clip"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "zi:pt",
+        "zi:to-clip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "QW3",
+      "file": "AA整合版本.lsp",
+      "line": 12051,
+      "description": "导出选中对象的类型、图层、坐标、几何及文字属性为结构化文本并复制到剪贴板。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:qw3-record",
+        "zi:to-clip"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:qw3-block-attrs",
+        "aa:qw3-color",
+        "aa:qw3-details",
+        "aa:qw3-escape",
+        "aa:qw3-number",
+        "aa:qw3-point",
+        "aa:qw3-poly-vertices",
+        "aa:qw3-record",
+        "aa:qw3-text-align",
+        "aa:qw3-type-name",
+        "aa:safe-get-bbox",
+        "aa:str-replace-all",
+        "aa:try-get-bbox",
+        "aa:ysdl-get-raw-text",
+        "aa:ysdl-strip-mtext-format",
+        "zi:to-clip"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ARC",
+        "ATTDEF",
+        "ATTRIB",
+        "CIRCLE",
+        "DIMENSION",
+        "HATCH",
+        "INSERT",
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "QZ",
+      "file": "AA整合版本.lsp",
+      "line": 14129,
+      "description": "取消当前图纸中的全部分组，组内图元保持不变。",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [],
+      "reachable_dependencies": [],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "REP",
+      "file": "AA整合版本.lsp",
+      "line": 14246,
+      "description": "将选中的柜名文字按内置映射表替换为标准柜名。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "rep-trim"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "rep-trim"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "RR",
+      "file": "AA整合版本.lsp",
+      "line": 2343,
+      "description": "将选中对象快速改为红色。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd",
+        "aa:set-entity-aci-color"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SC3",
+      "file": "AA整合版本.lsp",
+      "line": 16104,
+      "description": "将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:sc3-entity-bbox",
+        "aa:sc3-layer-locked-p"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:sc3-entity-bbox",
+        "aa:sc3-layer-locked-p"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SHANG",
+      "file": "AA整合版本.lsp",
+      "line": 3429,
+      "description": "将选中文字统一为中上对正，并以最上方文字为基准上对齐。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:align-text-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:align-text-cmd",
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "SJ",
+      "file": "AA整合版本.lsp",
+      "line": 4645,
+      "description": "在选中直线顶端生成上接短线。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SS",
+      "file": "AA整合版本.lsp",
+      "line": 4324,
+      "description": "拉伸对象并记忆方向与距离，支持动态拉伸实时预览，后续可直接回车重复。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请指定拉伸基点: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ss-do-interactive-stretch",
+        "aa:ss-format-vec"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ss-detect-displacement",
+        "aa:ss-do-interactive-stretch",
+        "aa:ss-format-vec",
+        "aa:ss-get-entity-pts"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SSS",
+      "file": "AA整合版本.lsp",
+      "line": 4517,
+      "description": "预先交叉框选表格上方对象，输入目标行高度拉伸，支持小数，默认 10。",
+      "params": [],
+      "inputs": [
+        "getreal",
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:sss-find-pair",
+        "aa:sss-horizontal-segments",
+        "aa:sss-lowest-row-line",
+        "aa:sss-pickfirst-box"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:sss-find-pair",
+        "aa:sss-horizontal-segments",
+        "aa:sss-lowest-row-line",
+        "aa:sss-pickfirst-box",
+        "aa:zdwi-vertices"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SYAN",
+      "file": "AA整合版本.lsp",
+      "line": 4628,
+      "description": "将选中直线向上延长 5 个单位。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:extend-line-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:extend-line-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SYI",
+      "file": "AA整合版本.lsp",
+      "line": 4428,
+      "description": "预选对象中非竖直对象向上移动 5X，竖直直线向上拉伸 5X。",
+      "params": [],
+      "inputs": [
+        "getreal",
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:move-stretch-vertical-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:move-stretch-vertical-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "SYJ",
+      "file": "AA整合版本.lsp",
+      "line": 4742,
+      "description": "将选中竖直直线向上延长 5 个单位，再生成上接短线。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:extend-join-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:extend-join-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "T",
+      "file": "AA整合版本.lsp",
+      "line": 1513,
+      "description": "把字体刷为HZ样式，高度3，宽度0.7。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "txt:run"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "txt:modify-new-texts",
+        "txt:modify-text",
+        "txt:process-selection",
+        "txt:run",
+        "txt:set-dxf"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "T2",
+      "file": "AA整合版本.lsp",
+      "line": 2011,
+      "description": "将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "txt2:process-selection"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:try-get-bbox",
+        "txt2:collect-obstacles",
+        "txt2:extract-entity-lines",
+        "txt2:lwpoly-segments",
+        "txt2:modify-text",
+        "txt2:polyline-segments",
+        "txt2:process-selection",
+        "txt2:wcs-box-to-ucs-window",
+        "txt:set-dxf"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ARC",
+        "CIRCLE",
+        "DIMENSION",
+        "INSERT",
+        "LEADER",
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "TONG",
+      "file": "AA整合版本.lsp",
+      "line": 16306,
+      "description": "框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请指定放置起点 (从上到下排列): "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "UNLOAD_AA",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1946,
+      "description": "卸载 AICAD 扩展插件（别名）",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "c:unload_aicad"
+      ],
+      "reachable_dependencies": [
+        "aicad:pop-environment",
+        "aicad:remove-reactors",
+        "aicad:restore-all-environments",
+        "aicad:restore-system-variables",
+        "aicad:unload",
+        "c:unload_aicad"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": false
+    },
+    {
+      "command": "UNLOAD_AICAD",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1941,
+      "description": "卸载 AICAD 扩展插件及注册环境",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aicad:unload"
+      ],
+      "reachable_dependencies": [
+        "aicad:pop-environment",
+        "aicad:remove-reactors",
+        "aicad:restore-all-environments",
+        "aicad:restore-system-variables",
+        "aicad:unload"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": false
+    },
+    {
+      "command": "UNLOAD_XXX",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1950,
+      "description": "卸载 AICAD 扩展插件（别名）",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "c:unload_aicad"
+      ],
+      "reachable_dependencies": [
+        "aicad:pop-environment",
+        "aicad:remove-reactors",
+        "aicad:restore-all-environments",
+        "aicad:restore-system-variables",
+        "aicad:unload",
+        "c:unload_aicad"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": false
+    },
+    {
+      "command": "UPSY",
+      "file": "AA整合版本.lsp",
+      "line": 14651,
+      "description": "选中两条水平线后向右生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "UPSZ",
+      "file": "AA整合版本.lsp",
+      "line": 14645,
+      "description": "选中两条水平线后向左生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "UT",
+      "file": "AA整合版本.lsp",
+      "line": 13895,
+      "description": "先将文字统一为左中对正，再按最上方一对的位置整理文字；支持直线及按首尾端点计算的未闭合多段线，保留宽度。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:normalize-text-horizontal-align",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "ut:bbox-bottom",
+        "ut:bbox-left",
+        "ut:get-bbox",
+        "ut:horizontal-line-p",
+        "ut:line-y",
+        "ut:move",
+        "ut:sort-desc"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-left-x",
+        "aa:normalize-text-horizontal-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-horizontal-align",
+        "aa:try-get-bbox",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "ut:abs",
+        "ut:bbox-bottom",
+        "ut:bbox-left",
+        "ut:get-bbox",
+        "ut:horizontal-line-p",
+        "ut:insert-desc",
+        "ut:line-endpoints",
+        "ut:line-y",
+        "ut:move",
+        "ut:sort-desc"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "VPO1",
+      "file": "AA整合版本.lsp",
+      "line": 16287,
+      "description": "切换到“单个”标准视口。",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "VPO2",
+      "file": "AA整合版本.lsp",
+      "line": 16295,
+      "description": "切换到“两个：垂直”标准视口。",
+      "params": [],
+      "inputs": [],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "WI",
+      "file": "AA整合版本.lsp",
+      "line": 3918,
+      "description": "修改选中文字的宽度比例。",
+      "params": [],
+      "inputs": [
+        "getreal",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入新的文字宽度比例 (例如 0.8 或 1.0): "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "WW",
+      "file": "AA整合版本.lsp",
+      "line": 2353,
+      "description": "将选中对象快速改为白色；支持尺寸标注（转角标注等全要素变白）、引线及块内实体。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:deep-color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:deep-color-attributes",
+        "aa:deep-color-block-definition",
+        "aa:deep-color-cmd",
+        "aa:deep-color-dimension",
+        "aa:deep-explode-and-color",
+        "aa:explode-lead-recursive",
+        "aa:set-entity-aci-color",
+        "aa:strip-mtext-color-format"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "DIMENSION",
+        "INSERT",
+        "LEADER",
+        "MTEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XB",
+      "file": "AA整合版本.lsp",
+      "line": 4055,
+      "description": "将选中的文字或尺寸标注整体缩小为原来的十分之一，并保留选择状态。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "DIMENSION",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XIA",
+      "file": "AA整合版本.lsp",
+      "line": 3561,
+      "description": "将选中文字统一为中下对正，并以最左侧文字为基准下对齐。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:align-text-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:align-text-cmd",
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "XIN",
+      "file": "AA整合版本.lsp",
+      "line": 5755,
+      "description": "统计选中直线矩形范围内的对象数量并标注结果。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XJ",
+      "file": "AA整合版本.lsp",
+      "line": 4673,
+      "description": "在选中直线底端生成下接短线。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XU",
+      "file": "AA整合版本.lsp",
+      "line": 2364,
+      "description": "将所有选中且支持线型修改的对象改为 HIDDEN2。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [],
+      "reachable_dependencies": [],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XX",
+      "file": "AA整合版本.lsp",
+      "line": 14892,
+      "description": "将选中文字内容替换为 7×2.5。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "XY",
+      "file": "AA整合版本.lsp",
+      "line": 6699,
+      "description": "自动筛选所选中的绿色水平直线，先运行 XIN 统计芯数，再运行 YUAN 提取对应文字并横向输出。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "xy:run-xin",
+        "xy:run-yuan"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "xy:abs",
+        "xy:between",
+        "xy:build-text-meta-list",
+        "xy:build-vline-buckets",
+        "xy:collect-texts",
+        "xy:collect-vlines",
+        "xy:copy-text-horizontal",
+        "xy:dedup-vrecs",
+        "xy:dxf",
+        "xy:fallback-text-bbox",
+        "xy:filter-vertical-lines",
+        "xy:find-text-for-vrec",
+        "xy:get-text-bbox",
+        "xy:get-text-height",
+        "xy:get-text-rotation",
+        "xy:get-text-style",
+        "xy:get-text-value",
+        "xy:get-vrecs-for-hline-ed",
+        "xy:hline-info-ed",
+        "xy:is-text-entity-p",
+        "xy:is-vertical-line-ed-p",
+        "xy:is-vertical-text-90-p",
+        "xy:make-vrec-if-valid-fast",
+        "xy:mark-abnormal-hline",
+        "xy:merge-vrec",
+        "xy:near",
+        "xy:norm-angle",
+        "xy:process-one-hline",
+        "xy:pt-offset-x",
+        "xy:remove-dxf-codes",
+        "xy:run-xin",
+        "xy:run-yuan",
+        "xy:sa->list",
+        "xy:ss->list",
+        "xy:window-wcs"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XYAN",
+      "file": "AA整合版本.lsp",
+      "line": 4631,
+      "description": "将选中直线向下延长 5 个单位。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:extend-line-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:extend-line-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XYG",
+      "file": "AA整合版本.lsp",
+      "line": 7021,
+      "description": "一次框选，自动提取绿色直线执行 XY 统计，并提取大字与电缆文字执行 GTX 分类汇总。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[XYG] 请指定汇总结果的插入点: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:gtx-find-last-char",
+        "aa:gtx-key",
+        "aa:gtx-select-prefix-text",
+        "aa:merge-sort",
+        "aa:ysdl-get-plain-text",
+        "xy:filter-green-hlines",
+        "xy:run-xin",
+        "xy:run-yuan",
+        "xy:ss->list",
+        "xyg:dedup-hlines",
+        "xyg:find-prefix-text",
+        "xyg:find-rect-texts",
+        "xyg:find-right-new-texts",
+        "xyg:output-gtx-matrix"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:gtx-create-text-entity",
+        "aa:gtx-find-last-char",
+        "aa:gtx-first-text-from-ss",
+        "aa:gtx-key",
+        "aa:gtx-select-prefix-text",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aa:ysdl-get-plain-text",
+        "aa:ysdl-get-raw-text",
+        "aa:ysdl-strip-mtext-format",
+        "xy:abs",
+        "xy:between",
+        "xy:build-text-meta-list",
+        "xy:build-vline-buckets",
+        "xy:collect-texts",
+        "xy:collect-vlines",
+        "xy:copy-text-horizontal",
+        "xy:dedup-vrecs",
+        "xy:dxf",
+        "xy:fallback-text-bbox",
+        "xy:filter-green-hlines",
+        "xy:filter-vertical-lines",
+        "xy:find-text-for-vrec",
+        "xy:get-text-bbox",
+        "xy:get-text-height",
+        "xy:get-text-rotation",
+        "xy:get-text-style",
+        "xy:get-text-value",
+        "xy:get-vrecs-for-hline-ed",
+        "xy:hline-info-ed",
+        "xy:is-green-ed-p",
+        "xy:is-green-hline-p",
+        "xy:is-text-entity-p",
+        "xy:is-vertical-line-ed-p",
+        "xy:is-vertical-text-90-p",
+        "xy:make-vrec-if-valid-fast",
+        "xy:mark-abnormal-hline",
+        "xy:merge-vrec",
+        "xy:near",
+        "xy:norm-angle",
+        "xy:process-one-hline",
+        "xy:pt-offset-x",
+        "xy:remove-dxf-codes",
+        "xy:run-xin",
+        "xy:run-yuan",
+        "xy:sa->list",
+        "xy:ss->list",
+        "xy:window-wcs",
+        "xyg:dedup-hlines",
+        "xyg:find-prefix-text",
+        "xyg:find-rect-texts",
+        "xyg:find-right-new-texts",
+        "xyg:output-gtx-matrix",
+        "xyg:text-in-rect-p"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "MTEXT",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XYI",
+      "file": "AA整合版本.lsp",
+      "line": 4429,
+      "description": "预选对象中非竖直对象向下移动 5X，竖直直线向下拉伸 5X。",
+      "params": [],
+      "inputs": [
+        "getreal",
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:move-stretch-vertical-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:move-stretch-vertical-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "XYJ",
+      "file": "AA整合版本.lsp",
+      "line": 4743,
+      "description": "将选中竖直直线向下延长 5 个单位，再生成下接短线。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:extend-join-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:extend-join-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "Y",
+      "file": "AA整合版本.lsp",
+      "line": 2323,
+      "description": "将选中对象的颜色快速变为青色。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd",
+        "aa:set-entity-aci-color"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YAN",
+      "file": "AA整合版本.lsp",
+      "line": 4114,
+      "description": "延长竖直直线统一间距，支持分组和上下方向控制。",
+      "params": [],
+      "inputs": [
+        "getkword",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n请输入分组数量 [2/4]: ",
+        "\\r\\n请输入延伸方向 [向上(Up)/向下(Down)]: "
+      ],
+      "direct_dependencies": [
+        "aa:insert-sort"
+      ],
+      "reachable_dependencies": [
+        "aa:insert-sort"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YDY",
+      "file": "AA整合版本.lsp",
+      "line": 14879,
+      "description": "选中多条水平线后向右生成短线、矩形并从上往下标注701、-901、-903...及公用测控柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:yd-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox",
+        "aa:yd-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YDZ",
+      "file": "AA整合版本.lsp",
+      "line": 14873,
+      "description": "选中多条水平线后向左生成短线、矩形并从上往下标注701、-901、-903...及公用测控柜（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:yd-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox",
+        "aa:yd-cmd"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YJ",
+      "file": "AA整合版本.lsp",
+      "line": 14675,
+      "description": "选中两条水平线后向右生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YOU",
+      "file": "AA整合版本.lsp",
+      "line": 3298,
+      "description": "将选中文字统一为右中对正，并以最上方文字为基准右对齐。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:align-text-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:align-text-cmd",
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "YS",
+      "file": "AA整合版本.lsp",
+      "line": 289,
+      "description": "选取两点生成绿色直线及终点直径100的同层全绿晶体机械徽章，无中央字母标志。",
+      "params": [],
+      "inputs": [
+        "getpoint"
+      ],
+      "input_prompts": [
+        "\\r\\nYS 指定直线起点: ",
+        "\\r\\n指定终点（徽章中心）: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ys-detail",
+        "aa:ys-line",
+        "aa:ys-rim",
+        "aa:ys-ring",
+        "aa:ys-snowflake"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ys-crystal",
+        "aa:ys-detail",
+        "aa:ys-diamond",
+        "aa:ys-line",
+        "aa:ys-path",
+        "aa:ys-rim",
+        "aa:ys-ring",
+        "aa:ys-snowflake"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "CIRCLE",
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YS1",
+      "file": "AA整合版本.lsp",
+      "line": 467,
+      "description": "选取两点生成绿色直线，以第二点为中心生成高80的TGOOD机械装甲线条Logo，可整体撤销。",
+      "params": [],
+      "inputs": [
+        "getpoint"
+      ],
+      "input_prompts": [
+        "\\r\\nYS1 指定直线起点: ",
+        "\\r\\n指定终点（TGOOD图案中心）: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ys-line",
+        "aa:ys1-d",
+        "aa:ys1-g",
+        "aa:ys1-o",
+        "aa:ys1-t"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:ys-line",
+        "aa:ys-path",
+        "aa:ys1-arc",
+        "aa:ys1-d",
+        "aa:ys1-g",
+        "aa:ys1-o",
+        "aa:ys1-path",
+        "aa:ys1-point",
+        "aa:ys1-t",
+        "aa:ys1-template"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "ARC",
+        "LINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YSDL",
+      "file": "AA整合版本.lsp",
+      "line": 1236,
+      "description": "提取选中文字到CSV文件，并改变文字颜色。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:insert-sort",
+        "aa:set-entity-aci-color",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:ysdl-build-csv-field",
+        "aa:ysdl-get-plain-text"
+      ],
+      "reachable_dependencies": [
+        "aa:insert-sort",
+        "aa:set-entity-aci-color",
+        "aa:str-replace-all",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on",
+        "aa:ysdl-build-csv-field",
+        "aa:ysdl-get-plain-text",
+        "aa:ysdl-get-raw-text",
+        "aa:ysdl-needs-text-formula",
+        "aa:ysdl-strip-mtext-format"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "YY",
+      "file": "AA整合版本.lsp",
+      "line": 2333,
+      "description": "将选中对象快速改为黄色。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:color-cmd",
+        "aa:set-entity-aci-color"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "Z0",
+      "file": "AA整合版本.lsp",
+      "line": 16238,
+      "description": "将选中对象的 Z 坐标全部归零（压平到 XY 平面）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [
+        ":L"
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:z0-data-flat-p",
+        "aa:z0-layer-locked-p",
+        "aa:z0-one",
+        "aa:z0-polyline-flat-p",
+        "aa:z0-polyline-verts"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:z0-data-flat-p",
+        "aa:z0-layer-locked-p",
+        "aa:z0-one",
+        "aa:z0-polyline-flat-p",
+        "aa:z0-polyline-verts",
+        "aa:z0-zero-pair"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "POLYLINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZDML",
+      "file": "AA整合版本.lsp",
+      "line": 12820,
+      "description": "选择多个图框块，生成目录文字。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n指定第 1 页目录表左上角: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "tktj:collect-one-block",
+        "tktj:draw-table",
+        "tktj:drop",
+        "tktj:safe-vla-object",
+        "tktj:sort-by-page",
+        "tktj:sort-by-position",
+        "tktj:take"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aae:clean-mtext-format",
+        "tktj:add-text",
+        "tktj:assoc-data",
+        "tktj:block-point",
+        "tktj:clean-val",
+        "tktj:collect-one-block",
+        "tktj:current-space",
+        "tktj:draw-row",
+        "tktj:draw-table",
+        "tktj:drop",
+        "tktj:ensure-text-style",
+        "tktj:get-attributes",
+        "tktj:get-first-pair",
+        "tktj:get-first-value",
+        "tktj:norm-tag",
+        "tktj:nth-offset",
+        "tktj:safe-getattributes",
+        "tktj:safe-property",
+        "tktj:safe-vla-object",
+        "tktj:sort-by-page",
+        "tktj:sort-by-position",
+        "tktj:take",
+        "tktj:trim"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZDML2",
+      "file": "AA整合版本.lsp",
+      "line": 12962,
+      "description": "指定基准块参照与图名、图号矩形范围，批量提取图名图号并生成目录。",
+      "params": [],
+      "inputs": [
+        "entsel",
+        "getcorner",
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[ZDML2] 指定第 1 页目录表左上角: ",
+        "\\r\\n[ZDML2] 请点击选择基准图框块参照: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "blk-insertpt",
+        "hao2:block-name",
+        "hao2:sort-blocks",
+        "tktj:draw-table",
+        "tktj:drop",
+        "tktj:take",
+        "zdml2:build-spatial-index",
+        "zdml2:collect-all-texts",
+        "zdml2:extract-rect-text-fast",
+        "zdml2:query-rect-index"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:str-replace-all",
+        "aae:clean-mtext-format",
+        "blk-insertpt",
+        "hao2:block-name",
+        "hao2:sort-blocks",
+        "tktj:add-text",
+        "tktj:assoc-data",
+        "tktj:clean-val",
+        "tktj:current-space",
+        "tktj:draw-row",
+        "tktj:draw-table",
+        "tktj:drop",
+        "tktj:ensure-text-style",
+        "tktj:nth-offset",
+        "tktj:take",
+        "tktj:trim",
+        "zdml2:build-spatial-index",
+        "zdml2:collect-all-texts",
+        "zdml2:extract-rect-text-fast",
+        "zdml2:query-rect-index"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZDMLDEBUG",
+      "file": "AA整合版本.lsp",
+      "line": 13136,
+      "description": "选择一个图框块，打印所有增强属性。",
+      "params": [],
+      "inputs": [
+        "entsel"
+      ],
+      "input_prompts": [
+        "\\r\\n请选择一个图框块: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "tktj:get-attributes"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:str-replace-all",
+        "aae:clean-mtext-format",
+        "tktj:clean-val",
+        "tktj:get-attributes",
+        "tktj:safe-getattributes",
+        "tktj:safe-property",
+        "tktj:trim"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "INSERT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "ZDWI",
+      "file": "AA整合版本.lsp",
+      "line": 11243,
+      "description": "按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:safe-get-bbox",
+        "aa:zdwi-add-span",
+        "aa:zdwi-column",
+        "aa:zdwi-expand-selection",
+        "aa:zdwi-map-entity",
+        "aa:zdwi-set-nth",
+        "aa:zdwi-unique",
+        "aa:zdwi-vertices",
+        "aa:zz-move-text"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox",
+        "aa:zdwi-add-span",
+        "aa:zdwi-border-range",
+        "aa:zdwi-column",
+        "aa:zdwi-expand-selection",
+        "aa:zdwi-map-entity",
+        "aa:zdwi-new-x",
+        "aa:zdwi-seed",
+        "aa:zdwi-set-nth",
+        "aa:zdwi-unique",
+        "aa:zdwi-vertices",
+        "aa:zz-move-text"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZHENG",
+      "file": "AA整合版本.lsp",
+      "line": 8181,
+      "description": "以水平直线或矩形中心为基准整理文字的水平位置。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:safe-get-bbox",
+        "aa:zheng-add-texts-after-explode",
+        "aa:zheng-align-text-center-x",
+        "aa:zheng-align-text-to-rect-center",
+        "aa:zheng-horizontal-line-p",
+        "aa:zheng-line-mid-x"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:normalize-text-horizontal-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-horizontal-align",
+        "aa:try-get-bbox",
+        "aa:zheng-add-texts-after-explode",
+        "aa:zheng-align-text-center-x",
+        "aa:zheng-align-text-to-rect-center",
+        "aa:zheng-horizontal-line-p",
+        "aa:zheng-line-mid-x"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZHONG",
+      "file": "AA整合版本.lsp",
+      "line": 2789,
+      "description": "文字居中对齐；选择直线/矩形时按中心 X 居中。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:align-text-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:align-text-cmd",
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "ZJ",
+      "file": "AA整合版本.lsp",
+      "line": 14669,
+      "description": "选中两条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:km-ln-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-right-x",
+        "aa:bbox-top-y",
+        "aa:explode-collect-lines",
+        "aa:km-create-centered-text",
+        "aa:km-ln-cmd",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZS",
+      "file": "AA整合版本.lsp",
+      "line": 15900,
+      "description": "选中物体单向纵向缩放，上下高度改变，宽度保持不变。",
+      "params": [],
+      "inputs": [
+        "getdist",
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        ":L",
+        "\\r\\n指定新长度: "
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:hs-filter-unlocked",
+        "aa:hs-get-ss-bbox"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:hs-filter-unlocked",
+        "aa:hs-get-ss-bbox",
+        "aa:safe-get-bbox",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZTF",
+      "file": "AA整合版本.lsp",
+      "line": 918,
+      "description": "搜索系统字体并将选定字体写入指定文字样式。",
+      "params": [],
+      "inputs": [
+        "entsel"
+      ],
+      "input_prompts": [
+        "\\r\\n选择一段文字以读取其文字样式："
+      ],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "ztf:collect-font-records",
+        "ztf:run-dialog"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "ztf:add-font-file",
+        "ztf:collect-font-records",
+        "ztf:font-file-p",
+        "ztf:font-label",
+        "ztf:locate-dcl",
+        "ztf:refresh-font-list",
+        "ztf:refresh-style-list",
+        "ztf:run-dialog",
+        "ztf:sort-style-names",
+        "ztf:style-names",
+        "ztf:update-style-info"
+      ],
+      "external_files": [
+        "ZTF.DCL",
+        "\\\\ZTF.DCL"
+      ],
+      "object_candidates": [
+        "MTEXT",
+        "STYLE",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "ZUO",
+      "file": "AA整合版本.lsp",
+      "line": 2874,
+      "description": "将选中文字统一为左中对正，并以最上方文字为基准左对齐。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:align-text-cmd"
+      ],
+      "reachable_dependencies": [
+        "aa:align-text-cmd",
+        "aa:cmd-begin",
+        "aa:cmd-end"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": false
+    },
+    {
+      "command": "ZZ",
+      "file": "AA整合版本.lsp",
+      "line": 10822,
+      "description": "先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:zz-run"
+      ],
+      "reachable_dependencies": [
+        "aa:bbox-bottom-y",
+        "aa:bbox-center-x",
+        "aa:bbox-left-x",
+        "aa:bbox-top-y",
+        "aa:normalize-text-vertical-align",
+        "aa:safe-get-bbox",
+        "aa:safe-move-entity",
+        "aa:set-text-vertical-align",
+        "aa:try-get-bbox",
+        "aa:zz-add-seg",
+        "aa:zz-apply-group",
+        "aa:zz-between-p",
+        "aa:zz-build-line-cache",
+        "aa:zz-collect-lwpoly-pts",
+        "aa:zz-filter-text-ss",
+        "aa:zz-find-bound-lines",
+        "aa:zz-group-by-rect",
+        "aa:zz-insert-y-desc",
+        "aa:zz-move-text",
+        "aa:zz-near-line-tol",
+        "aa:zz-poly-closed-p",
+        "aa:zz-rect-match-p",
+        "aa:zz-run",
+        "aa:zz-sort-y-desc",
+        "aa:zz-text-info"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "LWPOLYLINE",
+        "MTEXT",
+        "POLYLINE",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    }
+  ],
+  "findings": [
+    {
+      "rule": "undo-close",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 594,
+      "function": "aa:cmd-begin",
+      "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
+    },
+    {
+      "rule": "error-binding",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 594,
+      "function": "aa:cmd-begin",
+      "evidence": "*error* 赋值未局部声明；可能为动态作用域框架"
+    },
+    {
+      "rule": "undo-close",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 625,
+      "function": "aa:undo-mark-on",
+      "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 2042,
+      "function": "c:h",
+      "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 2042,
+      "function": "c:h",
+      "evidence": "写入未声明变量 row；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 2173,
+      "function": "c:h2",
+      "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 2173,
+      "function": "c:h2",
+      "evidence": "写入未声明变量 row；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3009,
+      "function": "c:hp",
+      "evidence": "写入未声明变量 col；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3152,
+      "function": "c:hp2",
+      "evidence": "写入未声明变量 col；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 h；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 p1；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 p2；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 x1；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 x2；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 y1；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 3691,
+      "function": "c:he",
+      "evidence": "写入未声明变量 y2；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 4262,
+      "function": "aa:ss-get-entity-pts",
+      "evidence": "写入未声明变量 pair；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 4289,
+      "function": "aa:ss-do-interactive-stretch",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 4289,
+      "function": "aa:ss-do-interactive-stretch",
+      "evidence": "\"DRAGMODE\": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 4324,
+      "function": "c:ss",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 5136,
+      "function": "aa:gty-update-nth",
+      "evidence": "写入未声明变量 itm；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 5346,
+      "function": "c:gtz",
+      "evidence": "写入未声明变量 r；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8366,
+      "function": "is-frame-block",
+      "evidence": "写入未声明变量 att；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8400,
+      "function": "sort-frames-by-position",
+      "evidence": "写入未声明变量 pa；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8400,
+      "function": "sort-frames-by-position",
+      "evidence": "写入未声明变量 pb；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8400,
+      "function": "sort-frames-by-position",
+      "evidence": "写入未声明变量 xa；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8400,
+      "function": "sort-frames-by-position",
+      "evidence": "写入未声明变量 xb；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8400,
+      "function": "sort-frames-by-position",
+      "evidence": "写入未声明变量 ya；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8400,
+      "function": "sort-frames-by-position",
+      "evidence": "写入未声明变量 yb；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8424,
+      "function": "find-att-by-keywords",
+      "evidence": "写入未声明变量 att；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8424,
+      "function": "find-att-by-keywords",
+      "evidence": "写入未声明变量 kw；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8424,
+      "function": "find-att-by-keywords",
+      "evidence": "写入未声明变量 tag；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8464,
+      "function": "fill-one-frame",
+      "evidence": "写入未声明变量 att；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8536,
+      "function": "fillframes-run",
+      "evidence": "写入未声明变量 blk；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 8858,
+      "function": "hao2:sort-blocks",
+      "evidence": "写入未声明变量 p；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 9239,
+      "function": "ming:find-title-attrib",
+      "evidence": "写入未声明变量 att；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 9375,
+      "function": "c:ming",
+      "evidence": "写入未声明变量 b；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 9548,
+      "function": "c:five",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 9911,
+      "function": "fdx:place",
+      "evidence": "写入未声明变量 pending；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 10498,
+      "function": "aa:zz-add-seg",
+      "evidence": "写入未声明变量 hlist；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 10498,
+      "function": "aa:zz-add-seg",
+      "evidence": "写入未声明变量 vlist；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 10513,
+      "function": "aa:zz-collect-lwpoly-pts",
+      "evidence": "写入未声明变量 pair；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 10526,
+      "function": "aa:zz-build-line-cache",
+      "evidence": "写入未声明变量 p；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 10760,
+      "function": "aa:zz-run",
+      "evidence": "写入未声明变量 g；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 11779,
+      "function": "c:qw2",
+      "evidence": "写入未声明变量 it；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 12092,
+      "function": "c:dx1",
+      "evidence": "写入未声明变量 it；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 12177,
+      "function": "ce-redraw",
+      "evidence": "写入未声明变量 p；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 12703,
+      "function": "tktj:draw-row",
+      "evidence": "写入未声明变量 txt；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13323,
+      "function": "c1c2:delete-preview",
+      "evidence": "写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13333,
+      "function": "c1c2:place-one",
+      "evidence": "写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "undo-close",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13366,
+      "function": "c1c2:run",
+      "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
+    },
+    {
+      "rule": "undo-close",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13549,
+      "function": "de:run",
+      "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
+    },
+    {
+      "rule": "error-cleanup",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13549,
+      "function": "de:run",
+      "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13664,
+      "function": "ge:make-line",
+      "evidence": "写入未声明变量 created；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "undo-close",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13682,
+      "function": "c:ge",
+      "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
+    },
+    {
+      "rule": "error-cleanup",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 13682,
+      "function": "c:ge",
+      "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14059,
+      "function": "aa:rotate-90-run",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14205,
+      "function": "c:dl1",
+      "evidence": "写入未声明变量 lay；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14425,
+      "function": "aa:km-ln-cmd",
+      "evidence": "写入未声明变量 ed；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14425,
+      "function": "aa:km-ln-cmd",
+      "evidence": "写入未声明变量 en；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14425,
+      "function": "aa:km-ln-cmd",
+      "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14425,
+      "function": "aa:km-ln-cmd",
+      "evidence": "写入未声明变量 p1；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14425,
+      "function": "aa:km-ln-cmd",
+      "evidence": "写入未声明变量 p2；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14685,
+      "function": "aa:yd-cmd",
+      "evidence": "写入未声明变量 ed；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14685,
+      "function": "aa:yd-cmd",
+      "evidence": "写入未声明变量 en；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14685,
+      "function": "aa:yd-cmd",
+      "evidence": "写入未声明变量 idx；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14685,
+      "function": "aa:yd-cmd",
+      "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14685,
+      "function": "aa:yd-cmd",
+      "evidence": "写入未声明变量 p1；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14685,
+      "function": "aa:yd-cmd",
+      "evidence": "写入未声明变量 p2；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "implicit-global",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 14986,
+      "function": "c:dao",
+      "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
+    },
+    {
+      "rule": "error-cleanup",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15071,
+      "function": "c:qh",
+      "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
+    },
+    {
+      "rule": "undo-close",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15252,
+      "function": "c:bk",
+      "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
+    },
+    {
+      "rule": "error-cleanup",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15252,
+      "function": "c:bk",
+      "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
+    },
+    {
+      "rule": "error-binding",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15498,
+      "function": "c:hddl",
+      "evidence": "*error* 赋值未局部声明；可能为动态作用域框架"
+    },
+    {
+      "rule": "error-binding",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15498,
+      "function": "c:hddl",
+      "evidence": "局部错误处理定义缺少 *error* 局部绑定"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15719,
+      "function": "c:hs",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 15900,
+      "function": "c:zs",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 16104,
+      "function": "c:sc3",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 16287,
+      "function": "c:vpo1",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "sysvar-restore",
+      "level": "review",
+      "file": "AA整合版本.lsp",
+      "line": 16295,
+      "function": "c:vpo2",
+      "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
+    },
+    {
+      "rule": "undo-error-path",
+      "level": "review",
+      "file": "V6/aicad_extension.lsp",
+      "line": 968,
+      "function": "aicad:apply-zuo",
+      "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
+    },
+    {
+      "rule": "undo-error-path",
+      "level": "review",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1009,
+      "function": "aicad:apply-you",
+      "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
+    },
+    {
+      "rule": "undo-error-path",
+      "level": "review",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1066,
+      "function": "aicad:apply-shang",
+      "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
+    },
+    {
+      "rule": "undo-error-path",
+      "level": "review",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1098,
+      "function": "aicad:apply-xia",
+      "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
+    },
+    {
+      "rule": "undo-error-path",
+      "level": "review",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1130,
+      "function": "aicad:apply-zhong",
+      "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
+    },
+    {
+      "rule": "undo-error-path",
+      "level": "review",
+      "file": "V6/aicad_extension.lsp",
+      "line": 1279,
+      "function": "aicad:apply-text-replacements",
+      "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
+    },
+    {
+      "rule": "duplicate-function",
+      "level": "error",
+      "file": "V6/aicad_aa_loader.lsp",
+      "line": 72,
+      "function": "*error*",
+      "evidence": "同名顶层定义: V6/aicad_aa_loader.lsp:72, V6/aicad_extension.lsp:236"
+    },
+    {
+      "rule": "shared-global",
+      "level": "review",
+      "file": "V6/aicad_aa_loader.lsp",
+      "line": 261,
+      "function": "*aicad_basedirectory*",
+      "evidence": "跨文件写入: V6/aicad_aa_loader.lsp:261 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (<load>)"
+    }
+  ],
+  "global_writes": {
+    "*aa:ss-offset*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 4241,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 4354,
+        "function": "c:ss"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 4362,
+        "function": "c:ss"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 4371,
+        "function": "c:ss"
+      }
+    ],
+    "*aicad_basedirectory*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 261,
+        "function": "aicadloader:command-load"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 62,
+        "function": "aicad:remember-base-directory"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 97,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_basedirectoryenvvar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 3,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_bridgescriptpath*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 98,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_defaultinstalldirectory*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 4,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_envstack*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 119,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 163,
+        "function": "aicad:push-environment"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 172,
+        "function": "aicad:pop-environment"
+      }
+    ],
+    "*aicad_lastfindhandle*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 116,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 800,
+        "function": "aicad:reset-find-state"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 856,
+        "function": "aicad:pick-find-match"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 866,
+        "function": "aicad:focus-find-match"
+      }
+    ],
+    "*aicad_lastfindhighlighted*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 117,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 810,
+        "function": "aicad:clear-last-find-highlight"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 867,
+        "function": "aicad:focus-find-match"
+      }
+    ],
+    "*aicad_lastfindsearchtext*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 114,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 800,
+        "function": "aicad:reset-find-state"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 854,
+        "function": "aicad:pick-find-match"
+      }
+    ],
+    "*aicad_lastfindsignature*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 115,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 800,
+        "function": "aicad:reset-find-state"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 855,
+        "function": "aicad:pick-find-match"
+      }
+    ],
+    "*aicad_launcherscriptpath*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 99,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_model*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 100,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_pollmilliseconds*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 102,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_reactorlist*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 118,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 207,
+        "function": "aicad:register-reactor"
+      },
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 218,
+        "function": "aicad:remove-reactors"
+      }
+    ],
+    "*aicad_replacepanelonload*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 310,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_requireconfirmation*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 103,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonfindfilevar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 112,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonfindhandlevar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 113,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonfindsearchvar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 111,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribboninputfilevar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 104,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonreplacecountvar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 107,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonreplacefilevar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 110,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonreplacesearchprefix*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 108,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonreplacesearchvar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 105,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonreplacevalueprefix*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 109,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_ribbonreplacevaluevar*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 106,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_systemvariablestorestore*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 120,
+        "function": "<load>"
+      }
+    ],
+    "*aicad_timeoutseconds*": [
+      {
+        "file": "V6/aicad_extension.lsp",
+        "line": 101,
+        "function": "<load>"
+      }
+    ],
+    "*aicadaa_basedirectoryenvvar*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 3,
+        "function": "<load>"
+      }
+    ],
+    "*aicadaa_defaultinstalldirectory*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 4,
+        "function": "<load>"
+      }
+    ],
+    "*aicadaa_envstack*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 5,
+        "function": "<load>"
+      },
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 37,
+        "function": "aicadloader:push-environment"
+      },
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 46,
+        "function": "aicadloader:pop-environment"
+      }
+    ],
+    "*aicadaa_loaderdirectory*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 206,
+        "function": "aicadloader:remember-base-directory"
+      },
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 222,
+        "function": "<load>"
+      }
+    ],
+    "*aicadaa_systemvariablestorestore*": [
+      {
+        "file": "V6/aicad_aa_loader.lsp",
+        "line": 6,
+        "function": "<load>"
+      }
+    ],
+    "*error*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 597,
+        "function": "aa:cmd-begin"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15578,
+        "function": "c:hddl"
+      }
+    ],
+    "*gg_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 163,
+        "function": "<load>"
+      }
+    ],
+    "*hh_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 164,
+        "function": "<load>"
+      }
+    ],
+    "*hs_last_scale*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15671,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15770,
+        "function": "c:hs"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15812,
+        "function": "c:hs"
+      }
+    ],
+    "*hui_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 165,
+        "function": "<load>"
+      }
+    ],
+    "*rr_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 161,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-archive-tags*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12478,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-col-offsets*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12457,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-output-header*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12463,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-page-tags*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12475,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-row-gap*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12458,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-row-sort-tol*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12465,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-sheetname-tags*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12472,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-sheetno-tags*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12469,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-sort-by-page*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12466,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-sort-by-position*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12464,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-text-fontfile*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12461,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-text-height*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12459,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-text-style*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12460,
+        "function": "<load>"
+      }
+    ],
+    "*tktj-text-width-factor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12462,
+        "function": "<load>"
+      }
+    ],
+    "*ut_tiltangle*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 168,
+        "function": "<load>"
+      }
+    ],
+    "*ww_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 162,
+        "function": "<load>"
+      }
+    ],
+    "*xy-ang-tol*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5843,
+        "function": "<load>"
+      }
+    ],
+    "*xy-geom-tol*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5842,
+        "function": "<load>"
+      }
+    ],
+    "*xy-hit-half-width*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5845,
+        "function": "<load>"
+      }
+    ],
+    "*xy-last-vline-data*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5852,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6121,
+        "function": "xy:run-xin"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6125,
+        "function": "xy:run-xin"
+      }
+    ],
+    "*xy-last-vrec-map*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5851,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6120,
+        "function": "xy:run-xin"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6175,
+        "function": "xy:run-xin"
+      }
+    ],
+    "*xy-last-xin-counts*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5850,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6119,
+        "function": "xy:run-xin"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6174,
+        "function": "xy:run-xin"
+      }
+    ],
+    "*xy-out-offx*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5846,
+        "function": "<load>"
+      }
+    ],
+    "*xy-out-offy*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5847,
+        "function": "<load>"
+      }
+    ],
+    "*xy-ray-len*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5844,
+        "function": "<load>"
+      }
+    ],
+    "*xy-step-x*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5848,
+        "function": "<load>"
+      }
+    ],
+    "*xy-vline-bucket-size*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5854,
+        "function": "<load>"
+      }
+    ],
+    "*xy-vline-buckets*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5853,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 6017,
+        "function": "xy:build-vline-buckets"
+      }
+    ],
+    "*xy-warn-extend-len*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5849,
+        "function": "<load>"
+      }
+    ],
+    "*y_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 159,
+        "function": "<load>"
+      }
+    ],
+    "*ysdl_csvfilename*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 155,
+        "function": "<load>"
+      }
+    ],
+    "*ysdl_rowfuzz*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 154,
+        "function": "<load>"
+      }
+    ],
+    "*ysdl_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 156,
+        "function": "<load>"
+      }
+    ],
+    "*yy_textcolor*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 160,
+        "function": "<load>"
+      }
+    ],
+    "*zs_last_scale*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15897,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15951,
+        "function": "c:zs"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15993,
+        "function": "c:zs"
+      }
+    ],
+    "*ztf-all-styles*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 650,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 895,
+        "function": "ztf:run-dialog"
+      }
+    ],
+    "*ztf-filtered-fonts*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 648,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 845,
+        "function": "ztf:refresh-font-list"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 851,
+        "function": "ztf:refresh-font-list"
+      }
+    ],
+    "*ztf-filtered-styles*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 651,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 753,
+        "function": "ztf:refresh-style-list"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 758,
+        "function": "ztf:refresh-style-list"
+      }
+    ],
+    "*ztf-font-records*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 647,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 921,
+        "function": "c:ztf"
+      }
+    ],
+    "*ztf-project-dir*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 652,
+        "function": "<load>"
+      }
+    ],
+    "*ztf-selected-font*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 649,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 856,
+        "function": "ztf:refresh-font-list"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 860,
+        "function": "ztf:refresh-font-list"
+      }
+    ],
+    "*ztf-style-name*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 646,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 768,
+        "function": "ztf:refresh-style-list"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 772,
+        "function": "ztf:refresh-style-list"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 864,
+        "function": "ztf:update-style-info"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 898,
+        "function": "ztf:run-dialog"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 920,
+        "function": "c:ztf"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 927,
+        "function": "c:ztf"
+      }
+    ],
+    "aa:doc": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 597,
+        "function": "aa:cmd-begin"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 627,
+        "function": "aa:undo-mark-on"
+      }
+    ],
+    "aa:old-cmdecho": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 597,
+        "function": "aa:cmd-begin"
+      }
+    ],
+    "aa:tag": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 597,
+        "function": "aa:cmd-begin"
+      }
+    ],
+    "aa:undo-open": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 195,
+        "function": "aa:cmd-error"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 603,
+        "function": "aa:cmd-begin"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 612,
+        "function": "aa:cmd-end"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 629,
+        "function": "aa:undo-mark-on"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 637,
+        "function": "aa:undo-mark-off"
+      }
+    ],
+    "att": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8377,
+        "function": "is-frame-block"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8426,
+        "function": "find-att-by-keywords"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8508,
+        "function": "fill-one-frame"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 9244,
+        "function": "ming:find-title-attrib"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 9265,
+        "function": "ming:find-title-attrib"
+      }
+    ],
+    "aw:gap-factor": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12233,
+        "function": "<load>"
+      }
+    ],
+    "aw:max-try": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12236,
+        "function": "<load>"
+      }
+    ],
+    "aw:min-gap": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12234,
+        "function": "<load>"
+      }
+    ],
+    "aw:step-factor": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12235,
+        "function": "<load>"
+      }
+    ],
+    "b": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 9480,
+        "function": "c:ming"
+      }
+    ],
+    "blk": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8586,
+        "function": "fillframes-run"
+      }
+    ],
+    "c1c2:*active-preview*": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 13213,
+        "function": "<load>"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 13327,
+        "function": "c1c2:delete-preview"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 13338,
+        "function": "c1c2:place-one"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 13347,
+        "function": "c1c2:place-one"
+      }
+    ],
+    "col": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3097,
+        "function": "c:hp"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3244,
+        "function": "c:hp2"
+      }
+    ],
+    "created": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 13673,
+        "function": "ge:make-line"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 13677,
+        "function": "ge:make-line"
+      }
+    ],
+    "ed": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14470,
+        "function": "aa:km-ln-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14731,
+        "function": "aa:yd-cmd"
+      }
+    ],
+    "en": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14469,
+        "function": "aa:km-ln-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14730,
+        "function": "aa:yd-cmd"
+      }
+    ],
+    "g": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 10805,
+        "function": "aa:zz-run"
+      }
+    ],
+    "h": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3724,
+        "function": "c:he"
+      }
+    ],
+    "hlist": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 10506,
+        "function": "aa:zz-add-seg"
+      }
+    ],
+    "idx": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14846,
+        "function": "aa:yd-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14855,
+        "function": "aa:yd-cmd"
+      }
+    ],
+    "it": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 11820,
+        "function": "c:qw2"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12140,
+        "function": "c:dx1"
+      }
+    ],
+    "item": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 2101,
+        "function": "c:h"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 2232,
+        "function": "c:h2"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3744,
+        "function": "c:he"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3775,
+        "function": "c:he"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14494,
+        "function": "aa:km-ln-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14751,
+        "function": "aa:yd-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15026,
+        "function": "c:dao"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 15038,
+        "function": "c:dao"
+      }
+    ],
+    "itm": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5139,
+        "function": "aa:gty-update-nth"
+      }
+    ],
+    "kw": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8430,
+        "function": "find-att-by-keywords"
+      }
+    ],
+    "lay": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14217,
+        "function": "c:dl1"
+      }
+    ],
+    "p": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8863,
+        "function": "hao2:sort-blocks"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 10547,
+        "function": "aa:zz-build-line-cache"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 10566,
+        "function": "aa:zz-build-line-cache"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12186,
+        "function": "ce-redraw"
+      }
+    ],
+    "p1": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3722,
+        "function": "c:he"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14470,
+        "function": "aa:km-ln-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14731,
+        "function": "aa:yd-cmd"
+      }
+    ],
+    "p2": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3723,
+        "function": "c:he"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14470,
+        "function": "aa:km-ln-cmd"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 14731,
+        "function": "aa:yd-cmd"
+      }
+    ],
+    "pa": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8405,
+        "function": "sort-frames-by-position"
+      }
+    ],
+    "pair": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 4270,
+        "function": "aa:ss-get-entity-pts"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 10515,
+        "function": "aa:zz-collect-lwpoly-pts"
+      }
+    ],
+    "pb": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8405,
+        "function": "sort-frames-by-position"
+      }
+    ],
+    "pending": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 9931,
+        "function": "fdx:place"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 9958,
+        "function": "fdx:place"
+      }
+    ],
+    "r": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5428,
+        "function": "c:gtz"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 5441,
+        "function": "c:gtz"
+      }
+    ],
+    "row": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 2122,
+        "function": "c:h"
+      },
+      {
+        "file": "AA整合版本.lsp",
+        "line": 2253,
+        "function": "c:h2"
+      }
+    ],
+    "tag": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8429,
+        "function": "find-att-by-keywords"
+      }
+    ],
+    "txt": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 12708,
+        "function": "tktj:draw-row"
+      }
+    ],
+    "vlist": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 10501,
+        "function": "aa:zz-add-seg"
+      }
+    ],
+    "x1": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3727,
+        "function": "c:he"
+      }
+    ],
+    "x2": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3728,
+        "function": "c:he"
+      }
+    ],
+    "xa": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8405,
+        "function": "sort-frames-by-position"
+      }
+    ],
+    "xb": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8405,
+        "function": "sort-frames-by-position"
+      }
+    ],
+    "y1": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3725,
+        "function": "c:he"
+      }
+    ],
+    "y2": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 3726,
+        "function": "c:he"
+      }
+    ],
+    "ya": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8405,
+        "function": "sort-frames-by-position"
+      }
+    ],
+    "yb": [
+      {
+        "file": "AA整合版本.lsp",
+        "line": 8405,
+        "function": "sort-frames-by-position"
+      }
+    ]
+  }
+}

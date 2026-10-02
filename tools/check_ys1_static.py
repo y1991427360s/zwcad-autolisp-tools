@@ -118,13 +118,8 @@ def run(height=80.0, base=(0.0, 0.0, 0.0)):
     return paths, arcs, bounds
 
 
-if __name__ == '__main__':
-    paths, arcs, bounds = run()
-    scaled, scaled_arcs, _ = run(160, (17, -23, 5))
-    assert len(paths) == len(scaled) and len(arcs) == len(scaled_arcs)
-    for original, enlarged in zip(paths, scaled):
-        for (x, y), (sx, sy) in zip(original, enlarged):
-            assert abs(sx - (2*x + 17)) < 1e-8 and abs(sy - (2*y - 23)) < 1e-8
+def render_preview(paths, arcs, bounds):
+    """Optional artifact generation, separate from dependency-free checks."""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -142,3 +137,17 @@ if __name__ == '__main__':
     output = Path(__file__).resolve().parents[1] / 'docs' / 'YS1-preview.png'
     fig.savefig(output, dpi=180, bbox_inches='tight', facecolor='white')
     print(output)
+
+
+if __name__ == '__main__':
+    import sys
+    paths, arcs, bounds = run()
+    scaled, scaled_arcs, _ = run(160, (17, -23, 5))
+    assert len(paths) == len(scaled) and len(arcs) == len(scaled_arcs)
+    for original, enlarged in zip(paths, scaled):
+        for (x, y), (sx, sy) in zip(original, enlarged):
+            assert abs(sx - (2*x + 17)) < 1e-8 and abs(sy - (2*y - 23)) < 1e-8
+    if '--preview' in sys.argv:
+        render_preview(paths, arcs, bounds)
+    else:
+        print('PASS YS1 geometry; use --preview for optional matplotlib rendering')

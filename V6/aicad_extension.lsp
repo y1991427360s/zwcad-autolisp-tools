@@ -3,6 +3,7 @@
 (setq *AICAD_BaseDirectoryEnvVar* "AICADAA_BASEDIR")
 (setq *AICAD_DefaultInstallDirectory* "E:\\366256\\ZW-auto_lisp\\V6")
 
+;;; Generated from common/aicad_pure.lsp: aicad:normalize-path; run scripts/sync_common.py.
 (defun aicad:normalize-path (path)
   (if path
     (vl-string-translate "/" "\\" path)
@@ -10,6 +11,7 @@
   )
 )
 
+;;; Generated from common/aicad_pure.lsp: aicad:not-empty-p; run scripts/sync_common.py.
 (defun aicad:not-empty-p (value)
   (and value (/= value ""))
 )
@@ -119,6 +121,7 @@
   '("CMDECHO" "OSMODE" "PICKFIRST" "FILEDIA" "CMDDIA")
 )
 
+;;; Generated from common/aicad_pure.lsp: aicad:error-message; run scripts/sync_common.py.
 (defun aicad:error-message (err)
   (cond
     ((vl-catch-all-error-p err) (vl-catch-all-error-message err))
@@ -346,7 +349,7 @@
   )
 )
 
-(defun aicad:join (items sep / result)
+(defun aicad:join (items sep / result item)
   (if items
     (progn
       (setq result (car items))
@@ -394,7 +397,7 @@
   pairs
 )
 
-(defun aicad:replace-pairs-preview (pairs / items)
+(defun aicad:replace-pairs-preview (pairs / items pair)
   (setq items '())
   (foreach pair pairs
     (setq items (cons (strcat (car pair) "->" (cadr pair)) items))
@@ -487,7 +490,7 @@
   counts
 )
 
-(defun aicad:selection-summary (ss / counts i ent entdata enttype typeparts total)
+(defun aicad:selection-summary (ss / counts i ent entdata enttype typeparts total item)
   (setq counts '()
         i 0
         total (sslength ss))

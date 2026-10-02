@@ -99,3 +99,9 @@ python tools/check_xy_static.py
 ```
 
 以上检查不启动 CAD。未经用户明确要求，不得通过 COM、脚本或界面自动化连接 CAD 做验证、加载或切换图纸；静态检查通过不等于 CAD 实机验收通过。
+
+## 仓库工程化
+
+完整 LISP 命令的功能、参数/交互输入、依赖及对象候选范围见 [COMMANDS.md](COMMANDS.md)；重复定义、全局写入、UNDO、错误恢复、系统变量与 nil/选择集候选见 [PROJECT_AUDIT.md](PROJECT_AUDIT.md)。人工分类与实际修复见 [审阅记录](docs/AUDIT_REVIEW.md)。
+
+统一离线验证入口：`python scripts/check_project.py`，使用 Python 标准库运行 9 项基础回归与现有 15 项专项检查。修改后运行 `python scripts/audit_lsp.py --write` 更新审计文档。公共函数模板编辑后运行 `python scripts/sync_common.py --write`，保留既有 CAD 加载方式；详细流程见 [工程化说明](docs/ENGINEERING.md) 和 [公共库设计](common/README.md)。

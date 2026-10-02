@@ -54,3 +54,7 @@
 - `ZTF.dcl` 控件标签保持 ASCII；SHX 用 `findfile` 从 CAD 支持路径查找，不得把 DCL 内嵌到 LISP。
 - 默认只做静态检查。只有用户明确要求使用 CAD 验证时，才可连接或操作 Windows 原生 ZWCAD 2026；修复命令不等于授权验证，禁止主动新建测试图、发送命令、重新加载或通过 COM/界面自动化测试。未验证必须如实说明，WSL 结果不能替代 CAD 验证。CAD 卡死时不得擅自关闭、结束进程或重启。
 - 交付前核对编码、换行、命令清单、整合文件及两份命令索引均已同步。
+
+## 工程化检查
+
+- 全仓离线入口：`python scripts/check_project.py`。LSP 修改后运行 `python scripts/audit_lsp.py --write` 更新 `COMMANDS.md`、`PROJECT_AUDIT.md` 与 JSON；公共纯函数修改先编辑 `common/aicad_pure.lsp`，再运行 `python scripts/sync_common.py --write` 展开。禁止仅修改标有 Generated 的副本；`common/` 不加入 CAD 启动加载。候选告警须核对动态作用域和间接恢复，不批量重写；流程见 `docs/ENGINEERING.md`。
