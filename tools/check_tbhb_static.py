@@ -162,8 +162,7 @@ def check():
     print('PASS HBBG segmented: 114 QW3 objects, 2 complete tables, 46 texts, '
           'segmented/overlapping sides, split horizontals, bridge/gap guards and diagnostics')
     # CIRCLE symbols are table contents, accepted by collection and copied like text.
-    assert ['member', 'typ', ['quote', ['"LINE"', '"TEXT"', '"MTEXT"', '"CIRCLE"']]] in list(
-        walk(affected['aa:tbhb-collect']))
+    assert not any(n[:2] == ['member', 'typ'] for n in walk(affected['aa:tbhb-collect']))
     rows3 = json.loads((Path(__file__).parent / 'fixtures/tbhb_qw3_circles.json')
                        .read_text(encoding='utf-8'))
     assert len(rows3) == 209
@@ -204,6 +203,86 @@ def check():
     assert reversed_groups3 and [len(g[1]) for g in reversed_groups3] == [32, 32, 53, 45, 47]
     print('PASS HBBG circles: 209 QW3 objects, 5 tables, all 106 texts and 2 circles retained, '
           'circle centers translated with their table and radii preserved')
+    # Execute the actual collection helper against COM mocks, without CAD.
+    # Type names are open-ended; only LINEs with appropriate geometry form borders.
+    class Aborted(Exception):
+        pass
+
+    class ComError:
+        pass
+
+    released, messages = [], []
+    hooks = {}
+
+    def entget_mock(en):
+        return {'0': en['type'], '5': en['handle'], '8': en.get('layer', '0'),
+                '10': (en.get('pts') or [None, None])[0],
+                '11': (en.get('pts') or [None, None])[1]}
+
+    def catch_mock(name, args):
+        try:
+            return hooks[name](*args)
+        except Exception:
+            return ComError()
+
+    def exit_mock():
+        raise Aborted()
+
+    hooks.update({
+        'entget': entget_mock,
+        'assoc': lambda key, ed: (key, ed[str(key)]) if str(key) in ed else None,
+        'cdr': lambda xs: xs[1] if isinstance(xs, tuple) else xs[1:] if xs else None,
+        'tblsearch': lambda _, layer: {'70': 4 if layer == 'LOCKED' else 0},
+        'vlax-ename->vla-object': lambda en: en,
+        'vl-catch-all-apply': catch_mock,
+        'vl-catch-all-error-p': lambda obj: isinstance(obj, ComError),
+        'vlax-method-applicable-p': lambda obj, method: obj.get('movable', True),
+        'aa:try-get-bbox': lambda obj: None if obj.get('bbox_failure') else
+            [[obj['bounds'][0], obj['bounds'][1], obj.get('z', 0)],
+             [obj['bounds'][2], obj['bounds'][3], obj.get('z', 0)]],
+        'vlax-release-object': lambda obj: released.append(obj['handle']),
+        'strcat': lambda *xs: ''.join(xs),
+        'princ': lambda msg: messages.append(msg), 'exit': exit_mock,
+    })
+
+    box = ordered[0]
+    mixed = []
+    for index, typ in enumerate(('INSERT', 'ARC', 'LWPOLYLINE', 'POLYLINE', 'HATCH',
+                                 'DIMENSION', 'ACAD_TABLE', 'SPLINE', 'SOLID', 'POINT',
+                                 'CUSTOM_ENTITY')):
+        mixed.append({'handle': 'mixed' + str(index), 'type': typ,
+                      'bounds': [box[0] + 2, box[1] + 2, box[0] + 4, box[1] + 4],
+                      'z': 3 if typ == 'INSERT' else 0})
+    mixed.append({'handle': 'diagonal', 'type': 'LINE',
+                  'pts': [[box[0] + 2, box[1] + 2, 0], [box[0] + 3, box[1] + 4, 0]]})
+    mixed.append({'handle': 'elevated', 'type': 'LINE',
+                  'pts': [[box[0] + 2, box[1] + 2, 3], [box[0] + 4, box[1] + 2, 3]]})
+
+    def collect_mock(selection):
+        return evaluate(['aa:tbhb-collect', 'selection'],
+                        {'__functions': affected, '__builtins': hooks, 'selection': selection})
+
+    collected, spans = collect_mock(rows + mixed)
+    assert len(collected) == 208 and len(released) == 208
+    assert len(spans) == 71  # neither diagonal nor elevated content becomes a border
+    all_boxes = sorted(call('aa:tbhb-boxes', spans), key=cmp_to_key(compare))
+    all_groups = call('aa:tbhb-groups', collected, all_boxes)
+    assert all_groups and sum(len(g[1]) for g in all_groups) == 208
+    assert {i[0]['handle'] for i in all_groups[0][1]} >= {r['handle'] for r in mixed}
+    for field, value, expected in (('movable', False, '不支持复制'),
+                                   ('bbox_failure', True, '无法读取对象范围'),
+                                   ('layer', 'LOCKED', '锁定图层')):
+        bad = dict(mixed[0], **{field: value})
+        messages.clear()
+        try:
+            collect_mock([bad])
+        except Aborted:
+            assert messages and expected in messages[-1]
+            assert 'INSERT' in messages[-1] and 'mixed0' in messages[-1]
+        else:
+            raise AssertionError('Unreadable/unmovable object must abort, never silently skip')
+    print('PASS HBBG generic contents: actual collection with COM mocks, 11 open-ended types, '
+          'diagonal/elevated LINEs, full ownership, releases and detailed failure diagnostics')
     print('PASS HBBG: 195 QW3 objects, 4 frames, 11D/13D/12D/14D geometric order, '
           '124 texts preserved, seam/duplicate removal, incomplete/overlapping frames, '
           'width/ownership guards and copy rollback structure')

@@ -11255,36 +11255,39 @@
     (setq en (ssname ss i) ed (entget en) typ (cdr (assoc 0 ed))
           pts nil seg nil bbox nil problem nil
           layer (tblsearch "LAYER" (cdr (assoc 8 ed))))
-    (cond
-      ((not (member typ '("LINE" "TEXT" "MTEXT" "CIRCLE")))
-       (setq problem "支持 LINE 边框、TEXT/MTEXT 文字及表内 CIRCLE 圆形符号；选择中有其他类型。"))
-      ((= 4 (logand 4 (cdr (assoc 70 layer))))
-       (setq problem "选择中有锁定图层，请先解锁。"))
-      (T
-       (setq obj (vlax-ename->vla-object en))
-       (if (not (and (vlax-method-applicable-p obj 'Copy)
-                     (vlax-method-applicable-p obj 'Move)))
-         (setq problem "选择中有无法复制或移动的对象。")
-         (if (= typ "LINE")
-           (progn
-             (setq pts (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed)))
-                   seg (aa:tbhb-segment (car pts) (cadr pts)))
-             (if (or (null seg) (not (equal (caddr (car pts)) 0.0 0.01))
-                     (not (equal (caddr (cadr pts)) 0.0 0.01)))
-               (setq problem "边线需为 WCS XY 平面上近水平或近竖直的直线。")
-               (setq bbox (list (min (caar pts) (caadr pts))
-                                (min (cadar pts) (cadadr pts))
-                                (max (caar pts) (caadr pts))
-                                (max (cadar pts) (cadadr pts))))))
-           (progn
-             (setq bbox (aa:try-get-bbox obj))
-             (if (or (null bbox) (not (equal (caddr (car bbox)) 0.0 0.01))
-                     (not (equal (caddr (cadr bbox)) 0.0 0.01)))
-               (setq problem "无法读取对象范围，或对象不在 WCS XY 平面。")
-               (setq bbox (list (caar bbox) (cadar bbox) (caadr bbox) (cadadr bbox)))))))
-       (vlax-release-object obj)
-       (setq obj nil)))
-    (if problem (aa:tbhb-abort problem))
+    (if (= 4 (logand 4 (cond ((cdr (assoc 70 layer))) (T 0))))
+      (setq problem "对象位于锁定图层，请先解锁。")
+      (progn
+        (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list en)))
+        (if (vl-catch-all-error-p obj)
+          (setq obj nil problem "对象无法取得 COM 接口。")
+          (progn
+            (if (not (and (vlax-method-applicable-p obj 'Copy)
+                          (vlax-method-applicable-p obj 'Move)))
+              (setq problem "对象不支持复制或移动。")
+              (if (= typ "LINE")
+                (progn
+                  (setq pts (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed)))
+                        bbox (list (min (caar pts) (caadr pts))
+                                   (min (cadar pts) (cadadr pts))
+                                   (max (caar pts) (caadr pts))
+                                   (max (cadar pts) (cadadr pts))))
+                  ;; Only planar axis-aligned LINEs participate in frame recognition.
+                  ;; Diagonal/nonplanar lines remain content and are copied unchanged.
+                  (if (and (equal (caddr (car pts)) 0.0 0.01)
+                           (equal (caddr (cadr pts)) 0.0 0.01))
+                    (setq seg (aa:tbhb-segment (car pts) (cadr pts)))))
+                (progn
+                  ;; All other types use their WCS extents solely for table ownership.
+                  (setq bbox (aa:try-get-bbox obj))
+                  (if (null bbox)
+                    (setq problem "无法读取对象范围。")
+                    (setq bbox (list (caar bbox) (cadar bbox) (caadr bbox) (cadadr bbox)))))))
+            (vlax-release-object obj)
+            (setq obj nil)))))
+    (if problem
+      (aa:tbhb-abort
+        (strcat typ " 句柄=" (cond ((cdr (assoc 5 ed))) (T "?")) "：" problem)))
     (setq items (cons (list en typ bbox pts) items))
     (if seg (setq segments (cons seg segments)))
     (setq i (1+ i)))

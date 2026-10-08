@@ -115,6 +115,7 @@ def evaluate(expr, env):
         'abs': abs, 'min': min, 'max': max,
         'equal': lisp_equal,
     }
+    builtins.update(env.get('__builtins', {}))
     assert head in builtins, 'Unsupported call: ' + head
     return builtins[head](*values)
 
