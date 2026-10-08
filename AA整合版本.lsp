@@ -14,7 +14,7 @@
 ;;;   - YSDL  : 提取选中文字到CSV文件，并改变文字颜色。
 ;;;   - HDDL  : 直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。
 ;;;   - QSTXT : 快速从当前选择中仅选中所有文字对象。
-;;;   - T     : 把字体刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
+;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距从上到下排列。
 ;;;   - H2    : 先将选中文字统一为左中对正，右侧文字在最上、越靠左越靠下，按指定间距从上到下排列。
@@ -1397,8 +1397,8 @@
 
 ;;; =======================================================================================
 ;;; Command: T
-;;; Purpose: Filter TEXT/MTEXT, explode MTEXT, set HZ/3/0.7, and preserve
-;;;          the visible anchor of justified TEXT even with stale alignment points.
+;;; Purpose: Filter TEXT/MTEXT/ATTDEF, explode MTEXT, set HZ/3/0.7, and preserve
+;;;          the visible anchor of justified TEXT/ATTDEF even with stale alignment points.
 ;;; =======================================================================================
 (defun txt:set-dxf (code value data / item)
   (if (setq item (assoc code data))
@@ -1413,10 +1413,12 @@
   (setq lo (car bbox)
         hi (cadr bbox)
         h  (cdr (assoc 72 edata))
-        v  (cdr (assoc 73 edata))
+        v  (cdr (assoc (if (= (cdr (assoc 0 edata)) "ATTDEF") 74 73) edata))
         centered (or (not (equal (cdr (assoc 50 edata)) 0.0 1e-8))
                      (and (assoc 210 edata)
                           (not (equal (cdr (assoc 210 edata)) '(0.0 0.0 1.0) 1e-8)))))
+  (if (not h) (setq h 0))
+  (if (not v) (setq v 0))
   (list
     (cond
       (centered (/ (+ (car lo) (car hi)) 2.0))
@@ -1430,12 +1432,13 @@
     (/ (+ (caddr lo) (caddr hi)) 2.0))
 )
 
-(defun txt:modify-text (ename / edata original aligned oldbox newbox delta ok)
-  (if (and ename (= "TEXT" (cdr (assoc 0 (setq edata (entget ename))))))
+(defun txt:modify-text (ename / edata original aligned vcode oldbox newbox delta ok)
+  (if (and ename (member (cdr (assoc 0 (setq edata (entget ename)))) '("TEXT" "ATTDEF")))
     (progn
       (setq original edata
-            aligned (or (/= (cdr (assoc 72 edata)) 0)
-                        (/= (cdr (assoc 73 edata)) 0)))
+            vcode (if (= (cdr (assoc 0 edata)) "ATTDEF") 74 73)
+            aligned (or (and (assoc 72 edata) (/= (cdr (assoc 72 edata)) 0))
+                        (and (assoc vcode edata) (/= (cdr (assoc vcode edata)) 0))))
       ;; 普通左基线文字直接 entmod；对齐文字先缓存实际显示范围。
       (if aligned (setq oldbox (aa:safe-get-bbox nil ename)))
       (if (or (not aligned) oldbox)
@@ -1506,12 +1509,12 @@
         count  0
         i      0)
 
-  ;; Modify TEXT immediately instead of building another large selection set.
+  ;; Modify TEXT/ATTDEF in place; preserve attribute tag, prompt and flags.
   (while (< i total)
     (setq ename (ssname sel i)
           etype (cdr (assoc 0 (entget ename))))
     (cond
-      ((= etype "TEXT")
+      ((member etype '("TEXT" "ATTDEF"))
        (setq count (+ count (txt:modify-text ename))))
       ((= etype "MTEXT")
        (ssadd ename mtss)
@@ -1552,7 +1555,7 @@
   (if (null (tblsearch "STYLE" "HZ"))
     (princ "\r\n未找到文字样式 HZ。")
     (progn
-      (setq sel (ssget '((0 . "TEXT,MTEXT"))))
+      (setq sel (ssget '((0 . "TEXT,MTEXT,ATTDEF"))))
       (if sel
         (txt:process-selection sel)
         (princ "\r\n未选择任何对象。")

@@ -11,6 +11,8 @@ def check():
     command = funcs['c:t']
     assert command[3:] == [['aa:cmd-begin', '"T"'], ['txt:run'], ['aa:cmd-end']]
     assert ['vl-load-com'] in list(walk(funcs['txt:run']))
+    assert '"TEXT,MTEXT,ATTDEF"' in source[source.index('(defun txt:run'):source.index('(defun c:T')]
+    assert ['member', 'etype', ['quote', ['"TEXT"', '"ATTDEF"']]] in list(walk(funcs['txt:process-selection']))
     calls = list(walk(funcs['txt:modify-text']))
     assert calls.index(['setq', 'ok', ['entmod', 'edata']]) < calls.index(['entupd', 'ename'])
     assert calls.index(['entupd', 'ename']) < calls.index(['setq', 'newbox', ['aa:safe-get-bbox', 'nil', 'ename']])
@@ -32,11 +34,15 @@ def check():
         env = {'edata': edata, 'bbox': bbox, 'nil': None, 't': True}
         def ev(x):
             if not isinstance(x, list):
+                if x.startswith('"'):
+                    return x[1:-1]
                 try:
                     return float(x)
                 except ValueError:
                     return env.get(x)
             op, args = x[0], x[1:]
+            if op == 'if':
+                return ev(args[1]) if ev(args[0]) else (ev(args[2]) if len(args) > 2 else None)
             if op == 'quote':
                 return [float(v) for v in args[0]]
             if op == 'setq':
@@ -101,7 +107,20 @@ def check():
     assert anchor(data(2, 3, angle=1.57), box) == [13, 24, 0]
     assert anchor(data(2, 3, normal=(0, 1, 0)), box) == [13, 24, 0]
     assert anchor(data(1, 1), old) == before
-    print('PASS T: top-level structure, update ordering, QW3 29.7105 mm compensation, alignment anchors')
+    # ATTDEF group 73 is field length, group 74 is vertical justification.
+    attdef = data(1, 99)
+    attdef.update({0: (0, 'ATTDEF'), 74: (74, 0)})
+    sample = [[39939.0866, 12638.551, 0], [39945.3435, 12640.9952, 0]]
+    assert anchor(attdef, sample) == [39942.21505, 12638.551, 0]
+    for v, y in ((1, 20), (2, 24), (3, 28)):
+        attdef[74] = (74, v)
+        assert anchor(attdef, box) == [13, y, 0]
+    del attdef[74]
+    assert anchor(attdef, box) == [13, 20, 0]
+    assert ['if', ['=', ['cdr', ['assoc', '0', 'edata']], '"ATTDEF"'], '74', '73'] in calls
+    for code in (1, 2, 3, 70, 73, 74):
+        assert not any(c[0] == 'txt:set-dxf' and c[1] == str(code) for c in calls)
+    print('PASS T: structure, bbox compensation, ATTDEF selection and group 74 anchors, attribute metadata preservation')
 
 
 if __name__ == '__main__':
