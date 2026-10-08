@@ -3,9 +3,9 @@
   "files": [
     {
       "file": "AA整合版本.lsp",
-      "bytes": 637446,
-      "top_level_forms": 689,
-      "functions": 603,
+      "bytes": 638993,
+      "top_level_forms": 691,
+      "functions": 605,
       "commands": 131
     },
     {
@@ -34,7 +34,7 @@
     {
       "command": "0",
       "file": "AA整合版本.lsp",
-      "line": 14255,
+      "line": 14290,
       "description": "将所选对象中的文字旋转角度统一改为 0 度。",
       "params": [],
       "inputs": [
@@ -61,7 +61,7 @@
     {
       "command": "9",
       "file": "AA整合版本.lsp",
-      "line": 14338,
+      "line": 14373,
       "description": "以所选对象整体包围框中心为基点，整体顺时针旋转 90 度。",
       "params": [],
       "inputs": [
@@ -85,7 +85,7 @@
     {
       "command": "99",
       "file": "AA整合版本.lsp",
-      "line": 14350,
+      "line": 14385,
       "description": "以所选对象整体包围框中心为基点，整体逆时针旋转 90 度。",
       "params": [],
       "inputs": [
@@ -147,7 +147,7 @@
     {
       "command": "AB",
       "file": "AA整合版本.lsp",
-      "line": 11695,
+      "line": 11730,
       "description": "在每个选中文字末尾增加输入的文字。",
       "params": [],
       "inputs": [
@@ -180,7 +180,7 @@
     {
       "command": "AF",
       "file": "AA整合版本.lsp",
-      "line": 11701,
+      "line": 11736,
       "description": "在每个选中文字开头增加输入的文字。",
       "params": [],
       "inputs": [
@@ -765,7 +765,7 @@
     {
       "command": "AW",
       "file": "AA整合版本.lsp",
-      "line": 12647,
+      "line": 12682,
       "description": "自动微移选中文字，尽量避开旁边线段、文字和其他对象重叠。",
       "params": [],
       "inputs": [
@@ -938,7 +938,7 @@
     {
       "command": "BK",
       "file": "AA整合版本.lsp",
-      "line": 15489,
+      "line": 15524,
       "description": "选中文字后只保留最后一对括号内的内容，括号外有“至”时保留“至”。",
       "params": [],
       "inputs": [
@@ -971,7 +971,7 @@
     {
       "command": "BY",
       "file": "AA整合版本.lsp",
-      "line": 14900,
+      "line": 14935,
       "description": "选中两条水平线后向右生成短线、矩形并居中标注B+、B-及同步时钟主机柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -1009,7 +1009,7 @@
     {
       "command": "BZ",
       "file": "AA整合版本.lsp",
-      "line": 14894,
+      "line": 14929,
       "description": "选中两条水平线后向左生成短线、矩形并居中标注B+、B-及同步时钟主机柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -1047,7 +1047,7 @@
     {
       "command": "C1",
       "file": "AA整合版本.lsp",
-      "line": 13665,
+      "line": 13700,
       "description": "复制文字并递增减号右侧编号，使用原生拖动预览和捕捉连续放置。",
       "params": [],
       "inputs": [
@@ -1081,7 +1081,7 @@
     {
       "command": "C2",
       "file": "AA整合版本.lsp",
-      "line": 13669,
+      "line": 13704,
       "description": "复制文字并递减减号右侧编号，使用原生拖动预览和捕捉连续放置。",
       "params": [],
       "inputs": [
@@ -1115,7 +1115,7 @@
     {
       "command": "C3",
       "file": "AA整合版本.lsp",
-      "line": 13673,
+      "line": 13708,
       "description": "复制文字并每次将减号右侧编号加 2，使用原生拖动预览和捕捉连续放置。",
       "params": [],
       "inputs": [
@@ -1149,7 +1149,7 @@
     {
       "command": "CC",
       "file": "AA整合版本.lsp",
-      "line": 11832,
+      "line": 11867,
       "description": "读取 Windows 剪贴板，连续复制并替换副本文字，使用原生拖动预览和对象捕捉。",
       "params": [],
       "inputs": [
@@ -1180,7 +1180,7 @@
     {
       "command": "CD",
       "file": "AA整合版本.lsp",
-      "line": 15894,
+      "line": 15929,
       "description": "将选中对象按 5 个单位的递增间距向下复制指定份数。",
       "params": [],
       "inputs": [
@@ -1203,7 +1203,7 @@
     {
       "command": "CE",
       "file": "AA整合版本.lsp",
-      "line": 12430,
+      "line": 12465,
       "description": "测量点序列形成的多段线总长度。",
       "params": [],
       "inputs": [
@@ -1232,7 +1232,7 @@
     {
       "command": "CU",
       "file": "AA整合版本.lsp",
-      "line": 15890,
+      "line": 15925,
       "description": "将选中对象按 5 个单位的递增间距向上复制指定份数。",
       "params": [],
       "inputs": [
@@ -1255,7 +1255,7 @@
     {
       "command": "CY",
       "file": "AA整合版本.lsp",
-      "line": 15902,
+      "line": 15937,
       "description": "将选中对象按 5 个单位的递增间距向右复制指定份数。",
       "params": [],
       "inputs": [
@@ -1278,7 +1278,7 @@
     {
       "command": "CZ",
       "file": "AA整合版本.lsp",
-      "line": 15898,
+      "line": 15933,
       "description": "将选中对象按 5 个单位的递增间距向左复制指定份数。",
       "params": [],
       "inputs": [
@@ -1301,7 +1301,7 @@
     {
       "command": "DAO",
       "file": "AA整合版本.lsp",
-      "line": 15223,
+      "line": 15258,
       "description": "将选中文字按垂直位置上下颠倒排列（最下面的文字放到最上面）。",
       "params": [],
       "inputs": [
@@ -1327,7 +1327,7 @@
     {
       "command": "DB",
       "file": "AA整合版本.lsp",
-      "line": 11683,
+      "line": 11718,
       "description": "删除每个选中文字末尾的 N 个字符。",
       "params": [],
       "inputs": [
@@ -1360,7 +1360,7 @@
     {
       "command": "DE",
       "file": "AA整合版本.lsp",
-      "line": 13831,
+      "line": 13866,
       "description": "删除选中文字的最右侧括号及括号内容。",
       "params": [],
       "inputs": [
@@ -1392,7 +1392,7 @@
     {
       "command": "DE2",
       "file": "AA整合版本.lsp",
-      "line": 13832,
+      "line": 13867,
       "description": "用最右侧括号内容替换括号前连续数字。",
       "params": [],
       "inputs": [
@@ -1505,7 +1505,7 @@
     {
       "command": "DF",
       "file": "AA整合版本.lsp",
-      "line": 11689,
+      "line": 11724,
       "description": "删除每个选中文字开头的 N 个字符。",
       "params": [],
       "inputs": [
@@ -1538,7 +1538,7 @@
     {
       "command": "DL1",
       "file": "AA整合版本.lsp",
-      "line": 14442,
+      "line": 14477,
       "description": "创建电缆柜、电缆路径、电缆竖井相关的 1F / 2F 图层。",
       "params": [],
       "inputs": [],
@@ -1560,7 +1560,7 @@
     {
       "command": "DUMP",
       "file": "AA整合版本.lsp",
-      "line": 13411,
+      "line": 13446,
       "description": "打印选中图元的 ActiveX 属性与可用方法（调试辅助）。",
       "params": [],
       "inputs": [
@@ -1649,7 +1649,7 @@
     {
       "command": "DX1",
       "file": "AA整合版本.lsp",
-      "line": 12329,
+      "line": 12364,
       "description": "提取选中文字及坐标，青色文字额外标注“端子名”，复制到剪贴板。",
       "params": [],
       "inputs": [
@@ -1848,7 +1848,7 @@
     {
       "command": "GE",
       "file": "AA整合版本.lsp",
-      "line": 13919,
+      "line": 13954,
       "description": "选中同一水平行的单行文字，按文字间隙绘制单行表格。",
       "params": [],
       "inputs": [
@@ -2211,10 +2211,10 @@
       "mutation_evidence": true
     },
     {
-      "command": "HB",
+      "command": "HBDL",
       "file": "AA整合版本.lsp",
       "line": 7542,
-      "description": "框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并合并排序原理号。",
+      "description": "框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并在末尾追加原理号，其他行保持原位。",
       "params": [],
       "inputs": [
         "ssget"
@@ -2257,7 +2257,7 @@
     {
       "command": "HDDL",
       "file": "AA整合版本.lsp",
-      "line": 15735,
+      "line": 15770,
       "description": "直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。",
       "params": [],
       "inputs": [
@@ -2468,7 +2468,7 @@
     {
       "command": "HS",
       "file": "AA整合版本.lsp",
-      "line": 15956,
+      "line": 15991,
       "description": "选中物体单向横向缩放，左右宽度改变，高度保持不变。",
       "params": [],
       "inputs": [
@@ -2669,7 +2669,7 @@
     {
       "command": "KMY",
       "file": "AA整合版本.lsp",
-      "line": 14864,
+      "line": 14899,
       "description": "选中两条水平线后向右生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -2707,7 +2707,7 @@
     {
       "command": "KMZ",
       "file": "AA整合版本.lsp",
-      "line": 14858,
+      "line": 14893,
       "description": "选中两条水平线后向左生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -2770,7 +2770,7 @@
     {
       "command": "LNY",
       "file": "AA整合版本.lsp",
-      "line": 14876,
+      "line": 14911,
       "description": "选中两条水平线后向右生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -2808,7 +2808,7 @@
     {
       "command": "LNZ",
       "file": "AA整合版本.lsp",
-      "line": 14870,
+      "line": 14905,
       "description": "选中两条水平线后向左生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -3056,7 +3056,7 @@
     {
       "command": "QE",
       "file": "AA整合版本.lsp",
-      "line": 11762,
+      "line": 11797,
       "description": "用 Windows 剪贴板中的文字批量替换选中文字；文字含“至”字时只替换“至”后的部分。",
       "params": [],
       "inputs": [
@@ -3081,7 +3081,7 @@
     {
       "command": "QH",
       "file": "AA整合版本.lsp",
-      "line": 15308,
+      "line": 15343,
       "description": "只选中已选文字所在行、且位于当前屏幕内、参考文字左右各 1000 内的所有文字（跨多行时逐行选择）。",
       "params": [],
       "inputs": [
@@ -3183,7 +3183,7 @@
     {
       "command": "QW",
       "file": "AA整合版本.lsp",
-      "line": 11975,
+      "line": 12010,
       "description": "提取选中文字，同一行用顿号连接，不同行之间也用顿号分隔，并复制到剪贴板。",
       "params": [],
       "inputs": [
@@ -3216,7 +3216,7 @@
     {
       "command": "QW2",
       "file": "AA整合版本.lsp",
-      "line": 12016,
+      "line": 12051,
       "description": "提取选中文字及坐标，每项一行“x,y 文字”，坐标保留 2 位小数，复制到剪贴板。",
       "params": [],
       "inputs": [
@@ -3248,7 +3248,7 @@
     {
       "command": "QW3",
       "file": "AA整合版本.lsp",
-      "line": 12288,
+      "line": 12323,
       "description": "导出选中对象的类型、图层、坐标、几何及文字属性为结构化文本并复制到剪贴板。",
       "params": [],
       "inputs": [
@@ -3304,7 +3304,7 @@
     {
       "command": "QZ",
       "file": "AA整合版本.lsp",
-      "line": 14366,
+      "line": 14401,
       "description": "取消当前图纸中的全部分组，组内图元保持不变。",
       "params": [],
       "inputs": [],
@@ -3318,7 +3318,7 @@
     {
       "command": "REP",
       "file": "AA整合版本.lsp",
-      "line": 14483,
+      "line": 14518,
       "description": "将选中的柜名文字按内置映射表替换为标准柜名。",
       "params": [],
       "inputs": [
@@ -3370,7 +3370,7 @@
     {
       "command": "SC3",
       "file": "AA整合版本.lsp",
-      "line": 16341,
+      "line": 16376,
       "description": "将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。",
       "params": [],
       "inputs": [
@@ -3662,7 +3662,7 @@
     {
       "command": "TBHB",
       "file": "AA整合版本.lsp",
-      "line": 11207,
+      "line": 11242,
       "description": "将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。",
       "params": [],
       "inputs": [
@@ -3677,6 +3677,7 @@
         "aa:tbhb-abort",
         "aa:tbhb-boxes",
         "aa:tbhb-collect",
+        "aa:tbhb-group-problem",
         "aa:tbhb-groups",
         "aa:tbhb-inside-p",
         "aa:tbhb-next-top",
@@ -3693,8 +3694,10 @@
         "aa:tbhb-border-p",
         "aa:tbhb-boxes",
         "aa:tbhb-collect",
+        "aa:tbhb-group-problem",
         "aa:tbhb-groups",
         "aa:tbhb-inside-p",
+        "aa:tbhb-merge-segments",
         "aa:tbhb-next-top",
         "aa:tbhb-offset",
         "aa:tbhb-seen-line-p",
@@ -3715,7 +3718,7 @@
     {
       "command": "TONG",
       "file": "AA整合版本.lsp",
-      "line": 16543,
+      "line": 16578,
       "description": "框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。",
       "params": [],
       "inputs": [
@@ -3815,7 +3818,7 @@
     {
       "command": "UPSY",
       "file": "AA整合版本.lsp",
-      "line": 14888,
+      "line": 14923,
       "description": "选中两条水平线后向右生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -3853,7 +3856,7 @@
     {
       "command": "UPSZ",
       "file": "AA整合版本.lsp",
-      "line": 14882,
+      "line": 14917,
       "description": "选中两条水平线后向左生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -3891,7 +3894,7 @@
     {
       "command": "UT",
       "file": "AA整合版本.lsp",
-      "line": 14132,
+      "line": 14167,
       "description": "先将文字统一为左中对正，再按最上方一对的位置整理文字；支持直线及按首尾端点计算的未闭合多段线，保留宽度。",
       "params": [],
       "inputs": [
@@ -3944,7 +3947,7 @@
     {
       "command": "VPO1",
       "file": "AA整合版本.lsp",
-      "line": 16524,
+      "line": 16559,
       "description": "切换到“单个”标准视口。",
       "params": [],
       "inputs": [],
@@ -3964,7 +3967,7 @@
     {
       "command": "VPO2",
       "file": "AA整合版本.lsp",
-      "line": 16532,
+      "line": 16567,
       "description": "切换到“两个：垂直”标准视口。",
       "params": [],
       "inputs": [],
@@ -4164,7 +4167,7 @@
     {
       "command": "XX",
       "file": "AA整合版本.lsp",
-      "line": 15129,
+      "line": 15164,
       "description": "将选中文字内容替换为 7×2.5。",
       "params": [],
       "inputs": [
@@ -4478,7 +4481,7 @@
     {
       "command": "YDY",
       "file": "AA整合版本.lsp",
-      "line": 15116,
+      "line": 15151,
       "description": "选中多条水平线后向右生成短线、矩形并从上往下标注701、-901、-903...及公用测控柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -4516,7 +4519,7 @@
     {
       "command": "YDZ",
       "file": "AA整合版本.lsp",
-      "line": 15110,
+      "line": 15145,
       "description": "选中多条水平线后向左生成短线、矩形并从上往下标注701、-901、-903...及公用测控柜（青色虚线）。",
       "params": [],
       "inputs": [
@@ -4554,7 +4557,7 @@
     {
       "command": "YJ",
       "file": "AA整合版本.lsp",
-      "line": 14912,
+      "line": 14947,
       "description": "选中两条水平线后向右生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。",
       "params": [],
       "inputs": [
@@ -4763,7 +4766,7 @@
     {
       "command": "Z0",
       "file": "AA整合版本.lsp",
-      "line": 16475,
+      "line": 16510,
       "description": "将选中对象的 Z 坐标全部归零（压平到 XY 平面）。",
       "params": [],
       "inputs": [
@@ -4800,7 +4803,7 @@
     {
       "command": "ZDML",
       "file": "AA整合版本.lsp",
-      "line": 13057,
+      "line": 13092,
       "description": "选择多个图框块，生成目录文字。",
       "params": [],
       "inputs": [
@@ -4860,7 +4863,7 @@
     {
       "command": "ZDML2",
       "file": "AA整合版本.lsp",
-      "line": 13199,
+      "line": 13234,
       "description": "指定基准块参照与图名、图号矩形范围，批量提取图名图号并生成目录。",
       "params": [],
       "inputs": [
@@ -4924,7 +4927,7 @@
     {
       "command": "ZDMLDEBUG",
       "file": "AA整合版本.lsp",
-      "line": 13373,
+      "line": 13408,
       "description": "选择一个图框块，打印所有增强属性。",
       "params": [],
       "inputs": [
@@ -4958,7 +4961,7 @@
     {
       "command": "ZDWI",
       "file": "AA整合版本.lsp",
-      "line": 11480,
+      "line": 11515,
       "description": "按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。",
       "params": [],
       "inputs": [
@@ -5080,7 +5083,7 @@
     {
       "command": "ZJ",
       "file": "AA整合版本.lsp",
-      "line": 14906,
+      "line": 14941,
       "description": "选中两条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。",
       "params": [],
       "inputs": [
@@ -5118,7 +5121,7 @@
     {
       "command": "ZS",
       "file": "AA整合版本.lsp",
-      "line": 16137,
+      "line": 16172,
       "description": "选中物体单向纵向缩放，上下高度改变，宽度保持不变。",
       "params": [],
       "inputs": [
@@ -5633,7 +5636,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 12016,
+      "line": 12051,
       "function": "c:qw2",
       "evidence": "写入未声明变量 it；动态调用方局部绑定需人工确认"
     },
@@ -5641,7 +5644,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 12329,
+      "line": 12364,
       "function": "c:dx1",
       "evidence": "写入未声明变量 it；动态调用方局部绑定需人工确认"
     },
@@ -5649,7 +5652,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 12414,
+      "line": 12449,
       "function": "ce-redraw",
       "evidence": "写入未声明变量 p；动态调用方局部绑定需人工确认"
     },
@@ -5657,7 +5660,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 12940,
+      "line": 12975,
       "function": "tktj:draw-row",
       "evidence": "写入未声明变量 txt；动态调用方局部绑定需人工确认"
     },
@@ -5665,7 +5668,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13560,
+      "line": 13595,
       "function": "c1c2:delete-preview",
       "evidence": "写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认"
     },
@@ -5673,7 +5676,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13570,
+      "line": 13605,
       "function": "c1c2:place-one",
       "evidence": "写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认"
     },
@@ -5681,7 +5684,7 @@
       "rule": "undo-close",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13603,
+      "line": 13638,
       "function": "c1c2:run",
       "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
     },
@@ -5689,7 +5692,7 @@
       "rule": "undo-close",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13786,
+      "line": 13821,
       "function": "de:run",
       "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
     },
@@ -5697,7 +5700,7 @@
       "rule": "error-cleanup",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13786,
+      "line": 13821,
       "function": "de:run",
       "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
     },
@@ -5705,7 +5708,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13901,
+      "line": 13936,
       "function": "ge:make-line",
       "evidence": "写入未声明变量 created；动态调用方局部绑定需人工确认"
     },
@@ -5713,7 +5716,7 @@
       "rule": "undo-close",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13919,
+      "line": 13954,
       "function": "c:ge",
       "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
     },
@@ -5721,7 +5724,7 @@
       "rule": "error-cleanup",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 13919,
+      "line": 13954,
       "function": "c:ge",
       "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
     },
@@ -5729,7 +5732,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14296,
+      "line": 14331,
       "function": "aa:rotate-90-run",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -5737,7 +5740,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14442,
+      "line": 14477,
       "function": "c:dl1",
       "evidence": "写入未声明变量 lay；动态调用方局部绑定需人工确认"
     },
@@ -5745,7 +5748,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14662,
+      "line": 14697,
       "function": "aa:km-ln-cmd",
       "evidence": "写入未声明变量 ed；动态调用方局部绑定需人工确认"
     },
@@ -5753,7 +5756,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14662,
+      "line": 14697,
       "function": "aa:km-ln-cmd",
       "evidence": "写入未声明变量 en；动态调用方局部绑定需人工确认"
     },
@@ -5761,7 +5764,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14662,
+      "line": 14697,
       "function": "aa:km-ln-cmd",
       "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
     },
@@ -5769,7 +5772,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14662,
+      "line": 14697,
       "function": "aa:km-ln-cmd",
       "evidence": "写入未声明变量 p1；动态调用方局部绑定需人工确认"
     },
@@ -5777,7 +5780,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14662,
+      "line": 14697,
       "function": "aa:km-ln-cmd",
       "evidence": "写入未声明变量 p2；动态调用方局部绑定需人工确认"
     },
@@ -5785,7 +5788,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14922,
+      "line": 14957,
       "function": "aa:yd-cmd",
       "evidence": "写入未声明变量 ed；动态调用方局部绑定需人工确认"
     },
@@ -5793,7 +5796,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14922,
+      "line": 14957,
       "function": "aa:yd-cmd",
       "evidence": "写入未声明变量 en；动态调用方局部绑定需人工确认"
     },
@@ -5801,7 +5804,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14922,
+      "line": 14957,
       "function": "aa:yd-cmd",
       "evidence": "写入未声明变量 idx；动态调用方局部绑定需人工确认"
     },
@@ -5809,7 +5812,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14922,
+      "line": 14957,
       "function": "aa:yd-cmd",
       "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
     },
@@ -5817,7 +5820,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14922,
+      "line": 14957,
       "function": "aa:yd-cmd",
       "evidence": "写入未声明变量 p1；动态调用方局部绑定需人工确认"
     },
@@ -5825,7 +5828,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 14922,
+      "line": 14957,
       "function": "aa:yd-cmd",
       "evidence": "写入未声明变量 p2；动态调用方局部绑定需人工确认"
     },
@@ -5833,7 +5836,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15223,
+      "line": 15258,
       "function": "c:dao",
       "evidence": "写入未声明变量 item；动态调用方局部绑定需人工确认"
     },
@@ -5841,7 +5844,7 @@
       "rule": "error-cleanup",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15308,
+      "line": 15343,
       "function": "c:qh",
       "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
     },
@@ -5849,7 +5852,7 @@
       "rule": "undo-close",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15489,
+      "line": 15524,
       "function": "c:bk",
       "evidence": "vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径"
     },
@@ -5857,7 +5860,7 @@
       "rule": "error-cleanup",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15489,
+      "line": 15524,
       "function": "c:bk",
       "evidence": "专属 *error* 未见标准恢复调用；需核对间接清理"
     },
@@ -5865,7 +5868,7 @@
       "rule": "error-binding",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15735,
+      "line": 15770,
       "function": "c:hddl",
       "evidence": "*error* 赋值未局部声明；可能为动态作用域框架"
     },
@@ -5873,7 +5876,7 @@
       "rule": "error-binding",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15735,
+      "line": 15770,
       "function": "c:hddl",
       "evidence": "局部错误处理定义缺少 *error* 局部绑定"
     },
@@ -5881,7 +5884,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 15956,
+      "line": 15991,
       "function": "c:hs",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -5889,7 +5892,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 16137,
+      "line": 16172,
       "function": "c:zs",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -5897,7 +5900,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 16341,
+      "line": 16376,
       "function": "c:sc3",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -5905,7 +5908,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 16524,
+      "line": 16559,
       "function": "c:vpo1",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -5913,7 +5916,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 16532,
+      "line": 16567,
       "function": "c:vpo2",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -6327,7 +6330,7 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 15815,
+        "line": 15850,
         "function": "c:hddl"
       }
     ],
@@ -6348,17 +6351,17 @@
     "*hs_last_scale*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 15908,
+        "line": 15943,
         "function": "<load>"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 16007,
+        "line": 16042,
         "function": "c:hs"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 16049,
+        "line": 16084,
         "function": "c:hs"
       }
     ],
@@ -6379,98 +6382,98 @@
     "*tktj-archive-tags*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12715,
+        "line": 12750,
         "function": "<load>"
       }
     ],
     "*tktj-col-offsets*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12694,
+        "line": 12729,
         "function": "<load>"
       }
     ],
     "*tktj-output-header*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12700,
+        "line": 12735,
         "function": "<load>"
       }
     ],
     "*tktj-page-tags*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12712,
+        "line": 12747,
         "function": "<load>"
       }
     ],
     "*tktj-row-gap*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12695,
+        "line": 12730,
         "function": "<load>"
       }
     ],
     "*tktj-row-sort-tol*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12702,
+        "line": 12737,
         "function": "<load>"
       }
     ],
     "*tktj-sheetname-tags*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12709,
+        "line": 12744,
         "function": "<load>"
       }
     ],
     "*tktj-sheetno-tags*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12706,
+        "line": 12741,
         "function": "<load>"
       }
     ],
     "*tktj-sort-by-page*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12703,
+        "line": 12738,
         "function": "<load>"
       }
     ],
     "*tktj-sort-by-position*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12701,
+        "line": 12736,
         "function": "<load>"
       }
     ],
     "*tktj-text-fontfile*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12698,
+        "line": 12733,
         "function": "<load>"
       }
     ],
     "*tktj-text-height*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12696,
+        "line": 12731,
         "function": "<load>"
       }
     ],
     "*tktj-text-style*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12697,
+        "line": 12732,
         "function": "<load>"
       }
     ],
     "*tktj-text-width-factor*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12699,
+        "line": 12734,
         "function": "<load>"
       }
     ],
@@ -6652,17 +6655,17 @@
     "*zs_last_scale*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 16134,
+        "line": 16169,
         "function": "<load>"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 16188,
+        "line": 16223,
         "function": "c:zs"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 16230,
+        "line": 16265,
         "function": "c:zs"
       }
     ],
@@ -6868,28 +6871,28 @@
     "aw:gap-factor": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12470,
+        "line": 12505,
         "function": "<load>"
       }
     ],
     "aw:max-try": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12473,
+        "line": 12508,
         "function": "<load>"
       }
     ],
     "aw:min-gap": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12471,
+        "line": 12506,
         "function": "<load>"
       }
     ],
     "aw:step-factor": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12472,
+        "line": 12507,
         "function": "<load>"
       }
     ],
@@ -6910,22 +6913,22 @@
     "c1c2:*active-preview*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 13450,
+        "line": 13485,
         "function": "<load>"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 13564,
+        "line": 13599,
         "function": "c1c2:delete-preview"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 13575,
+        "line": 13610,
         "function": "c1c2:place-one"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 13584,
+        "line": 13619,
         "function": "c1c2:place-one"
       }
     ],
@@ -6944,36 +6947,36 @@
     "created": [
       {
         "file": "AA整合版本.lsp",
-        "line": 13910,
+        "line": 13945,
         "function": "ge:make-line"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 13914,
+        "line": 13949,
         "function": "ge:make-line"
       }
     ],
     "ed": [
       {
         "file": "AA整合版本.lsp",
-        "line": 14707,
+        "line": 14742,
         "function": "aa:km-ln-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14968,
+        "line": 15003,
         "function": "aa:yd-cmd"
       }
     ],
     "en": [
       {
         "file": "AA整合版本.lsp",
-        "line": 14706,
+        "line": 14741,
         "function": "aa:km-ln-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14967,
+        "line": 15002,
         "function": "aa:yd-cmd"
       }
     ],
@@ -7001,24 +7004,24 @@
     "idx": [
       {
         "file": "AA整合版本.lsp",
-        "line": 15083,
+        "line": 15118,
         "function": "aa:yd-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 15092,
+        "line": 15127,
         "function": "aa:yd-cmd"
       }
     ],
     "it": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12057,
+        "line": 12092,
         "function": "c:qw2"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 12377,
+        "line": 12412,
         "function": "c:dx1"
       }
     ],
@@ -7045,22 +7048,22 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14731,
+        "line": 14766,
         "function": "aa:km-ln-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14988,
+        "line": 15023,
         "function": "aa:yd-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 15263,
+        "line": 15298,
         "function": "c:dao"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 15275,
+        "line": 15310,
         "function": "c:dao"
       }
     ],
@@ -7081,7 +7084,7 @@
     "lay": [
       {
         "file": "AA整合版本.lsp",
-        "line": 14454,
+        "line": 14489,
         "function": "c:dl1"
       }
     ],
@@ -7103,7 +7106,7 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 12423,
+        "line": 12458,
         "function": "ce-redraw"
       }
     ],
@@ -7115,12 +7118,12 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14707,
+        "line": 14742,
         "function": "aa:km-ln-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14968,
+        "line": 15003,
         "function": "aa:yd-cmd"
       }
     ],
@@ -7132,12 +7135,12 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14707,
+        "line": 14742,
         "function": "aa:km-ln-cmd"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 14968,
+        "line": 15003,
         "function": "aa:yd-cmd"
       }
     ],
@@ -7213,7 +7216,7 @@
     "txt": [
       {
         "file": "AA整合版本.lsp",
-        "line": 12945,
+        "line": 12980,
         "function": "tktj:draw-row"
       }
     ],

@@ -116,6 +116,50 @@ def check():
     assert abs(target[1] - 1759.99915) < 1e-6, target
     assert skipped >= 3, skipped  # all three joining boundaries occur just once
     assert len(drawn) + skipped == 71
+    # New QW3: outer sides are segmented/overlapping, with split row borders.
+    rows2 = json.loads((Path(__file__).parent / 'fixtures/tbhb_qw3_segmented.json')
+                       .read_text(encoding='utf-8'))
+    assert len(rows2) == 114
+    items2 = [[r['handle'], r['type'], r['bounds'], r.get('pts')] for r in rows2]
+    spans2 = [call('aa:tbhb-segment', *r['pts']) for r in rows2 if r['type'] == 'LINE']
+    boxes2 = sorted(call('aa:tbhb-boxes', spans2), key=cmp_to_key(compare))
+    assert len(boxes2) == 2, boxes2
+    assert abs(boxes2[0][3] - boxes2[0][1] - 46.25) < 1e-8
+    assert abs(boxes2[1][3] - boxes2[1][1] - 45) < 1e-8
+    groups2 = call('aa:tbhb-groups', items2, boxes2)
+    assert groups2 and [len(g[1]) for g in groups2] == [51, 63]
+    assert sum(len(g[1]) for g in groups2) == 114
+    for spans in (list(reversed(spans2)), spans2[::2] + spans2[1::2]):
+        assert sorted(call('aa:tbhb-boxes', spans), key=cmp_to_key(compare)) == boxes2
+    lookup2 = {r['handle']: r for r in rows2}
+    target, lines2, texts2 = [0, 100, 0], [], []
+    for box, members in groups2:
+        offset = call('aa:tbhb-offset', box, target)
+        for item in members:
+            if item[1] == 'LINE':
+                pts = [call('aa:tbhb-shift-point', p, offset) for p in item[3]]
+                if not call('aa:tbhb-seen-line-p', pts, lines2):
+                    lines2.append(pts)
+            else:
+                texts2.append(lookup2[item[0]]['text'])
+        target = call('aa:tbhb-next-top', box, target)
+    assert Counter(texts2) == Counter(r['text'] for r in rows2 if r['type'] != 'LINE')
+    assert len(texts2) == 46 and abs(target[1] - 8.75) < 1e-8
+    assert len(lines2) == len(spans2) - 1  # one joining border, all other source lines retained
+    assert call('aa:tbhb-group-problem', items2, boxes2) is None
+    assert '宽度' in call('aa:tbhb-group-problem', [], different_widths)
+    assert '重叠' in call('aa:tbhb-group-problem', [], overlapping)
+    assert '不属于' in call('aa:tbhb-group-problem', items2 + [extra], boxes2)
+    # A bridging segment joins spans encountered before and after it; real gaps remain.
+    bridge = [['V', 0, 0, 10], ['V', 0, 20, 30], ['V', 0, 10, 20]]
+    assert call('aa:tbhb-merge-segments', bridge) == [['V', 0, 0, 30]]
+    disjoint = [['V', 0, 0, 10], ['V', 0, 11, 20], ['H', 0, 0, 10], ['V', 1, 0, 10]]
+    assert len(call('aa:tbhb-merge-segments', disjoint)) == 4
+    # An interrupted side cannot turn two row fragments into a complete frame.
+    interrupted = [frame[0], frame[1], frame[3], ['V', 0, 0, 20], ['V', 0, 30, 60]]
+    assert not call('aa:tbhb-boxes', interrupted)
+    print('PASS TBHB segmented: 114 QW3 objects, 2 complete tables, 46 texts, '
+          'segmented/overlapping sides, split horizontals, bridge/gap guards and diagnostics')
     print('PASS TBHB: 195 QW3 objects, 4 frames, 11D/13D/12D/14D geometric order, '
           '124 texts preserved, seam/duplicate removal, incomplete/overlapping frames, '
           'width/ownership guards and copy rollback structure')

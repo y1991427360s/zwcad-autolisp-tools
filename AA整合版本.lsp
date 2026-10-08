@@ -65,7 +65,7 @@
 ;;;   - XIN   : 统计选中直线矩形范围内的对象数量并标注结果。
 ;;;   - XY    : 自动筛选所选中的绿色水平直线，先运行 XIN 统计芯数，再运行 YUAN 提取对应文字并横向输出。
 ;;;   - XYG   : 一次框选，自动提取绿色直线执行 XY 统计，并提取大字与电缆文字执行 GTX 分类汇总。
-;;;   - HB    : 框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并合并排序原理号。
+;;;   - HBDL  : 框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并在末尾追加原理号，其他行保持原位。
 ;;;   - NU    : 材料表数字加数字，从选中文字中提取数字并执行加法运算。
 ;;;   - KAI   : 将 TEXT/MTEXT 中由空格分隔的内容拆分为多个独立文字。
 ;;;   - GE    : 选中同一水平行的单行文字，按文字间隙绘制单行表格。
@@ -7235,7 +7235,7 @@
 )
 
 ;;; =======================================================================================
-;;; 命令: HB
+;;; 命令: HBDL
 ;;; 功能: 框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，
 ;;;       自动累加芯数并合并自然排序原理号，支持回车原地紧凑更新或指定新插入点输出。
 ;;; =======================================================================================
@@ -7539,24 +7539,24 @@
   merge-count
 )
 
-(defun c:HB (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+(defun c:HBDL (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                ss all-data all-old-enames i en ed str pt-val x y
                text-height text-style tol rows parsed-rows has-merge pr
                merge-cnt row0 col-width r-items)
-  (aa:cmd-begin "HB")
+  (aa:cmd-begin "HBDL")
 
   ;; 支持先选后执与后选
   (setq ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
   (if (null ss)
     (progn
-      (prompt "\r\n[HB] 请框选要合并的电缆清册表格文字: ")
+      (prompt "\r\n[HBDL] 请框选要合并的电缆清册表格文字: ")
       (setq ss (ssget '((0 . "TEXT,MTEXT"))))
     )
   )
 
   (if (null ss)
     (progn
-      (princ "\r\n[HB] 未选择对象，HB 命令结束。")
+      (princ "\r\n[HBDL] 未选择对象，HBDL 命令结束。")
       (aa:cmd-end)
     )
     (progn
@@ -7592,7 +7592,7 @@
 
       (if (null all-data)
         (progn
-          (princ "\r\n[HB] 选集中未找到有效的文字内容。")
+          (princ "\r\n[HBDL] 选集中未找到有效的文字内容。")
           (aa:cmd-end)
         )
         (progn
@@ -7616,7 +7616,7 @@
 
           (if (null has-merge)
             (progn
-              (princ "\r\n[HB] 所选文字中未发现包含“并入”的电缆行，无需合并。")
+              (princ "\r\n[HBDL] 所选文字中未发现包含“并入”的电缆行，无需合并。")
               (aa:cmd-end)
             )
             (progn
@@ -7634,8 +7634,8 @@
               (setq merge-cnt (hb:apply-merge-in-place parsed-rows col-width))
 
               (if (= merge-cnt 0)
-                (princ "\r\n[HB] 发现“并入”行，但未匹配到对应的目标主电缆行，未做修改。")
-                (princ (strcat "\r\n[HB] 原地合并完成：成功合并 " (itoa merge-cnt) " 个并入行。主电缆芯数已更新，原理号已向后堆积追加。"))
+                (princ "\r\n[HBDL] 发现“并入”行，但未匹配到对应的目标主电缆行，未做修改。")
+                (princ (strcat "\r\n[HBDL] 原地合并完成：成功合并 " (itoa merge-cnt) " 个并入行。主电缆芯数已更新，原理号已向后堆积追加。"))
               )
               (aa:cmd-end)
             )
@@ -11085,10 +11085,31 @@
       (setq found T)))
   found)
 
+(defun aa:tbhb-merge-segments (segments / seg old out next again)
+  ;; Recognition only: join touching/overlapping collinear spans, never edit entities.
+  ;; Repeat after extending a span so bridges also join previously skipped spans.
+  (setq out nil)
+  (foreach seg segments
+    (setq again T)
+    (while again
+      (setq again nil next nil)
+      (foreach old out
+        (if (and (= (car seg) (car old)) (equal (cadr seg) (cadr old) 0.01)
+                 (<= (nth 2 old) (+ (nth 3 seg) 0.01))
+                 (>= (nth 3 old) (- (nth 2 seg) 0.01)))
+          (setq seg (list (car seg) (cadr seg)
+                          (min (nth 2 seg) (nth 2 old))
+                          (max (nth 3 seg) (nth 3 old)))
+                again T)
+          (setq next (cons old next))))
+      (setq out (reverse next)))
+    (setq out (cons seg out)))
+  out)
+
 (defun aa:tbhb-boxes (segments / a b box boxes seen old)
   ;; A frame needs matching full-height side borders and full-width top/bottom.
   ;; Internal column lines cannot become frames without their own top/bottom.
-  (setq boxes nil)
+  (setq segments (aa:tbhb-merge-segments segments) boxes nil)
   (foreach a segments
     (if (= (car a) "V")
       (foreach b segments
@@ -11117,27 +11138,41 @@
        (<= (nth 2 bounds) (+ (nth 2 frame) 0.01))
        (<= (nth 3 bounds) (+ (nth 3 frame) 0.01))))
 
-(defun aa:tbhb-groups (items boxes / box item other count members groups valid width)
-  (setq groups nil valid T width (- (nth 2 (car boxes)) (caar boxes)))
-  (foreach item items
-    (setq count 0)
-    (foreach box boxes
-      (if (aa:tbhb-inside-p (nth 2 item) box) (setq count (1+ count))))
-    (if (/= count 1) (setq valid nil)))
+(defun aa:tbhb-group-problem (items boxes / box other item count width problem)
+  (setq problem nil width (- (nth 2 (car boxes)) (caar boxes)))
   (foreach box boxes
-    (if (not (equal width (- (nth 2 box) (car box)) 0.01)) (setq valid nil))
+    (if (and (null problem)
+             (not (equal width (- (nth 2 box) (car box)) 0.01)))
+      (setq problem "表格宽度不一致，未生成。"))
     (foreach other boxes
-      (if (and (not (equal box other 0.01))
+      (if (and (null problem) (not (equal box other 0.01))
                (> (- (min (nth 2 box) (nth 2 other))
                      (max (car box) (car other))) 0.01)
                (> (- (min (nth 3 box) (nth 3 other))
                      (max (cadr box) (cadr other))) 0.01))
-        (setq valid nil)))
-    (setq members nil)
-    (foreach item items
-      (if (aa:tbhb-inside-p (nth 2 item) box) (setq members (cons item members))))
-    (setq groups (cons (list box (reverse members)) groups)))
-  (if valid (reverse groups)))
+        (setq problem "识别到的表格相互重叠，未生成。"))))
+  (foreach item items
+    (setq count 0)
+    (foreach box boxes
+      (if (aa:tbhb-inside-p (nth 2 item) box) (setq count (1+ count))))
+    (if (null problem)
+      (cond
+        ((= count 0)
+         (setq problem "选择中有对象不属于完整表格；请检查缺失外框或表外对象，未生成。"))
+        ((> count 1)
+         (setq problem "选择中有对象同时属于多张表格；请检查共边或重叠外框，未生成。")))))
+  problem)
+
+(defun aa:tbhb-groups (items boxes / box item members groups)
+  (if (null (aa:tbhb-group-problem items boxes))
+    (progn
+      (setq groups nil)
+      (foreach box boxes
+        (setq members nil)
+        (foreach item items
+          (if (aa:tbhb-inside-p (nth 2 item) box) (setq members (cons item members))))
+        (setq groups (cons (list box (reverse members)) groups)))
+      (reverse groups))))
 
 (defun aa:tbhb-offset (box target)
   (list (- (car target) (car box)) (- (cadr target) (nth 3 box)) (caddr target)))
@@ -11242,7 +11277,7 @@
         ((< (length boxes) 2)
          (princ "\r\n[TBHB] 未识别到至少两张完整表格；请选全上下左右四条外边线。"))
         ((null (setq groups (aa:tbhb-groups (car data) boxes)))
-         (princ "\r\n[TBHB] 表格宽度不一致、存在重叠或选择中含表外对象，未生成。"))
+         (princ (strcat "\r\n[TBHB] " (aa:tbhb-group-problem (car data) boxes))))
         (T
          (setq boxes (aa:merge-sort boxes 'aa:tbhb-before-p) groups nil)
          ;; Rebuild members in sorted order after validating all-table ownership.
