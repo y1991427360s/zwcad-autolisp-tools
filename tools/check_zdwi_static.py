@@ -10,6 +10,14 @@ def quoted(value):
     return value[1:-1] if value.startswith('"') else value
 
 
+def lisp_equal(a, b, tol=0):
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        return len(a) == len(b) and all(lisp_equal(x, y, tol) for x, y in zip(a, b))
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(a - b) <= tol
+    return a == b
+
+
 def evaluate(expr, env):
     if not isinstance(expr, list):
         if expr.startswith('"'):
@@ -29,7 +37,7 @@ def evaluate(expr, env):
         return quoted(args[0])
     if head == 'foreach':
         value = None
-        for item in evaluate(args[1], env):
+        for item in evaluate(args[1], env) or []:
             env[args[0]] = item
             for arg in args[2:]:
                 value = evaluate(arg, env)
@@ -71,7 +79,7 @@ def evaluate(expr, env):
     if head in env.get('__functions', {}):
         form = env['__functions'][head]
         signature = form[2]
-        split = signature.index('/')
+        split = signature.index('/') if '/' in signature else len(signature)
         scope = env | dict.fromkeys(signature[split + 1:])
         scope.update(zip(signature[:split], values))
         result = None
@@ -100,11 +108,12 @@ def evaluate(expr, env):
         'aa:safe-get-bbox': lambda _, en: en['bbox'],
         'list': lambda *xs: list(xs), 'append': operator.add,
         'logand': operator.and_, '1+': lambda x: x + 1,
-        '=': operator.eq, '>': operator.gt, '<': operator.lt,
+        '=': operator.eq, '/=': operator.ne, '>': operator.gt, '<': operator.lt,
+        'length': len, 'reverse': lambda xs: list(reversed(xs or [])),
         '>=': operator.ge, '<=': operator.le,
         '+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv,
         'abs': abs, 'min': min, 'max': max,
-        'equal': lambda a, b, tol: abs(a - b) <= tol,
+        'equal': lisp_equal,
     }
     assert head in builtins, 'Unsupported call: ' + head
     return builtins[head](*values)

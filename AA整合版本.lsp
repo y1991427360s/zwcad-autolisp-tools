@@ -85,6 +85,7 @@
 ;;;   - DX2   : 按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
+;;;   - TBHB  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
 ;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
 ;;;   - JACC  : ZZ 的同功能入口。
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
@@ -11061,6 +11062,237 @@
   (sssetfirst nil nil)
   (princ)
 )
+
+;;; =======================================================================================
+;;; 命令: TBHB
+;;; 功能: 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题/列顺序。
+;;; =======================================================================================
+(defun aa:tbhb-segment (p q / dx dy)
+  (setq dx (abs (- (car p) (car q))) dy (abs (- (cadr p) (cadr q))))
+  (cond
+    ((and (> dx 0.01) (<= dy 0.01) (<= dy (* dx 1e-4)))
+     (list "H" (/ (+ (cadr p) (cadr q)) 2.0)
+           (min (car p) (car q)) (max (car p) (car q))))
+    ((and (> dy 0.01) (<= dx 0.01) (<= dx (* dy 1e-4)))
+     (list "V" (/ (+ (car p) (car q)) 2.0)
+           (min (cadr p) (cadr q)) (max (cadr p) (cadr q))))))
+
+(defun aa:tbhb-border-p (segments y left right / seg found)
+  (setq found nil)
+  (foreach seg segments
+    (if (and (= (car seg) "H") (equal (cadr seg) y 0.01)
+             (equal (nth 2 seg) left 0.01) (equal (nth 3 seg) right 0.01))
+      (setq found T)))
+  found)
+
+(defun aa:tbhb-boxes (segments / a b box boxes seen old)
+  ;; A frame needs matching full-height side borders and full-width top/bottom.
+  ;; Internal column lines cannot become frames without their own top/bottom.
+  (setq boxes nil)
+  (foreach a segments
+    (if (= (car a) "V")
+      (foreach b segments
+        (if (and (= (car b) "V") (> (cadr b) (+ (cadr a) 0.01))
+                 (equal (nth 2 a) (nth 2 b) 0.01)
+                 (equal (nth 3 a) (nth 3 b) 0.01)
+                 (aa:tbhb-border-p segments (nth 2 a) (cadr a) (cadr b))
+                 (aa:tbhb-border-p segments (nth 3 a) (cadr a) (cadr b)))
+          (progn
+            (setq box (list (cadr a) (/ (+ (nth 2 a) (nth 2 b)) 2.0)
+                            (cadr b) (/ (+ (nth 3 a) (nth 3 b)) 2.0))
+                  seen nil)
+            (foreach old boxes (if (equal old box 0.01) (setq seen T)))
+            (if (not seen) (setq boxes (cons box boxes))))))))
+  boxes)
+
+(defun aa:tbhb-before-p (a b)
+  ;; Strict geometric order: top Y descending, then left X ascending.
+  (if (= (nth 3 a) (nth 3 b))
+    (< (car a) (car b))
+    (> (nth 3 a) (nth 3 b))))
+
+(defun aa:tbhb-inside-p (bounds frame)
+  (and (>= (car bounds) (- (car frame) 0.01))
+       (>= (cadr bounds) (- (cadr frame) 0.01))
+       (<= (nth 2 bounds) (+ (nth 2 frame) 0.01))
+       (<= (nth 3 bounds) (+ (nth 3 frame) 0.01))))
+
+(defun aa:tbhb-groups (items boxes / box item other count members groups valid width)
+  (setq groups nil valid T width (- (nth 2 (car boxes)) (caar boxes)))
+  (foreach item items
+    (setq count 0)
+    (foreach box boxes
+      (if (aa:tbhb-inside-p (nth 2 item) box) (setq count (1+ count))))
+    (if (/= count 1) (setq valid nil)))
+  (foreach box boxes
+    (if (not (equal width (- (nth 2 box) (car box)) 0.01)) (setq valid nil))
+    (foreach other boxes
+      (if (and (not (equal box other 0.01))
+               (> (- (min (nth 2 box) (nth 2 other))
+                     (max (car box) (car other))) 0.01)
+               (> (- (min (nth 3 box) (nth 3 other))
+                     (max (cadr box) (cadr other))) 0.01))
+        (setq valid nil)))
+    (setq members nil)
+    (foreach item items
+      (if (aa:tbhb-inside-p (nth 2 item) box) (setq members (cons item members))))
+    (setq groups (cons (list box (reverse members)) groups)))
+  (if valid (reverse groups)))
+
+(defun aa:tbhb-offset (box target)
+  (list (- (car target) (car box)) (- (cadr target) (nth 3 box)) (caddr target)))
+
+(defun aa:tbhb-next-top (box target)
+  (list (car target) (- (cadr target) (- (nth 3 box) (cadr box))) (caddr target)))
+
+(defun aa:tbhb-shift-point (p offset)
+  (list (+ (car p) (car offset)) (+ (cadr p) (cadr offset))
+        (+ (caddr p) (caddr offset))))
+
+(defun aa:tbhb-seen-line-p (pts lines / old found)
+  (setq found nil)
+  (foreach old lines
+    (if (or (and (equal (car pts) (car old) 0.01)
+                 (equal (cadr pts) (cadr old) 0.01))
+            (and (equal (car pts) (cadr old) 0.01)
+                 (equal (cadr pts) (car old) 0.01)))
+      (setq found T)))
+  found)
+
+(defun aa:tbhb-abort (msg)
+  (princ (strcat "\r\n[TBHB] " msg))
+  (exit))
+
+(defun aa:tbhb-collect (ss / i en ed typ obj bbox pts seg items segments problem layer)
+  (setq i 0 items nil segments nil)
+  (repeat (sslength ss)
+    (setq en (ssname ss i) ed (entget en) typ (cdr (assoc 0 ed))
+          pts nil seg nil bbox nil problem nil
+          layer (tblsearch "LAYER" (cdr (assoc 8 ed))))
+    (cond
+      ((not (member typ '("LINE" "TEXT" "MTEXT")))
+       (setq problem "仅支持由 LINE 和 TEXT/MTEXT 组成的表格。"))
+      ((= 4 (logand 4 (cdr (assoc 70 layer))))
+       (setq problem "选择中有锁定图层，请先解锁。"))
+      (T
+       (setq obj (vlax-ename->vla-object en))
+       (if (not (and (vlax-method-applicable-p obj 'Copy)
+                     (vlax-method-applicable-p obj 'Move)))
+         (setq problem "选择中有无法复制或移动的对象。")
+         (if (= typ "LINE")
+           (progn
+             (setq pts (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed)))
+                   seg (aa:tbhb-segment (car pts) (cadr pts)))
+             (if (or (null seg) (not (equal (caddr (car pts)) 0.0 0.01))
+                     (not (equal (caddr (cadr pts)) 0.0 0.01)))
+               (setq problem "边线需为 WCS XY 平面上近水平或近竖直的直线。")
+               (setq bbox (list (min (caar pts) (caadr pts))
+                                (min (cadar pts) (cadadr pts))
+                                (max (caar pts) (caadr pts))
+                                (max (cadar pts) (cadadr pts))))))
+           (progn
+             (setq bbox (aa:try-get-bbox obj))
+             (if (or (null bbox) (not (equal (caddr (car bbox)) 0.0 0.01))
+                     (not (equal (caddr (cadr bbox)) 0.0 0.01)))
+               (setq problem "无法读取文字范围，或文字不在 WCS XY 平面。")
+               (setq bbox (list (caar bbox) (cadar bbox) (caadr bbox) (cadadr bbox)))))))
+       (vlax-release-object obj)
+       (setq obj nil)))
+    (if problem (aa:tbhb-abort problem))
+    (setq items (cons (list en typ bbox pts) items))
+    (if seg (setq segments (cons seg segments)))
+    (setq i (1+ i)))
+  (list (reverse items) segments))
+
+(defun c:TBHB (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                 ss data boxes groups pt target group box item offset moved-pts
+                 src copy result en tb:created drawn count skipped rollback-failed)
+  (vl-load-com)
+  (defun *error* (msg)
+    ;; Only newly created entities are removed; source tables are never modified.
+    (if copy
+      (progn
+        (vl-catch-all-apply 'vla-Delete (list copy))
+        (vl-catch-all-apply 'vlax-release-object (list copy))))
+    (if src (vl-catch-all-apply 'vlax-release-object (list src)))
+    (setq copy nil src nil rollback-failed 0)
+    (foreach en tb:created
+      (if (entget en)
+        (progn
+          (setq result (vl-catch-all-apply 'entdel (list en)))
+          (if (or (vl-catch-all-error-p result) (null result))
+            (setq rollback-failed (1+ rollback-failed))))))
+    (aa:undo-mark-off)
+    (sssetfirst nil nil)
+    (if (and msg (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*EXIT*,*QUIT*")))
+      (princ (strcat "\r\n[TBHB] " msg)))
+    (if (> rollback-failed 0)
+      (princ "\r\n[TBHB] 部分副本未能清除，请用 U 撤销本次操作。"))
+    (princ))
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn
+      (princ "\r\n[TBHB] 请框选要合并的完整表格（含全部边线和文字）：")
+      (setq ss (ssget))))
+  (if ss
+    (progn
+      (setq data (aa:tbhb-collect ss)
+            boxes (aa:tbhb-boxes (cadr data)))
+      (cond
+        ((< (length boxes) 2)
+         (princ "\r\n[TBHB] 未识别到至少两张完整表格；请选全上下左右四条外边线。"))
+        ((null (setq groups (aa:tbhb-groups (car data) boxes)))
+         (princ "\r\n[TBHB] 表格宽度不一致、存在重叠或选择中含表外对象，未生成。"))
+        (T
+         (setq boxes (aa:merge-sort boxes 'aa:tbhb-before-p) groups nil)
+         ;; Rebuild members in sorted order after validating all-table ownership.
+         (setq groups nil)
+         (foreach box boxes
+           (setq group nil)
+           (foreach item (car data)
+             (if (aa:tbhb-inside-p (nth 2 item) box) (setq group (cons item group))))
+           (setq groups (cons (list box (reverse group)) groups)))
+         (setq groups (reverse groups))
+         (princ (strcat "\r\n[TBHB] 已识别 " (itoa (length groups))
+                        " 张表，将按图纸位置从上到下拼接，保留各段标题和原表。"))
+         (if (setq pt (getpoint "\r\n[TBHB] 指定长表的左上角: "))
+           (progn
+             (setq target (trans pt 1 0) count 0 skipped 0 drawn nil tb:created nil)
+             (aa:undo-mark-on)
+             (foreach group groups
+               (setq box (car group) offset (aa:tbhb-offset box target))
+               (foreach item (cadr group)
+                 (setq moved-pts nil)
+                 (if (= (cadr item) "LINE")
+                   (setq moved-pts
+                     (list (aa:tbhb-shift-point (car (nth 3 item)) offset)
+                           (aa:tbhb-shift-point (cadr (nth 3 item)) offset))))
+                 (if (and moved-pts (aa:tbhb-seen-line-p moved-pts drawn))
+                   (setq skipped (1+ skipped))
+                   (progn
+                     (setq src (vlax-ename->vla-object (car item))
+                           result (vl-catch-all-apply 'vla-Copy (list src)))
+                     (if (vl-catch-all-error-p result) (aa:tbhb-abort "复制失败，正在清理本次副本。"))
+                     (setq copy result en (vlax-vla-object->ename copy)
+                           tb:created (cons en tb:created)
+                           result (vl-catch-all-apply 'vla-Move
+                             (list copy (vlax-3d-point '(0.0 0.0 0.0))
+                                        (vlax-3d-point offset))))
+                     (if (vl-catch-all-error-p result) (aa:tbhb-abort "移动副本失败，正在清理本次副本。"))
+                     (vlax-release-object copy)
+                     (vlax-release-object src)
+                     (setq copy nil src nil count (1+ count))
+                     (if moved-pts (setq drawn (cons moved-pts drawn))))))
+               (setq target (aa:tbhb-next-top box target)))
+             (aa:undo-mark-off)
+             (setq tb:created nil)
+             (redraw)
+             (princ (strcat "\r\n[TBHB] 已拼接 " (itoa (length groups)) " 张表，复制 "
+                            (itoa count) " 个对象，省略 " (itoa skipped)
+                            " 条重复边线。原表保留，一次 U 可撤销。")))))))
+    (princ "\r\n[TBHB] 未选择对象。"))
+  (sssetfirst nil nil)
+  (princ))
 
 ;;; ZDWI: fit each column of an axis-aligned line table to its text.
 (defun aa:zdwi-seed (ss / i en ed pts p q item best)

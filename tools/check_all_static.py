@@ -143,6 +143,7 @@ def run_command_checks():
         'check_atw_static.py',
         'check_zdwi_static.py',
         'check_sss_static.py',
+        'check_tbhb_static.py',
     ]
     for name in checks:
         path = tools / name

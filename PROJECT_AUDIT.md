@@ -2,13 +2,13 @@
 
 > 自动生成，可用 `python scripts/audit_lsp.py --check` 检查是否过期。扫描结果与源码绑定，不包含 CAD 实机验收。
 
-扫描 4 个 LSP、729 个顶层函数、143 个命令入口。
+扫描 4 个 LSP、742 个顶层函数、144 个命令入口。
 
 ## 文件清单
 
 | 文件 | 字节 | 顶层表达式 | 函数 | 命令 |
 | --- | ---: | ---: | ---: | ---: |
-| AA整合版本.lsp | 626191 | 676 | 590 | 130 |
+| AA整合版本.lsp | 637446 | 689 | 603 | 131 |
 | common/aicad_pure.lsp | 483 | 3 | 3 | 0 |
 | V6/aicad_aa_loader.lsp | 9584 | 32 | 24 | 3 |
 | V6/aicad_extension.lsp | 60691 | 142 | 112 | 10 |
@@ -45,88 +45,88 @@
 | 级别 | 检查 | 文件:行 | 函数 / 变量 | 证据 |
 | --- | --- | --- | --- | --- |
 | error | duplicate-function | V6/aicad_aa_loader.lsp:72 | *error* | 同名顶层定义: V6/aicad_aa_loader.lsp:72, V6/aicad_extension.lsp:236 |
-| review | error-binding | AA整合版本.lsp:594 | aa:cmd-begin | *error* 赋值未局部声明；可能为动态作用域框架 |
-| review | error-binding | AA整合版本.lsp:15503 | c:hddl | *error* 赋值未局部声明；可能为动态作用域框架 |
-| review | error-binding | AA整合版本.lsp:15503 | c:hddl | 局部错误处理定义缺少 *error* 局部绑定 |
-| review | error-cleanup | AA整合版本.lsp:13554 | de:run | 专属 *error* 未见标准恢复调用；需核对间接清理 |
-| review | error-cleanup | AA整合版本.lsp:13687 | c:ge | 专属 *error* 未见标准恢复调用；需核对间接清理 |
-| review | error-cleanup | AA整合版本.lsp:15076 | c:qh | 专属 *error* 未见标准恢复调用；需核对间接清理 |
-| review | error-cleanup | AA整合版本.lsp:15257 | c:bk | 专属 *error* 未见标准恢复调用；需核对间接清理 |
-| review | implicit-global | AA整合版本.lsp:2042 | c:h | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:2042 | c:h | 写入未声明变量 row；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:2173 | c:h2 | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:2173 | c:h2 | 写入未声明变量 row；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3009 | c:hp | 写入未声明变量 col；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3152 | c:hp2 | 写入未声明变量 col；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 h；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 x1；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 x2；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 y1；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:3691 | c:he | 写入未声明变量 y2；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:4262 | aa:ss-get-entity-pts | 写入未声明变量 pair；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:5141 | aa:gty-update-nth | 写入未声明变量 itm；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:5351 | c:gtz | 写入未声明变量 r；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8371 | is-frame-block | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8405 | sort-frames-by-position | 写入未声明变量 pa；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8405 | sort-frames-by-position | 写入未声明变量 pb；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8405 | sort-frames-by-position | 写入未声明变量 xa；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8405 | sort-frames-by-position | 写入未声明变量 xb；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8405 | sort-frames-by-position | 写入未声明变量 ya；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8405 | sort-frames-by-position | 写入未声明变量 yb；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8429 | find-att-by-keywords | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8429 | find-att-by-keywords | 写入未声明变量 kw；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8429 | find-att-by-keywords | 写入未声明变量 tag；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8469 | fill-one-frame | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8541 | fillframes-run | 写入未声明变量 blk；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:8863 | hao2:sort-blocks | 写入未声明变量 p；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:9244 | ming:find-title-attrib | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:9380 | c:ming | 写入未声明变量 b；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:9916 | fdx:place | 写入未声明变量 pending；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:10503 | aa:zz-add-seg | 写入未声明变量 hlist；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:10503 | aa:zz-add-seg | 写入未声明变量 vlist；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:10518 | aa:zz-collect-lwpoly-pts | 写入未声明变量 pair；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:10531 | aa:zz-build-line-cache | 写入未声明变量 p；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:10765 | aa:zz-run | 写入未声明变量 g；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:11784 | c:qw2 | 写入未声明变量 it；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:12097 | c:dx1 | 写入未声明变量 it；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:12182 | ce-redraw | 写入未声明变量 p；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:12708 | tktj:draw-row | 写入未声明变量 txt；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:13328 | c1c2:delete-preview | 写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:13338 | c1c2:place-one | 写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:13669 | ge:make-line | 写入未声明变量 created；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14210 | c:dl1 | 写入未声明变量 lay；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14430 | aa:km-ln-cmd | 写入未声明变量 ed；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14430 | aa:km-ln-cmd | 写入未声明变量 en；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14430 | aa:km-ln-cmd | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14430 | aa:km-ln-cmd | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14430 | aa:km-ln-cmd | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14690 | aa:yd-cmd | 写入未声明变量 ed；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14690 | aa:yd-cmd | 写入未声明变量 en；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14690 | aa:yd-cmd | 写入未声明变量 idx；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14690 | aa:yd-cmd | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14690 | aa:yd-cmd | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14690 | aa:yd-cmd | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:14991 | c:dao | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
+| review | error-binding | AA整合版本.lsp:595 | aa:cmd-begin | *error* 赋值未局部声明；可能为动态作用域框架 |
+| review | error-binding | AA整合版本.lsp:15735 | c:hddl | *error* 赋值未局部声明；可能为动态作用域框架 |
+| review | error-binding | AA整合版本.lsp:15735 | c:hddl | 局部错误处理定义缺少 *error* 局部绑定 |
+| review | error-cleanup | AA整合版本.lsp:13786 | de:run | 专属 *error* 未见标准恢复调用；需核对间接清理 |
+| review | error-cleanup | AA整合版本.lsp:13919 | c:ge | 专属 *error* 未见标准恢复调用；需核对间接清理 |
+| review | error-cleanup | AA整合版本.lsp:15308 | c:qh | 专属 *error* 未见标准恢复调用；需核对间接清理 |
+| review | error-cleanup | AA整合版本.lsp:15489 | c:bk | 专属 *error* 未见标准恢复调用；需核对间接清理 |
+| review | implicit-global | AA整合版本.lsp:2043 | c:h | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:2043 | c:h | 写入未声明变量 row；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:2174 | c:h2 | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:2174 | c:h2 | 写入未声明变量 row；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3010 | c:hp | 写入未声明变量 col；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3153 | c:hp2 | 写入未声明变量 col；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 h；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 x1；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 x2；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 y1；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:3692 | c:he | 写入未声明变量 y2；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:4263 | aa:ss-get-entity-pts | 写入未声明变量 pair；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:5142 | aa:gty-update-nth | 写入未声明变量 itm；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:5352 | c:gtz | 写入未声明变量 r；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8372 | is-frame-block | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8406 | sort-frames-by-position | 写入未声明变量 pa；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8406 | sort-frames-by-position | 写入未声明变量 pb；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8406 | sort-frames-by-position | 写入未声明变量 xa；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8406 | sort-frames-by-position | 写入未声明变量 xb；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8406 | sort-frames-by-position | 写入未声明变量 ya；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8406 | sort-frames-by-position | 写入未声明变量 yb；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8430 | find-att-by-keywords | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8430 | find-att-by-keywords | 写入未声明变量 kw；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8430 | find-att-by-keywords | 写入未声明变量 tag；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8470 | fill-one-frame | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8542 | fillframes-run | 写入未声明变量 blk；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:8864 | hao2:sort-blocks | 写入未声明变量 p；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:9245 | ming:find-title-attrib | 写入未声明变量 att；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:9381 | c:ming | 写入未声明变量 b；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:9917 | fdx:place | 写入未声明变量 pending；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:10504 | aa:zz-add-seg | 写入未声明变量 hlist；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:10504 | aa:zz-add-seg | 写入未声明变量 vlist；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:10519 | aa:zz-collect-lwpoly-pts | 写入未声明变量 pair；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:10532 | aa:zz-build-line-cache | 写入未声明变量 p；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:10766 | aa:zz-run | 写入未声明变量 g；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:12016 | c:qw2 | 写入未声明变量 it；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:12329 | c:dx1 | 写入未声明变量 it；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:12414 | ce-redraw | 写入未声明变量 p；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:12940 | tktj:draw-row | 写入未声明变量 txt；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:13560 | c1c2:delete-preview | 写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:13570 | c1c2:place-one | 写入未声明变量 c1c2:*active-preview*；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:13901 | ge:make-line | 写入未声明变量 created；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14442 | c:dl1 | 写入未声明变量 lay；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14662 | aa:km-ln-cmd | 写入未声明变量 ed；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14662 | aa:km-ln-cmd | 写入未声明变量 en；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14662 | aa:km-ln-cmd | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14662 | aa:km-ln-cmd | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14662 | aa:km-ln-cmd | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14922 | aa:yd-cmd | 写入未声明变量 ed；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14922 | aa:yd-cmd | 写入未声明变量 en；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14922 | aa:yd-cmd | 写入未声明变量 idx；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14922 | aa:yd-cmd | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14922 | aa:yd-cmd | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:14922 | aa:yd-cmd | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:15223 | c:dao | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
 | review | shared-global | V6/aicad_aa_loader.lsp:261 | *aicad_basedirectory* | 跨文件写入: V6/aicad_aa_loader.lsp:261 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (&lt;load>) |
-| review | sysvar-restore | AA整合版本.lsp:4289 | aa:ss-do-interactive-stretch | "CMDECHO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:4289 | aa:ss-do-interactive-stretch | "DRAGMODE": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:4324 | c:ss | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:9553 | c:five | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:14064 | aa:rotate-90-run | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:15724 | c:hs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:15905 | c:zs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:16109 | c:sc3 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:16292 | c:vpo1 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:16300 | c:vpo2 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | undo-close | AA整合版本.lsp:594 | aa:cmd-begin | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-close | AA整合版本.lsp:625 | aa:undo-mark-on | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-close | AA整合版本.lsp:13371 | c1c2:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-close | AA整合版本.lsp:13554 | de:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-close | AA整合版本.lsp:13687 | c:ge | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-close | AA整合版本.lsp:15257 | c:bk | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | sysvar-restore | AA整合版本.lsp:4290 | aa:ss-do-interactive-stretch | "CMDECHO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:4290 | aa:ss-do-interactive-stretch | "DRAGMODE": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:4325 | c:ss | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:9554 | c:five | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:14296 | aa:rotate-90-run | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:15956 | c:hs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:16137 | c:zs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:16341 | c:sc3 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:16524 | c:vpo1 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:16532 | c:vpo2 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | undo-close | AA整合版本.lsp:595 | aa:cmd-begin | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | undo-close | AA整合版本.lsp:626 | aa:undo-mark-on | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | undo-close | AA整合版本.lsp:13603 | c1c2:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | undo-close | AA整合版本.lsp:13786 | de:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | undo-close | AA整合版本.lsp:13919 | c:ge | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | undo-close | AA整合版本.lsp:15489 | c:bk | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-error-path | V6/aicad_extension.lsp:968 | aicad:apply-zuo | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
 | review | undo-error-path | V6/aicad_extension.lsp:1009 | aicad:apply-you | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
 | review | undo-error-path | V6/aicad_extension.lsp:1066 | aicad:apply-shang | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
