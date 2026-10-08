@@ -73,6 +73,7 @@
 | HP2 | 将选中文字改为正中对齐，按中心点指定间距从左到右横向排列。 | 无函数形参; 交互: getdist, ssget; 提示: 请输入相邻文字中心间距 &lt;50>: | aa:bbox-bottom-y, aa:bbox-center-x, aa:bbox-top-y, aa:cmd-begin, aa:cmd-end, aa:merge-sort, aa:normalize-text-horizontal-align, aa:safe-get-bbox, aa:safe-move-entity | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:3204 |
 | HS | 选中物体单向横向缩放，左右宽度改变，高度保持不变。 | 无函数形参; 交互: getdist, getpoint, ssget; 提示: :L / 指定新长度: | aa:cmd-begin, aa:cmd-end, aa:hs-filter-unlocked, aa:hs-get-ss-bbox | 未静态确定；存在修改调用 | AA整合版本.lsp:16188 |
 | HUI | 将选中对象快速改为颜色 8；遇到引线先分解再改色，遇到块参照连块内实体一起改。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:deep-color-cmd | DIMENSION, INSERT, LEADER, MTEXT；存在修改调用 | AA整合版本.lsp:2782 |
+| HZBG | 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:hzbg-line, aa:hzbg-move, aa:hzbg-plan, aa:safe-get-bbox | LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:11452 |
 | JACC | ZZ 的同功能入口。 | 无函数形参; 交互: ssget | aa:zz-run | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:10883 |
 | JZ | 将矩形水平中线对齐到1条或2条直线中心线，可同步居中文字。 | 无函数形参; 交互: ssget | aa:bbox-bottom-y, aa:bbox-center-x, aa:bbox-top-y, aa:jz-line-center-y, aa:safe-get-bbox, aa:safe-move-entity | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:9666 |
 | KAI | 将 TEXT/MTEXT 中由空格分隔的内容拆分为多个独立文字。 | 无函数形参; 交互: ssget | aa:kai-add-texts-after-explode, aa:kai-process-text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:8084 |
@@ -140,7 +141,6 @@
 | YSDL | 提取选中文字到CSV文件，并改变文字颜色。 | 无函数形参; 交互: ssget | aa:insert-sort, aa:set-entity-aci-color, aa:undo-mark-off, aa:undo-mark-on, aa:ysdl-build-csv-field, aa:ysdl-get-plain-text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:1238 |
 | YY | 将选中对象快速改为黄色。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:color-cmd | 未静态确定；存在修改调用 | AA整合版本.lsp:2385 |
 | Z0 | 将选中对象的 Z 坐标全部归零（压平到 XY 平面）。 | 无函数形参; 交互: ssget; 提示: :L | aa:cmd-begin, aa:cmd-end, aa:z0-data-flat-p, aa:z0-layer-locked-p, aa:z0-one, aa:z0-polyline-flat-p, aa:z0-polyline-verts | POLYLINE；存在修改调用 | AA整合版本.lsp:16707 |
-| ZDBG | 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:safe-get-bbox, aa:zdbg-line, aa:zdbg-move, aa:zdbg-plan | LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:11452 |
 | ZDML | 选择多个图框块，生成目录文字。 | 无函数形参; 交互: getpoint, ssget; 提示: 指定第 1 页目录表左上角: | aa:cmd-begin, aa:cmd-end, tktj:collect-one-block, tktj:draw-table, tktj:drop, tktj:safe-vla-object, tktj:sort-by-page, tktj:sort-by-position, tktj:take | INSERT；存在修改调用 | AA整合版本.lsp:13279 |
 | ZDML2 | 指定基准块参照与图名、图号矩形范围，批量提取图名图号并生成目录。 | 无函数形参; 交互: entsel, getcorner, getpoint, ssget; 提示: [ZDML2] 指定第 1 页目录表左上角: / [ZDML2] 请点击选择基准图框块参照: | aa:cmd-begin, aa:cmd-end, blk-insertpt, hao2:block-name, hao2:sort-blocks, tktj:draw-table, tktj:drop, tktj:take, zdml2:build-spatial-index, zdml2:collect-all-texts, zdml2:extract-rect-text-fast, zdml2:query-rect-index | INSERT, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:13421 |
 | ZDMLDEBUG | 选择一个图框块，打印所有增强属性。 | 无函数形参; 交互: entsel; 提示: 请选择一个图框块: | aa:cmd-begin, aa:cmd-end, tktj:get-attributes | INSERT；未发现直接/可达修改调用 | AA整合版本.lsp:13595 |
