@@ -3,7 +3,7 @@
   "files": [
     {
       "file": "AA整合版本.lsp",
-      "bytes": 638993,
+      "bytes": 639048,
       "top_level_forms": 691,
       "functions": 605,
       "commands": 131
@@ -3709,6 +3709,7 @@
       ],
       "external_files": [],
       "object_candidates": [
+        "CIRCLE",
         "LINE",
         "MTEXT",
         "TEXT"

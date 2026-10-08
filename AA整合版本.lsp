@@ -11205,8 +11205,8 @@
           pts nil seg nil bbox nil problem nil
           layer (tblsearch "LAYER" (cdr (assoc 8 ed))))
     (cond
-      ((not (member typ '("LINE" "TEXT" "MTEXT")))
-       (setq problem "仅支持由 LINE 和 TEXT/MTEXT 组成的表格。"))
+      ((not (member typ '("LINE" "TEXT" "MTEXT" "CIRCLE")))
+       (setq problem "支持 LINE 边框、TEXT/MTEXT 文字及表内 CIRCLE 圆形符号；选择中有其他类型。"))
       ((= 4 (logand 4 (cdr (assoc 70 layer))))
        (setq problem "选择中有锁定图层，请先解锁。"))
       (T
@@ -11229,7 +11229,7 @@
              (setq bbox (aa:try-get-bbox obj))
              (if (or (null bbox) (not (equal (caddr (car bbox)) 0.0 0.01))
                      (not (equal (caddr (cadr bbox)) 0.0 0.01)))
-               (setq problem "无法读取文字范围，或文字不在 WCS XY 平面。")
+               (setq problem "无法读取对象范围，或对象不在 WCS XY 平面。")
                (setq bbox (list (caar bbox) (cadar bbox) (caadr bbox) (cadadr bbox)))))))
        (vlax-release-object obj)
        (setq obj nil)))

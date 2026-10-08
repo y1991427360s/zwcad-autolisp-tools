@@ -106,7 +106,7 @@
 | SYJ | 将选中竖直直线向上延长 5 个单位，再生成上接短线。 | 无函数形参; 交互: ssget | aa:extend-join-cmd | LINE；存在修改调用 | AA整合版本.lsp:4748 |
 | T | 把字体刷为HZ样式，高度3，宽度0.7。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, txt:run | MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:1514 |
 | T2 | 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, txt2:process-selection | ARC, CIRCLE, DIMENSION, INSERT, LEADER, LINE, LWPOLYLINE, MTEXT, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:2012 |
-| TBHB | 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。 | 无函数形参; 交互: getpoint, ssget; 提示: [TBHB] 指定长表的左上角: | aa:merge-sort, aa:tbhb-abort, aa:tbhb-boxes, aa:tbhb-collect, aa:tbhb-group-problem, aa:tbhb-groups, aa:tbhb-inside-p, aa:tbhb-next-top, aa:tbhb-offset, aa:tbhb-seen-line-p, aa:tbhb-shift-point, aa:undo-mark-off, aa:undo-mark-on | LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:11242 |
+| TBHB | 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。 | 无函数形参; 交互: getpoint, ssget; 提示: [TBHB] 指定长表的左上角: | aa:merge-sort, aa:tbhb-abort, aa:tbhb-boxes, aa:tbhb-collect, aa:tbhb-group-problem, aa:tbhb-groups, aa:tbhb-inside-p, aa:tbhb-next-top, aa:tbhb-offset, aa:tbhb-seen-line-p, aa:tbhb-shift-point, aa:undo-mark-off, aa:undo-mark-on | CIRCLE, LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:11242 |
 | TONG | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | 无函数形参; 交互: getpoint, ssget; 提示: 请指定放置起点 (从上到下排列): | aa:cmd-begin, aa:cmd-end, aa:merge-sort | MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:16578 |
 | UNLOAD_AA | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1946 |
 | UNLOAD_AICAD | 卸载 AICAD 扩展插件及注册环境 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:unload | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1941 |

@@ -4,7 +4,7 @@ from functools import cmp_to_key
 import json
 from pathlib import Path
 
-from check_zdwi_static import evaluate
+from check_zdwi_static import evaluate, lisp_equal
 from lsp_common import ARITY, defun_forms, parse, read_source, walk
 
 
@@ -160,6 +160,49 @@ def check():
     assert not call('aa:tbhb-boxes', interrupted)
     print('PASS TBHB segmented: 114 QW3 objects, 2 complete tables, 46 texts, '
           'segmented/overlapping sides, split horizontals, bridge/gap guards and diagnostics')
+    # CIRCLE symbols are table contents, accepted by collection and copied like text.
+    assert ['member', 'typ', ['quote', ['"LINE"', '"TEXT"', '"MTEXT"', '"CIRCLE"']]] in list(
+        walk(affected['aa:tbhb-collect']))
+    rows3 = json.loads((Path(__file__).parent / 'fixtures/tbhb_qw3_circles.json')
+                       .read_text(encoding='utf-8'))
+    assert len(rows3) == 209
+    items3 = [[r['handle'], r['type'], r['bounds'], r.get('pts')] for r in rows3]
+    spans3 = [call('aa:tbhb-segment', *r['pts']) for r in rows3 if r['type'] == 'LINE']
+    boxes3 = sorted(call('aa:tbhb-boxes', spans3), key=cmp_to_key(compare))
+    assert len(boxes3) == 5
+    groups3 = call('aa:tbhb-groups', items3, boxes3)
+    assert groups3 and [len(g[1]) for g in groups3] == [32, 32, 53, 45, 47]
+    lookup3 = {r['handle']: r for r in rows3}
+    circles, texts3, drawn3, target = [], [], [], [0, 1000, 0]
+    for box, members in groups3:
+        offset = call('aa:tbhb-offset', box, target)
+        for item in members:
+            original = lookup3[item[0]]
+            if item[1] == 'LINE':
+                pts = [call('aa:tbhb-shift-point', p, offset) for p in item[3]]
+                if not call('aa:tbhb-seen-line-p', pts, drawn3):
+                    drawn3.append(pts)
+            elif item[1] == 'CIRCLE':
+                center = call('aa:tbhb-shift-point', original['center'], offset)
+                assert abs((center[0] - target[0]) - (original['center'][0] - box[0])) < 1e-8
+                assert abs((center[1] - target[1]) - (original['center'][1] - box[3])) < 1e-8
+                circles.append((item[0], center, original['radius']))
+            else:
+                texts3.append(original['text'])
+        target = call('aa:tbhb-next-top', box, target)
+    assert len(circles) == 2 and {c[0] for c in circles} == {'19ABF', '19AC2'}
+    assert all(c[2] == 0.625 for c in circles)
+    assert len(texts3) == 106
+    assert Counter(texts3) == Counter(r['text'] for r in rows3 if r['type'] in ('TEXT', 'MTEXT'))
+    assert abs(target[1] - 775) < 1e-6
+    # Tiny sloped spans may choose a different representative X when reversed.
+    # Compare within the drawing tolerance, and require full ownership in both orders.
+    reversed_boxes3 = sorted(call('aa:tbhb-boxes', list(reversed(spans3))), key=cmp_to_key(compare))
+    assert lisp_equal(reversed_boxes3, boxes3, 0.01)
+    reversed_groups3 = call('aa:tbhb-groups', items3, reversed_boxes3)
+    assert reversed_groups3 and [len(g[1]) for g in reversed_groups3] == [32, 32, 53, 45, 47]
+    print('PASS TBHB circles: 209 QW3 objects, 5 tables, all 106 texts and 2 circles retained, '
+          'circle centers translated with their table and radii preserved')
     print('PASS TBHB: 195 QW3 objects, 4 frames, 11D/13D/12D/14D geometric order, '
           '124 texts preserved, seam/duplicate removal, incomplete/overlapping frames, '
           'width/ownership guards and copy rollback structure')
