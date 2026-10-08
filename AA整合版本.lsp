@@ -85,7 +85,7 @@
 ;;;   - DX2   : 按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
-;;;   - TBHB  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
+;;;   - HBBG  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
 ;;;   - WZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
 ;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
 ;;;   - JACC  : ZZ 的同功能入口。
@@ -11065,7 +11065,7 @@
 )
 
 ;;; =======================================================================================
-;;; 命令: TBHB
+;;; 命令: HBBG
 ;;; 功能: 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题/列顺序。
 ;;; =======================================================================================
 (defun aa:tbhb-segment (p q / dx dy)
@@ -11196,7 +11196,7 @@
   found)
 
 (defun aa:tbhb-abort (msg)
-  (princ (strcat "\r\n[TBHB] " msg))
+  (princ (strcat "\r\n[HBBG] " msg))
   (exit))
 
 (defun aa:tbhb-collect (ss / i en ed typ obj bbox pts seg items segments problem layer)
@@ -11240,7 +11240,7 @@
     (setq i (1+ i)))
   (list (reverse items) segments))
 
-(defun c:TBHB (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+(defun c:HBBG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                  ss data boxes groups pt target group box item offset moved-pts
                  src copy result en tb:created drawn count skipped rollback-failed)
   (vl-load-com)
@@ -11261,14 +11261,14 @@
     (aa:undo-mark-off)
     (sssetfirst nil nil)
     (if (and msg (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*EXIT*,*QUIT*")))
-      (princ (strcat "\r\n[TBHB] " msg)))
+      (princ (strcat "\r\n[HBBG] " msg)))
     (if (> rollback-failed 0)
-      (princ "\r\n[TBHB] 部分副本未能清除，请用 U 撤销本次操作。"))
+      (princ "\r\n[HBBG] 部分副本未能清除，请用 U 撤销本次操作。"))
     (princ))
   (setq ss (ssget "_I"))
   (if (null ss)
     (progn
-      (princ "\r\n[TBHB] 请框选要合并的完整表格（含全部边线和文字）：")
+      (princ "\r\n[HBBG] 请框选要合并的完整表格（含全部边线和文字）：")
       (setq ss (ssget))))
   (if ss
     (progn
@@ -11276,9 +11276,9 @@
             boxes (aa:tbhb-boxes (cadr data)))
       (cond
         ((< (length boxes) 2)
-         (princ "\r\n[TBHB] 未识别到至少两张完整表格；请选全上下左右四条外边线。"))
+         (princ "\r\n[HBBG] 未识别到至少两张完整表格；请选全上下左右四条外边线。"))
         ((null (setq groups (aa:tbhb-groups (car data) boxes)))
-         (princ (strcat "\r\n[TBHB] " (aa:tbhb-group-problem (car data) boxes))))
+         (princ (strcat "\r\n[HBBG] " (aa:tbhb-group-problem (car data) boxes))))
         (T
          (setq boxes (aa:merge-sort boxes 'aa:tbhb-before-p) groups nil)
          ;; Rebuild members in sorted order after validating all-table ownership.
@@ -11289,9 +11289,9 @@
              (if (aa:tbhb-inside-p (nth 2 item) box) (setq group (cons item group))))
            (setq groups (cons (list box (reverse group)) groups)))
          (setq groups (reverse groups))
-         (princ (strcat "\r\n[TBHB] 已识别 " (itoa (length groups))
+         (princ (strcat "\r\n[HBBG] 已识别 " (itoa (length groups))
                         " 张表，将按图纸位置从上到下拼接，保留各段标题和原表。"))
-         (if (setq pt (getpoint "\r\n[TBHB] 指定长表的左上角: "))
+         (if (setq pt (getpoint "\r\n[HBBG] 指定长表的左上角: "))
            (progn
              (setq target (trans pt 1 0) count 0 skipped 0 drawn nil tb:created nil)
              (aa:undo-mark-on)
@@ -11323,10 +11323,10 @@
              (aa:undo-mark-off)
              (setq tb:created nil)
              (redraw)
-             (princ (strcat "\r\n[TBHB] 已拼接 " (itoa (length groups)) " 张表，复制 "
+             (princ (strcat "\r\n[HBBG] 已拼接 " (itoa (length groups)) " 张表，复制 "
                             (itoa count) " 个对象，省略 " (itoa skipped)
                             " 条重复边线。原表保留，一次 U 可撤销。")))))))
-    (princ "\r\n[TBHB] 未选择对象。"))
+    (princ "\r\n[HBBG] 未选择对象。"))
   (sssetfirst nil nil)
   (princ))
 

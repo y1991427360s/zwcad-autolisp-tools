@@ -2211,6 +2211,63 @@
       "mutation_evidence": true
     },
     {
+      "command": "HBBG",
+      "file": "AA整合版本.lsp",
+      "line": 11243,
+      "description": "将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。",
+      "params": [],
+      "inputs": [
+        "getpoint",
+        "ssget"
+      ],
+      "input_prompts": [
+        "\\r\\n[HBBG] 指定长表的左上角: "
+      ],
+      "direct_dependencies": [
+        "aa:merge-sort",
+        "aa:tbhb-abort",
+        "aa:tbhb-boxes",
+        "aa:tbhb-collect",
+        "aa:tbhb-group-problem",
+        "aa:tbhb-groups",
+        "aa:tbhb-inside-p",
+        "aa:tbhb-next-top",
+        "aa:tbhb-offset",
+        "aa:tbhb-seen-line-p",
+        "aa:tbhb-shift-point",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on"
+      ],
+      "reachable_dependencies": [
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:tbhb-abort",
+        "aa:tbhb-border-p",
+        "aa:tbhb-boxes",
+        "aa:tbhb-collect",
+        "aa:tbhb-group-problem",
+        "aa:tbhb-groups",
+        "aa:tbhb-inside-p",
+        "aa:tbhb-merge-segments",
+        "aa:tbhb-next-top",
+        "aa:tbhb-offset",
+        "aa:tbhb-seen-line-p",
+        "aa:tbhb-segment",
+        "aa:tbhb-shift-point",
+        "aa:try-get-bbox",
+        "aa:undo-mark-off",
+        "aa:undo-mark-on"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "CIRCLE",
+        "LINE",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
       "command": "HBDL",
       "file": "AA整合版本.lsp",
       "line": 7543,
@@ -3655,63 +3712,6 @@
         "MTEXT",
         "POLYLINE",
         "STYLE",
-        "TEXT"
-      ],
-      "mutation_evidence": true
-    },
-    {
-      "command": "TBHB",
-      "file": "AA整合版本.lsp",
-      "line": 11243,
-      "description": "将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。",
-      "params": [],
-      "inputs": [
-        "getpoint",
-        "ssget"
-      ],
-      "input_prompts": [
-        "\\r\\n[TBHB] 指定长表的左上角: "
-      ],
-      "direct_dependencies": [
-        "aa:merge-sort",
-        "aa:tbhb-abort",
-        "aa:tbhb-boxes",
-        "aa:tbhb-collect",
-        "aa:tbhb-group-problem",
-        "aa:tbhb-groups",
-        "aa:tbhb-inside-p",
-        "aa:tbhb-next-top",
-        "aa:tbhb-offset",
-        "aa:tbhb-seen-line-p",
-        "aa:tbhb-shift-point",
-        "aa:undo-mark-off",
-        "aa:undo-mark-on"
-      ],
-      "reachable_dependencies": [
-        "aa:merge-sort",
-        "aa:msort-merge",
-        "aa:tbhb-abort",
-        "aa:tbhb-border-p",
-        "aa:tbhb-boxes",
-        "aa:tbhb-collect",
-        "aa:tbhb-group-problem",
-        "aa:tbhb-groups",
-        "aa:tbhb-inside-p",
-        "aa:tbhb-merge-segments",
-        "aa:tbhb-next-top",
-        "aa:tbhb-offset",
-        "aa:tbhb-seen-line-p",
-        "aa:tbhb-segment",
-        "aa:tbhb-shift-point",
-        "aa:try-get-bbox",
-        "aa:undo-mark-off",
-        "aa:undo-mark-on"
-      ],
-      "external_files": [],
-      "object_candidates": [
-        "CIRCLE",
-        "LINE",
-        "MTEXT",
         "TEXT"
       ],
       "mutation_evidence": true

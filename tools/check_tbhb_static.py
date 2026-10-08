@@ -1,4 +1,4 @@
-"""Execute TBHB geometry helpers with all 195 supplied QW3 objects; no CAD."""
+"""Execute HBBG geometry helpers with all 195 supplied QW3 objects; no CAD."""
 from collections import Counter
 from functools import cmp_to_key
 import json
@@ -12,7 +12,8 @@ def check():
     _, text = read_source()
     funcs = {f[1]: f for f in defun_forms(parse(text))}
     affected = {name: f for name, f in funcs.items() if name.startswith('aa:tbhb-')}
-    command = funcs['c:tbhb']
+    command = funcs['c:hbbg']
+    assert 'c:tbhb' not in funcs
     for f in list(affected.values()) + [command]:
         for n in walk(f[3:]):
             if isinstance(n[0], str) and n[0] in ARITY:
@@ -158,7 +159,7 @@ def check():
     # An interrupted side cannot turn two row fragments into a complete frame.
     interrupted = [frame[0], frame[1], frame[3], ['V', 0, 0, 20], ['V', 0, 30, 60]]
     assert not call('aa:tbhb-boxes', interrupted)
-    print('PASS TBHB segmented: 114 QW3 objects, 2 complete tables, 46 texts, '
+    print('PASS HBBG segmented: 114 QW3 objects, 2 complete tables, 46 texts, '
           'segmented/overlapping sides, split horizontals, bridge/gap guards and diagnostics')
     # CIRCLE symbols are table contents, accepted by collection and copied like text.
     assert ['member', 'typ', ['quote', ['"LINE"', '"TEXT"', '"MTEXT"', '"CIRCLE"']]] in list(
@@ -201,9 +202,9 @@ def check():
     assert lisp_equal(reversed_boxes3, boxes3, 0.01)
     reversed_groups3 = call('aa:tbhb-groups', items3, reversed_boxes3)
     assert reversed_groups3 and [len(g[1]) for g in reversed_groups3] == [32, 32, 53, 45, 47]
-    print('PASS TBHB circles: 209 QW3 objects, 5 tables, all 106 texts and 2 circles retained, '
+    print('PASS HBBG circles: 209 QW3 objects, 5 tables, all 106 texts and 2 circles retained, '
           'circle centers translated with their table and radii preserved')
-    print('PASS TBHB: 195 QW3 objects, 4 frames, 11D/13D/12D/14D geometric order, '
+    print('PASS HBBG: 195 QW3 objects, 4 frames, 11D/13D/12D/14D geometric order, '
           '124 texts preserved, seam/duplicate removal, incomplete/overlapping frames, '
           'width/ownership guards and copy rollback structure')
 
