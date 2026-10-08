@@ -142,6 +142,7 @@ def run_command_checks():
         'check_ming_static.py',
         'check_atw_static.py',
         'check_zdwi_static.py',
+        'check_wzbg_static.py',
         'check_sss_static.py',
         'check_tbhb_static.py',
     ]

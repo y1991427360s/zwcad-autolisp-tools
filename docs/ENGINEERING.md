@@ -2,7 +2,7 @@
 
 ## 项目入口
 
-- `AA整合版本.lsp`：自包含的 131 个命令。
+- `AA整合版本.lsp`：自包含的 132 个命令。
 - `V6/aicad_aa_loader.lsp`：3 个加载/面板命令，加载 V6 extension 与 DLL。
 - `V6/aicad_extension.lsp`：10 个 AICAD 命令。
 - `common/`：构建时公共源，不新增 CAD 启动加载项。
@@ -24,7 +24,7 @@ python scripts/audit_lsp.py --write
 python scripts/check_project.py
 ```
 
-`check_project.py` 顺序执行 9 项基础回归、公共展开一致性、审计产物一致性、两份命令索引检查、原有 16 项命令专项检查。只读检查不连接 CAD、不生成预览图，不改变图纸或启动项。
+`check_project.py` 顺序执行 9 项基础回归、公共展开一致性、审计产物一致性、两份命令索引检查、17 项命令专项检查。只读检查不连接 CAD、不生成预览图，不改变图纸或启动项。
 
 单独运行：
 

@@ -86,6 +86,7 @@
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
 ;;;   - TBHB  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
+;;;   - WZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
 ;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
 ;;;   - JACC  : ZZ 的同功能入口。
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
@@ -11328,6 +11329,139 @@
     (princ "\r\n[TBHB] 未选择对象。"))
   (sssetfirst nil nil)
   (princ))
+
+;;; WZBG: 从排列好的文字生成行高 5、自动列宽的线表格。
+;;; 缓存项: (ename center-x center-y width height z)。坐标全部为 WCS。
+(defun aa:wzbg-groups (items axis tol / sorted groups group anchor item)
+  ;; axis 在排序 lambda 中使用调用方动态作用域。
+  (setq sorted (aa:merge-sort items
+                 '(lambda (a b) (< (nth axis a) (nth axis b)))))
+  (foreach item sorted
+    (if (and group (<= (abs (- (nth axis item) anchor)) tol))
+      (setq group (cons item group))
+      (progn
+        (if group (setq groups (cons (reverse group) groups)))
+        (setq group (list item) anchor (nth axis item)))))
+  (if group (setq groups (cons (reverse group) groups)))
+  (reverse groups))
+
+(defun aa:wzbg-plan (items tol / cols rows xs ys x y width col row item
+                                ri ci moves occupied cell bad left bottom)
+  (setq cols (aa:wzbg-groups items 1 tol)
+        rows (aa:wzbg-groups items 2 tol)
+        left nil bottom nil)
+  (foreach item items
+    (setq x (- (nth 1 item) (/ (nth 3 item) 2.0))
+          y (nth 2 item))
+    (if (or (null left) (< x left)) (setq left x))
+    (if (or (null bottom) (< y bottom)) (setq bottom y)))
+  (setq x (- left 3.0) xs (list x) ci 0)
+  (foreach col cols
+    (setq width 0.0)
+    (foreach item col (setq width (max width (nth 3 item))))
+    (foreach item col
+      (setq ri 0)
+      (foreach row rows
+        (if (member item row)
+          (progn
+            (setq cell (list ci ri))
+            (if (member cell occupied) (setq bad T))
+            (setq occupied (cons cell occupied)
+                  moves (cons (list item (+ x 3.0 (/ width 2.0))
+                                          (+ bottom (* ri 5.0))) moves))))
+        (setq ri (1+ ri))))
+    (setq x (+ x width 6.0) xs (cons x xs) ci (1+ ci)))
+  (setq y (- bottom 2.5) ys (list y))
+  (repeat (length rows) (setq y (+ y 5.0) ys (cons y ys)))
+  (if (not bad) (list (reverse moves) (reverse xs) (reverse ys))))
+
+(defun aa:wzbg-move (en dx dy / ed vec pair out)
+  (setq ed (entget en)
+        vec (if (= (cdr (assoc 0 ed)) "TEXT")
+              (trans (list dx dy 0.0) 0 en T)
+              (list dx dy 0.0)))
+  ;; TEXT 的 10/11 为 OCS；MTEXT 的 10 为 WCS，11 是方向而不是位置。
+  (foreach pair ed
+    (if (or (= (car pair) 10)
+            (and (= (cdr (assoc 0 ed)) "TEXT") (= (car pair) 11)))
+      (setq pair (cons (car pair) (mapcar '+ (cdr pair) vec))))
+    (setq out (cons pair out)))
+  (entmod (reverse out)))
+
+(defun aa:wzbg-line (p q layer)
+  (if (not (entmake (list '(0 . "LINE") (cons 8 layer)
+                         '(6 . "Continuous") '(62 . 256)
+                         (cons 10 p) (cons 11 q))))
+    (error "WZBG 创建表格线失败，请按一次 U 撤销本次修改。")))
+
+;;; 命令: WZBG
+;;; 功能: 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
+(defun c:WZBG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                ss doc i en ed bbox lo hi items total tol problem layer flags
+                z plan moves xs ys item move x y)
+  (vl-load-com)
+  (setq ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
+  (if (null ss)
+    (progn (princ "\r\n[WZBG] 请选择同一张表格的全部文字（含表头）: ")
+           (setq ss (ssget '((0 . "TEXT,MTEXT"))))))
+  (if ss
+    (progn
+      (setq doc (vla-get-activedocument (vlax-get-acad-object))
+            i 0 total 0.0 layer (getvar "CLAYER"))
+      (if (/= 0 (logand 4 (cdr (assoc 70 (tblsearch "LAYER" layer)))))
+        (setq problem "当前图层已锁定。"))
+      (repeat (sslength ss)
+        (setq en (ssname ss i) ed (entget en)
+              flags (cdr (assoc 70 (tblsearch "LAYER" (cdr (assoc 8 ed)))))
+              bbox (aa:safe-get-bbox doc en))
+        (cond
+          ((/= 0 (logand 4 flags)) (setq problem "所选文字含锁定图层。"))
+          ((null bbox) (setq problem "无法读取部分文字的外包框。"))
+          ((and (assoc 210 ed)
+                (not (equal (cdr (assoc 210 ed)) '(0.0 0.0 1.0) 1e-6)))
+           (setq problem "仅支持 WCS XY 平面内的文字。"))
+          (T
+            (setq lo (car bbox) hi (cadr bbox))
+            (if (null z) (setq z (caddr lo)))
+            (if (or (not (equal z (caddr lo) 1e-4))
+                    (not (equal (caddr lo) (caddr hi) 1e-4)))
+              (setq problem "文字必须位于同一标高。"))
+            (if (> (- (cadr hi) (cadr lo)) 4.0)
+              (setq problem "部分文字高度超过 4，无法放入行高 5 并保留上下留白。"))
+            (setq items (cons (list en (/ (+ (car lo) (car hi)) 2.0)
+                                      (/ (+ (cadr lo) (cadr hi)) 2.0)
+                                      (- (car hi) (car lo))
+                                      (- (cadr hi) (cadr lo)) (caddr lo)) items)
+                  total (+ total (cdr (assoc 40 ed))))))
+        (setq i (1+ i)))
+      (if (not problem)
+        (progn
+          (setq tol (max 0.5 (* 0.6 (/ total (sslength ss))))
+                plan (aa:wzbg-plan items tol))
+          (if (null plan)
+            (setq problem "同一单元格识别到多个文字，请先整理或合并文字。"))))
+      (if problem
+        (princ (strcat "\r\n[WZBG] " problem " 未修改。"))
+        (progn
+          (setq moves (car plan) xs (cadr plan) ys (caddr plan))
+          (aa:cmd-begin "WZBG")
+          (foreach move moves
+            (setq item (car move))
+            (if (not (aa:wzbg-move (car item) (- (cadr move) (nth 1 item))
+                                                     (- (caddr move) (nth 2 item))))
+              (error "WZBG 移动文字失败，请按一次 U 撤销本次修改。")))
+          (foreach y ys
+            (aa:wzbg-line (list (car xs) y z) (list (last xs) y z) layer))
+          (foreach x xs
+            (aa:wzbg-line (list x (car ys) z) (list x (last ys) z) layer))
+          (redraw)
+          (aa:cmd-end)
+          (princ (strcat "\r\n[WZBG] 已生成 " (itoa (1- (length ys))) " 行 × "
+                         (itoa (1- (length xs))) " 列表格，行高 5，左右留白各 3。")))))
+    (princ "\r\n[WZBG] 未选择文字。"))
+  (sssetfirst nil nil)
+  (princ))
+
 
 ;;; ZDWI: fit each column of an axis-aligned line table to its text.
 (defun aa:zdwi-seed (ss / i en ed pts p q item best)
