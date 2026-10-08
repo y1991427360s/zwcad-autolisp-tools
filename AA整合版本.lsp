@@ -86,7 +86,7 @@
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
 ;;;   - HBBG  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
-;;;   - WZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
+;;;   - ZDBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
 ;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
 ;;;   - JACC  : ZZ 的同功能入口。
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
@@ -11330,9 +11330,9 @@
   (sssetfirst nil nil)
   (princ))
 
-;;; WZBG: 从排列好的文字生成行高 5、自动列宽的线表格。
+;;; ZDBG: 从排列好的文字生成行高 5、自动列宽的线表格。
 ;;; 缓存项: (ename center-x center-y width height z)。坐标全部为 WCS。
-(defun aa:wzbg-groups (items axis tol / sorted groups group anchor item)
+(defun aa:zdbg-groups (items axis tol / sorted groups group anchor item)
   ;; axis 在排序 lambda 中使用调用方动态作用域。
   (setq sorted (aa:merge-sort items
                  '(lambda (a b) (< (nth axis a) (nth axis b)))))
@@ -11345,10 +11345,10 @@
   (if group (setq groups (cons (reverse group) groups)))
   (reverse groups))
 
-(defun aa:wzbg-plan (items tol / cols rows xs ys x y width col row item
+(defun aa:zdbg-plan (items tol / cols rows xs ys x y width col row item
                                 ri ci moves occupied cell bad left bottom)
-  (setq cols (aa:wzbg-groups items 1 tol)
-        rows (aa:wzbg-groups items 2 tol)
+  (setq cols (aa:zdbg-groups items 1 tol)
+        rows (aa:zdbg-groups items 2 tol)
         left nil bottom nil)
   (foreach item items
     (setq x (- (nth 1 item) (/ (nth 3 item) 2.0))
@@ -11375,7 +11375,7 @@
   (repeat (length rows) (setq y (+ y 5.0) ys (cons y ys)))
   (if (not bad) (list (reverse moves) (reverse xs) (reverse ys))))
 
-(defun aa:wzbg-move (en dx dy / ed vec pair out)
+(defun aa:zdbg-move (en dx dy / ed vec pair out)
   (setq ed (entget en)
         vec (if (= (cdr (assoc 0 ed)) "TEXT")
               (trans (list dx dy 0.0) 0 en T)
@@ -11388,21 +11388,21 @@
     (setq out (cons pair out)))
   (entmod (reverse out)))
 
-(defun aa:wzbg-line (p q layer)
+(defun aa:zdbg-line (p q layer)
   (if (not (entmake (list '(0 . "LINE") (cons 8 layer)
                          '(6 . "Continuous") '(62 . 256)
                          (cons 10 p) (cons 11 q))))
-    (error "WZBG 创建表格线失败，请按一次 U 撤销本次修改。")))
+    (error "ZDBG 创建表格线失败，请按一次 U 撤销本次修改。")))
 
-;;; 命令: WZBG
+;;; 命令: ZDBG
 ;;; 功能: 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
-(defun c:WZBG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+(defun c:ZDBG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                 ss doc i en ed bbox lo hi items total tol problem layer flags
                 z plan moves xs ys item move x y)
   (vl-load-com)
   (setq ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
   (if (null ss)
-    (progn (princ "\r\n[WZBG] 请选择同一张表格的全部文字（含表头）: ")
+    (progn (princ "\r\n[ZDBG] 请选择同一张表格的全部文字（含表头）: ")
            (setq ss (ssget '((0 . "TEXT,MTEXT"))))))
   (if ss
     (progn
@@ -11437,28 +11437,28 @@
       (if (not problem)
         (progn
           (setq tol (max 0.5 (* 0.6 (/ total (sslength ss))))
-                plan (aa:wzbg-plan items tol))
+                plan (aa:zdbg-plan items tol))
           (if (null plan)
             (setq problem "同一单元格识别到多个文字，请先整理或合并文字。"))))
       (if problem
-        (princ (strcat "\r\n[WZBG] " problem " 未修改。"))
+        (princ (strcat "\r\n[ZDBG] " problem " 未修改。"))
         (progn
           (setq moves (car plan) xs (cadr plan) ys (caddr plan))
-          (aa:cmd-begin "WZBG")
+          (aa:cmd-begin "ZDBG")
           (foreach move moves
             (setq item (car move))
-            (if (not (aa:wzbg-move (car item) (- (cadr move) (nth 1 item))
+            (if (not (aa:zdbg-move (car item) (- (cadr move) (nth 1 item))
                                                      (- (caddr move) (nth 2 item))))
-              (error "WZBG 移动文字失败，请按一次 U 撤销本次修改。")))
+              (error "ZDBG 移动文字失败，请按一次 U 撤销本次修改。")))
           (foreach y ys
-            (aa:wzbg-line (list (car xs) y z) (list (last xs) y z) layer))
+            (aa:zdbg-line (list (car xs) y z) (list (last xs) y z) layer))
           (foreach x xs
-            (aa:wzbg-line (list x (car ys) z) (list x (last ys) z) layer))
+            (aa:zdbg-line (list x (car ys) z) (list x (last ys) z) layer))
           (redraw)
           (aa:cmd-end)
-          (princ (strcat "\r\n[WZBG] 已生成 " (itoa (1- (length ys))) " 行 × "
+          (princ (strcat "\r\n[ZDBG] 已生成 " (itoa (1- (length ys))) " 行 × "
                          (itoa (1- (length xs))) " 列表格，行高 5，左右留白各 3。")))))
-    (princ "\r\n[WZBG] 未选择文字。"))
+    (princ "\r\n[ZDBG] 未选择文字。"))
   (sssetfirst nil nil)
   (princ))
 

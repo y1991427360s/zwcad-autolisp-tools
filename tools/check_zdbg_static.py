@@ -1,4 +1,4 @@
-"""Execute the actual WZBG layout helpers on QW3 coordinates, without CAD."""
+"""Execute the actual ZDBG layout helpers on QW3 coordinates, without CAD."""
 import json
 import math
 import random
@@ -12,7 +12,7 @@ def check():
     _, source = read_source()
     funcs = {f[1]: f for f in defun_forms(parse(source))}
     affected = {n: f for n, f in funcs.items()
-                if n.startswith('aa:wzbg-') or n == 'c:wzbg'}
+                if n.startswith('aa:zdbg-') or n == 'c:zdbg'}
     assert len(affected) == 5
     for name, form in affected.items():
         for node in walk(form[3:]):
@@ -94,14 +94,14 @@ def check():
         }
         return builtins[op](*values)
 
-    fixture = json.loads((Path(__file__).parent / 'fixtures/wzbg_qw3.json').read_text(encoding='utf-8'))
+    fixture = json.loads((Path(__file__).parent / 'fixtures/zdbg_qw3.json').read_text(encoding='utf-8'))
     items = [record['item'] for record in fixture]
-    expected = invoke('aa:wzbg-plan', [items, 1.8], {})
+    expected = invoke('aa:zdbg-plan', [items, 1.8], {})
     moves, xs, ys = expected
     assert len(moves) == 50 and len(xs) == 7 and len(ys) == 10
     assert math.isclose(ys[-1] - ys[0], 45)
     assert all(math.isclose(b - a, 5) for a, b in zip(ys, ys[1:]))
-    cols = invoke('aa:wzbg-groups', [items, 1, 1.8], {})
+    cols = invoke('aa:zdbg-groups', [items, 1, 1.8], {})
     assert [len(col) for col in cols] == [9, 8, 9, 9, 9, 6]
     for col, a, b in zip(cols, xs, xs[1:]):
         assert math.isclose(b - a, max(item[3] for item in col) + 6)
@@ -117,19 +117,19 @@ def check():
     for _ in range(20):
         shuffled = items.copy()
         rng.shuffle(shuffled)
-        actual = invoke('aa:wzbg-plan', [shuffled, 1.8], {})
+        actual = invoke('aa:zdbg-plan', [shuffled, 1.8], {})
         assert actual[1:] == expected[1:]
         assert sorted(actual[0]) == sorted(expected[0])
-    assert invoke('aa:wzbg-plan', [items + [items[0]], 1.8], {}) is None
+    assert invoke('aa:zdbg-plan', [items + [items[0]], 1.8], {}) is None
     shifted = [[i[0], i[1] - 20000, i[2] - 20000, i[3], i[4], 15] for i in items]
-    actual = invoke('aa:wzbg-plan', [shifted, 1.8], {})
+    actual = invoke('aa:zdbg-plan', [shifted, 1.8], {})
     assert all(math.isclose(a - 20000, b) for a, b in zip(xs, actual[1]))
     assert all(math.isclose(a - 20000, b) for a, b in zip(ys, actual[2]))
-    move_source = affected['aa:wzbg-move']
+    move_source = affected['aa:zdbg-move']
     assert ['trans', ['list', 'dx', 'dy', '0.0'], '0', 'en', 't'] in list(walk(move_source))
-    assert ['aa:cmd-begin', '"WZBG"'] in list(walk(affected['c:wzbg']))
-    assert ['aa:cmd-end'] in list(walk(affected['c:wzbg']))
-    print('PASS WZBG: actual layout on 50 QW3 texts, 9 rows/6 columns, '
+    assert ['aa:cmd-begin', '"ZDBG"'] in list(walk(affected['c:zdbg']))
+    assert ['aa:cmd-end'] in list(walk(affected['c:zdbg']))
+    print('PASS ZDBG: actual layout on 50 QW3 texts, 9 rows/6 columns, '
           '5-unit rows, automatic widths, bottom header, 4 empty cells, '
           'selection permutations, duplicate rejection and translated coordinates')
 

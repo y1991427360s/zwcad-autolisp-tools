@@ -118,7 +118,6 @@
 | VPO2 | 切换到“两个：垂直”标准视口。 | 无函数形参; 交互: 未发现 / 委托外部界面 | aa:cmd-begin, aa:cmd-end | 未静态确定；存在修改调用 | AA整合版本.lsp:16701 |
 | WI | 修改选中文字的宽度比例。 | 无函数形参; 交互: getreal, ssget; 提示: 请输入新的文字宽度比例 (例如 0.8 或 1.0): | aa:cmd-begin, aa:cmd-end | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:3920 |
 | WW | 将选中对象快速改为白色；支持尺寸标注（转角标注等全要素变白）、引线及块内实体。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:deep-color-cmd | DIMENSION, INSERT, LEADER, MTEXT；存在修改调用 | AA整合版本.lsp:2355 |
-| WZBG | 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:safe-get-bbox, aa:wzbg-line, aa:wzbg-move, aa:wzbg-plan | LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:11399 |
 | XB | 将选中的文字或尺寸标注整体缩小为原来的十分之一，并保留选择状态。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end | DIMENSION, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:4057 |
 | XIA | 将选中文字统一为中下对正，并以最左侧文字为基准下对齐。 | 无函数形参; 交互: ssget | aa:align-text-cmd | MTEXT, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:3563 |
 | XIN | 统计选中直线矩形范围内的对象数量并标注结果。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end | LINE, TEXT；存在修改调用 | AA整合版本.lsp:5762 |
@@ -141,6 +140,7 @@
 | YSDL | 提取选中文字到CSV文件，并改变文字颜色。 | 无函数形参; 交互: ssget | aa:insert-sort, aa:set-entity-aci-color, aa:undo-mark-off, aa:undo-mark-on, aa:ysdl-build-csv-field, aa:ysdl-get-plain-text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:1238 |
 | YY | 将选中对象快速改为黄色。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:color-cmd | 未静态确定；存在修改调用 | AA整合版本.lsp:2335 |
 | Z0 | 将选中对象的 Z 坐标全部归零（压平到 XY 平面）。 | 无函数形参; 交互: ssget; 提示: :L | aa:cmd-begin, aa:cmd-end, aa:z0-data-flat-p, aa:z0-layer-locked-p, aa:z0-one, aa:z0-polyline-flat-p, aa:z0-polyline-verts | POLYLINE；存在修改调用 | AA整合版本.lsp:16644 |
+| ZDBG | 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:safe-get-bbox, aa:zdbg-line, aa:zdbg-move, aa:zdbg-plan | LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:11399 |
 | ZDML | 选择多个图框块，生成目录文字。 | 无函数形参; 交互: getpoint, ssget; 提示: 指定第 1 页目录表左上角: | aa:cmd-begin, aa:cmd-end, tktj:collect-one-block, tktj:draw-table, tktj:drop, tktj:safe-vla-object, tktj:sort-by-page, tktj:sort-by-position, tktj:take | INSERT；存在修改调用 | AA整合版本.lsp:13226 |
 | ZDML2 | 指定基准块参照与图名、图号矩形范围，批量提取图名图号并生成目录。 | 无函数形参; 交互: entsel, getcorner, getpoint, ssget; 提示: [ZDML2] 指定第 1 页目录表左上角: / [ZDML2] 请点击选择基准图框块参照: | aa:cmd-begin, aa:cmd-end, blk-insertpt, hao2:block-name, hao2:sort-blocks, tktj:draw-table, tktj:drop, tktj:take, zdml2:build-spatial-index, zdml2:collect-all-texts, zdml2:extract-rect-text-fast, zdml2:query-rect-index | INSERT, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:13368 |
 | ZDMLDEBUG | 选择一个图框块，打印所有增强属性。 | 无函数形参; 交互: entsel; 提示: 请选择一个图框块: | aa:cmd-begin, aa:cmd-end, tktj:get-attributes | INSERT；未发现直接/可达修改调用 | AA整合版本.lsp:13542 |

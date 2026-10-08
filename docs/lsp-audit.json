@@ -4050,44 +4050,6 @@
       "mutation_evidence": true
     },
     {
-      "command": "WZBG",
-      "file": "AA整合版本.lsp",
-      "line": 11399,
-      "description": "选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。",
-      "params": [],
-      "inputs": [
-        "ssget"
-      ],
-      "input_prompts": [],
-      "direct_dependencies": [
-        "aa:cmd-begin",
-        "aa:cmd-end",
-        "aa:safe-get-bbox",
-        "aa:wzbg-line",
-        "aa:wzbg-move",
-        "aa:wzbg-plan"
-      ],
-      "reachable_dependencies": [
-        "aa:cmd-begin",
-        "aa:cmd-end",
-        "aa:merge-sort",
-        "aa:msort-merge",
-        "aa:safe-get-bbox",
-        "aa:try-get-bbox",
-        "aa:wzbg-groups",
-        "aa:wzbg-line",
-        "aa:wzbg-move",
-        "aa:wzbg-plan"
-      ],
-      "external_files": [],
-      "object_candidates": [
-        "LINE",
-        "MTEXT",
-        "TEXT"
-      ],
-      "mutation_evidence": true
-    },
-    {
       "command": "XB",
       "file": "AA整合版本.lsp",
       "line": 4057,
@@ -4836,6 +4798,44 @@
       "external_files": [],
       "object_candidates": [
         "POLYLINE"
+      ],
+      "mutation_evidence": true
+    },
+    {
+      "command": "ZDBG",
+      "file": "AA整合版本.lsp",
+      "line": 11399,
+      "description": "选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:safe-get-bbox",
+        "aa:zdbg-line",
+        "aa:zdbg-move",
+        "aa:zdbg-plan"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:safe-get-bbox",
+        "aa:try-get-bbox",
+        "aa:zdbg-groups",
+        "aa:zdbg-line",
+        "aa:zdbg-move",
+        "aa:zdbg-plan"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "LINE",
+        "MTEXT",
+        "TEXT"
       ],
       "mutation_evidence": true
     },
