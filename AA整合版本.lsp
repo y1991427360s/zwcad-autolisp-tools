@@ -42,6 +42,7 @@
 ;;;   - QR2   : 连续选择文字并逐轮输入高度进行修改，按 Esc 退出。
 ;;;   - DEA   : 删除所选对象中高度小于 0.1 的 TEXT/MTEXT 文字。
 ;;;   - DEK   : 删除选中内容中的所有块参照 (INSERT)。
+;;;   - YSTEMP: 删除所选对象中竖直共线、首尾相接且长度分别为 21 和 7 的直线对。
 ;;;   - DES   : 所选直线共线重叠时删除短线、保留长线；完全重复留一条，跨图层处理并跳过锁定图层。
 ;;;   - WI    : 修改选中文字的宽度比例。
 ;;;   - ATW   : 拾取两点指定最大宽度，将超宽单行文字的宽度比例缩小至两点间距的 95% 并保持左侧不动。
@@ -588,6 +589,73 @@
       (princ (strcat "\r\nDES 完成：检查 " (itoa (sslength ss))
                      " 条，删除重复线 " (itoa removed)
                      " 条，跳过锁定图层 " (itoa skipped)
+                     " 条，删除失败 " (itoa failed) " 条。")))
+    (princ "\r\n未选择直线。"))
+  (aa:cmd-end)
+  (princ))
+
+;;; YSTEMP 记录：(实体 长度 下端点 上端点 最小Y 最大Y)。
+(defun ystemp:y-less-p (a b)
+  (< (nth 4 a) (nth 4 b)))
+
+;;; 必须异长、首尾相接；重叠线或仅有同长度邻线不匹配。
+(defun ystemp:pair-p (a b tol)
+  (and (/= (cadr a) (cadr b))
+       (or (equal (nth 3 a) (nth 2 b) tol)
+           (equal (nth 3 b) (nth 2 a) tol))))
+
+;;; YSTEMP：删除选中范围内长度21和7、竖直共线且首尾相接的直线对。
+(defun c:YSTEMP (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                   ss i en ed p q tmp len kind tol layer-data
+                   records record active next-active other doomed
+                   skipped removed failed result)
+  (aa:cmd-begin "YSTEMP")
+  (princ "\r\nYSTEMP：选择对象，删除长度21和7的相接竖直线对（WCS，容差0.0001）。")
+  (setq ss (ssget "_I" (list '(0 . "LINE") (cons 410 (getvar "CTAB")))))
+  (if (not ss)
+    (setq ss (ssget (list '(0 . "LINE") (cons 410 (getvar "CTAB"))))))
+  (setq i 0 tol 0.0001 skipped 0 removed 0 failed 0 doomed (ssadd))
+  (if ss
+    (progn
+      (repeat (sslength ss)
+        (setq en (ssname ss i) ed (entget en) i (1+ i)
+              p (cdr (assoc 10 ed)) q (cdr (assoc 11 ed))
+              len (distance p q)
+              kind (cond ((equal len 21.0 tol) 21)
+                         ((equal len 7.0 tol) 7)))
+        ;; LINE的DXF端点是WCS坐标；X、Z都必须相同，排除斜线和三维斜线。
+        (if (and kind (equal (car p) (car q) tol)
+                      (equal (caddr p) (caddr q) tol))
+          (progn
+            (setq layer-data (tblsearch "LAYER" (cdr (assoc 8 ed))))
+            (if (/= 0 (logand 4 (cdr (assoc 70 layer-data))))
+              (setq skipped (1+ skipped))
+              (progn
+                (if (> (cadr p) (cadr q)) (setq tmp p p q q tmp))
+                (setq records (cons (list en kind p q (cadr p) (cadr q)) records)))))))
+      ;; 按Y区间扫描，过期的候选线及时移出；先完整识别，再统一删除。
+      (setq records (aa:merge-sort records 'ystemp:y-less-p))
+      (foreach record records
+        (setq next-active nil)
+        (foreach other active
+          (if (>= (+ (nth 5 other) tol) (nth 4 record))
+            (progn
+              (setq next-active (cons other next-active))
+              (if (ystemp:pair-p record other tol)
+                (progn (ssadd (car record) doomed)
+                       (ssadd (car other) doomed))))))
+        (setq active (cons record next-active)))
+      (setq i 0)
+      (repeat (sslength doomed)
+        (setq result (vl-catch-all-apply 'entdel (list (ssname doomed i)))
+              i (1+ i))
+        (if (or (vl-catch-all-error-p result) (not result))
+          (setq failed (1+ failed))
+          (setq removed (1+ removed))))
+      (if (> removed 0) (redraw))
+      (princ (strcat "\r\nYSTEMP 完成：匹配 " (itoa (sslength doomed))
+                     " 条，已删除 " (itoa removed)
+                     " 条，跳过锁定图层候选线 " (itoa skipped)
                      " 条，删除失败 " (itoa failed) " 条。")))
     (princ "\r\n未选择直线。"))
   (aa:cmd-end)
