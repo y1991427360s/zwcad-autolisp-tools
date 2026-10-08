@@ -128,6 +128,7 @@ def run_command_checks():
     import runpy
     tools = Path(__file__).resolve().parent
     checks = [
+        'check_t_static.py',
         'check_fdx_static.py',
         'check_cc_static.py',
         'check_c1c2_static.py',

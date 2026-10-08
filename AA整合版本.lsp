@@ -14,7 +14,7 @@
 ;;;   - YSDL  : 提取选中文字到CSV文件，并改变文字颜色。
 ;;;   - HDDL  : 直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。
 ;;;   - QSTXT : 快速从当前选择中仅选中所有文字对象。
-;;;   - T     : 把字体刷为HZ样式，高度3，宽度0.7。
+;;;   - T     : 把字体刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距从上到下排列。
 ;;;   - H2    : 先将选中文字统一为左中对正，右侧文字在最上、越靠左越靠下，按指定间距从上到下排列。
@@ -1396,9 +1396,9 @@
 
 
 ;;; =======================================================================================
-;;; Command: TXT
-;;; Purpose: Filter selected TEXT and MTEXT, explode MTEXT into TEXT, then set style,
-;;;          height, and width factor while keeping other properties unchanged.
+;;; Command: T
+;;; Purpose: Filter TEXT/MTEXT, explode MTEXT, set HZ/3/0.7, and preserve
+;;;          the visible anchor of justified TEXT even with stale alignment points.
 ;;; =======================================================================================
 (defun txt:set-dxf (code value data / item)
   (if (setq item (assoc code data))
@@ -1407,16 +1407,65 @@
   )
 )
 
-(defun txt:modify-text (ename / edata)
+;; 按实际可见范围定位，避免旧 DXF 11 对齐点与显示位置不一致时跳位。
+;; 水平文字保留相应的左/中/右、下/中/上边界；旋转/倾斜平面保留范围中心。
+(defun txt:bbox-anchor (edata bbox / lo hi h v centered)
+  (setq lo (car bbox)
+        hi (cadr bbox)
+        h  (cdr (assoc 72 edata))
+        v  (cdr (assoc 73 edata))
+        centered (or (not (equal (cdr (assoc 50 edata)) 0.0 1e-8))
+                     (and (assoc 210 edata)
+                          (not (equal (cdr (assoc 210 edata)) '(0.0 0.0 1.0) 1e-8)))))
+  (list
+    (cond
+      (centered (/ (+ (car lo) (car hi)) 2.0))
+      ((= h 0) (car lo))
+      ((= h 2) (car hi))
+      (T (/ (+ (car lo) (car hi)) 2.0)))
+    (cond
+      ((or centered (= h 4) (= v 2)) (/ (+ (cadr lo) (cadr hi)) 2.0))
+      ((= v 3) (cadr hi))
+      (T (cadr lo)))
+    (/ (+ (caddr lo) (caddr hi)) 2.0))
+)
+
+(defun txt:modify-text (ename / edata original aligned oldbox newbox delta ok)
   (if (and ename (= "TEXT" (cdr (assoc 0 (setq edata (entget ename))))))
     (progn
-      (setq edata (txt:set-dxf 7 "HZ" edata))
-      (setq edata (txt:set-dxf 40 3.0 edata))
-      (setq edata (txt:set-dxf 41 0.7 edata))
-      (if (entmod edata) 1 0)
-    )
-    0
-  )
+      (setq original edata
+            aligned (or (/= (cdr (assoc 72 edata)) 0)
+                        (/= (cdr (assoc 73 edata)) 0)))
+      ;; 普通左基线文字直接 entmod；对齐文字先缓存实际显示范围。
+      (if aligned (setq oldbox (aa:safe-get-bbox nil ename)))
+      (if (or (not aligned) oldbox)
+        (progn
+          (setq edata (txt:set-dxf 7 "HZ" edata))
+          (setq edata (txt:set-dxf 40 3.0 edata))
+          (setq edata (txt:set-dxf 41 0.7 edata))
+          (setq ok (entmod edata))
+          (if (and ok aligned)
+            (progn
+              ;; 必须刷新后读取新几何，不能沿用修改前的缓存范围。
+              (entupd ename)
+              (setq newbox (aa:safe-get-bbox nil ename))
+              (if newbox
+                (progn
+                  (setq delta (mapcar '- (txt:bbox-anchor original oldbox)
+                                         (txt:bbox-anchor original newbox)))
+                  ;; COM Move 使用 WCS 位移并同步维护插入点、对齐点。
+                  (setq ok (or (equal delta '(0.0 0.0 0.0) 1e-8)
+                               (aa:safe-move-entity ename delta))))
+                (setq ok nil))
+              (if (not ok)
+                (progn
+                  (entmod original)
+                  (princ "\r\n对齐文字位置补偿失败，已恢复原文字数据。")))))
+          (if ok 1 0))
+        (progn
+          (princ "\r\n无法读取对齐文字范围，已跳过以避免跳位。")
+          0)))
+    0)
 )
 
 (defun txt:modify-new-texts (before after / cur count)
@@ -1499,6 +1548,7 @@
 )
 
 (defun txt:run (/ sel)
+  (vl-load-com)
   (if (null (tblsearch "STYLE" "HZ"))
     (princ "\r\n未找到文字样式 HZ。")
     (progn
