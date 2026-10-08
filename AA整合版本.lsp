@@ -14879,8 +14879,9 @@
 )
 
 (defun aa:km-ln-cmd (tag-name is-left txt-up txt-low txt-rect
-                       / *error* doc undo-open oldcmd oldct oldce
+                       / *error* aa:doc aa:undo-open doc oldcmd oldct oldce
                          ss all-lines lines-by-y y-keys valid base-z
+                         en ed p1 p2 dx dy attach-pt item
                          upper-y lower-y upper-lines lower-lines
                          upper-x lower-x
                          joint-x rect-w rect-x1 rect-x2 rect-cx height center-y
@@ -14889,7 +14890,7 @@
                          t-rect-en t-rect-bbox t-w)
   (vl-load-com)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
-        undo-open nil
+        aa:undo-open nil
         oldcmd nil
         oldct nil
         oldce nil)
@@ -14898,8 +14899,7 @@
     (if oldcmd (setvar "CMDECHO" oldcmd))
     (if oldct (setvar "CELTYPE" oldct))
     (if oldce (setvar "CECOLOR" oldce))
-    (if undo-open
-      (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
+    (aa:undo-mark-off)
     (sssetfirst nil nil)
     (if (and msg
              (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*EXIT*,*QUIT*")))
@@ -14914,8 +14914,7 @@
 
   (if ss
     (progn
-      (vl-catch-all-apply 'vla-StartUndoMark (list doc))
-      (setq undo-open T)
+      (aa:undo-mark-on)
       (setq all-lines (aa:explode-collect-lines ss))
       (if (>= (length all-lines) 2)
         (progn
@@ -14926,8 +14925,18 @@
             (setq ed (entget en)
                   p1 (cdr (assoc 10 ed))
                   p2 (cdr (assoc 11 ed)))
+            ;; 允许图纸中微小水平偏差：Y差 <= 0.1 图纸单位且斜率 <= 1%。
+            ;; 使用连接侧的真实端点高度，避免短线与原线之间出现缝隙。
+            (if (and p1 p2)
+              (setq dx (abs (- (car p2) (car p1)))
+                    dy (abs (- (cadr p2) (cadr p1)))
+                    attach-pt
+                      (if (if is-left (<= (car p1) (car p2)) (>= (car p1) (car p2)))
+                        p1 p2)))
             (if (and p1 p2
-                     (equal (cadr p1) (cadr p2) 1e-6)
+                     (> dx 1e-6)
+                     (<= dy 0.1)
+                     (<= dy (* dx 0.01))
                      (or (null base-z)
                          (equal (if (caddr p1) (caddr p1) 0.0) base-z 1e-6))
                      (equal (if (caddr p1) (caddr p1) 0.0)
@@ -14935,11 +14944,11 @@
               (progn
                 (if (null base-z)
                   (setq base-z (if (caddr p1) (caddr p1) 0.0)))
-                (setq lines-by-y (cons (list (cadr p1) en p1 p2) lines-by-y)))
+                (setq lines-by-y (cons (list (cadr attach-pt) en p1 p2) lines-by-y)))
               (setq valid nil)))
 
           (if (not valid)
-            (princ (strcat "\r\n[" tag-name "] 所选直线必须全部水平且位于同一标高。"))
+            (princ (strcat "\r\n[" tag-name "] 所选直线必须接近水平（Y差≤0.1且斜率≤1%）且位于同一标高。"))
             (progn
               ;; 按照 Y 坐标分组并排序
               (setq lines-by-y
@@ -15068,6 +15077,7 @@
                                  (rtos rect-w 2 2) "×高" (rtos height 2 2) "）及居中文注。")))))))
         (princ (strcat "\r\n[" tag-name "] 分解后至少需要两条水平直线。"))))
     (princ (strcat "\r\n[" tag-name "] 必须选择直线或多段线。")))
+  (aa:undo-mark-off)
   (sssetfirst nil nil)
   (princ)
 )
