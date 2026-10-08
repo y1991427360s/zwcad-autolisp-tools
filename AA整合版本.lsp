@@ -4441,10 +4441,13 @@
       (setq pts (append pts (list (car pts)))))
     (while (and pts (cdr pts))
       (setq p (car pts) q (cadr pts))
-      (if (and (equal (cadr p) (cadr q) 1e-6)
-               (> (abs (- (car p) (car q))) 1e-5))
+      ;; Allow drawing roundoff (0.01 units), but reject visibly sloped edges.
+      (if (and (> (abs (- (car p) (car q))) 1e-5)
+               (<= (abs (- (cadr p) (cadr q))) 0.01)
+               (<= (abs (- (cadr p) (cadr q)))
+                   (* 1e-4 (abs (- (car p) (car q))))))
         (setq out (cons
-          (list (cadr p) (min (car p) (car q))
+          (list (/ (+ (cadr p) (cadr q)) 2.0) (min (car p) (car q))
                 (max (car p) (car q)) (cdr (assoc 8 ed))) out)))
       (setq pts (cdr pts)))
     (setq i (1+ i)))
@@ -4471,7 +4474,9 @@
                                      (- (nth 2 below) (cadr below))))))
               (progn
                 (setq score (- (car above) (car below)))
-                (if (or (null best-score) (< score best-score))
+                ;; Near-coincident duplicate edges are one border, not a row.
+                (if (and (> score 0.01)
+                         (or (null best-score) (< score best-score)))
                   (setq best (list above below)
                         best-score score)))))))))
   best)
@@ -4535,7 +4540,7 @@
              (setq left (car box) lower (cadr box) right (caddr box)))
             (seed
              (setq left (cadr seed) right (nth 2 seed)
-                   lower (- (car seed) 1e-4))))
+                   lower (- (car seed) 0.02))))
           (if (null lower)
             (princ (strcat "\r\n[" tag "] 预选对象中没有可识别的表格横线，未修改。"))
             (progn

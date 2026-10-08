@@ -93,7 +93,7 @@ def evaluate(expr, env):
         'nth': lambda i, xs: xs[i],
         'not': lambda x: not x, 'null': lambda x: x is None or x == [],
         'member': lambda x, xs: x in xs,
-        'cons': lambda a, b: (a, b),
+        'cons': lambda a, b: [a] + (b or []) if b is None or isinstance(b, list) else (a, b),
         'ssget': lambda *args: env['__ssget'](*args),
         'ssadd': lambda *args: [] if not args else add_entity(*args),
         'trans': lambda p, _from, _to: p,
@@ -102,7 +102,8 @@ def evaluate(expr, env):
         'logand': operator.and_, '1+': lambda x: x + 1,
         '=': operator.eq, '>': operator.gt, '<': operator.lt,
         '>=': operator.ge, '<=': operator.le,
-        '+': operator.add, '-': operator.sub, 'min': min, 'max': max,
+        '+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv,
+        'abs': abs, 'min': min, 'max': max,
         'equal': lambda a, b, tol: abs(a - b) <= tol,
     }
     assert head in builtins, 'Unsupported call: ' + head
