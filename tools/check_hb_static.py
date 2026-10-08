@@ -1,4 +1,4 @@
-"""Static checks and evaluation tests for HB command in AA整合版本.lsp."""
+"""Static checks and evaluation tests for HBDL command in AA整合版本.lsp."""
 from pathlib import Path
 import re
 import sys
@@ -13,10 +13,11 @@ assert b'\n' not in raw.replace(b'\r\n', b''), 'Bare LF / mixed newlines'
 
 forms = parse(source)
 functions = {f[1]: f for f in forms if isinstance(f, list) and f[:1] == ['defun']}
-targets = {k: v for k, v in functions.items() if k.startswith('hb:') or k == 'c:hb'}
+targets = {k: v for k, v in functions.items() if k.startswith('hb:') or k == 'c:hbdl'}
 
 # 2. 结构完整性校验
-assert 'c:hb' in targets, 'c:hb command not found'
+assert 'c:hbdl' in targets, 'c:hbdl command not found'
+assert 'c:hb' not in functions, 'obsolete c:hb command still present'
 expected_helpers = [
     'hb:extract-target-cable-id',
     'hb:find-core-index',
@@ -57,7 +58,7 @@ for name, form in targets.items():
             assert loop_var in declared, f'{name}: undeclared loop variable {loop_var}'
         assert head != 'vl-sort', f'{name}: vl-sort is banned, use aa:merge-sort'
 
-print(f'PASS: {len(targets)} HB functions; signatures, locals, arities, and no vl-sort')
+print(f'PASS: {len(targets)} HBDL functions; signatures, locals, arities, and no vl-sort')
 
 
 # 4. 核心逻辑仿真单元测试
@@ -258,4 +259,4 @@ assert res3['core_cnt'] == 4
 assert res3['principles'] == ["BS03", "BS04", "BS01", "BS02"]
 print(f'PASS: Case 3 (no spec column) - Merged: core=4, principles={res3["principles"]}')
 
-print('ALL HB STATIC CHECKS PASS')
+print('ALL HBDL STATIC CHECKS PASS')

@@ -28,8 +28,8 @@
 - AutoLISP 的 `last` 直接返回最后一个元素，不是末尾子列表；取最后一个坐标点使用 `(last pts)`，不得误写成 `(car (last pts))`。
 - `FDX` 分配后直接复用 `dx:apply-group`，不得调用交互式 `c:DX` 造成二次选择或嵌套撤销组；保留本批恢复逻辑。离线检查运行 `python tools/check_fdx_static.py`。
 - `CC` 读取已有剪贴板，预选单个文字后按基点连续复制并替换副本完整内容；不得改回提取源文字到剪贴板或调用 `c:QE`。离线检查运行 `python tools/check_cc_static.py`，使用说明见 `docs/CC.md`。
-- `HB` 用于电缆清册并入行合并，就地修改主电缆芯数（如3改4）并在原理号末尾向后堆积追加，消除并入行；无需新建表格。离线检查运行 `python tools/check_hb_static.py`，使用说明见 `docs/HB.md`。
-- 改动 AA整合版本.lsp 后，交付前优先运行一键静态检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对，并串跑 FDX/CC/C1C2/DES/GTX/XY/HDDL/XYG/HB 专项检查）。
+- `HBDL` 用于电缆清册并入行合并，就地修改主电缆芯数（如3改4）并在原理号末尾向后堆积追加，消除并入行；无需新建表格。离线检查运行 `python tools/check_hb_static.py`，使用说明见 `docs/HBDL.md`。
+- 改动 AA整合版本.lsp 后，交付前优先运行一键静态检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对，并串跑 FDX/CC/C1C2/DES/GTX/XY/HDDL/XYG/HBDL 专项检查）。
 - `ZHONG`、`ZUO`、`YOU`、`SHANG`、`XIA` 共用 `aa:align-text-cmd`；`SYAN`、`XYAN` 共用 `aa:extend-line-cmd`。
 - 文字对齐优先使用 COM 的 `Alignment` / `AttachmentPoint`，用 `vl-catch-all-error-p` 判断结果，并补偿外包框位置。
 
