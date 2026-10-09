@@ -2,7 +2,7 @@
 
 ## 项目入口
 
-- `AA整合版本.lsp`：自包含的 133 个命令。
+- `AA整合版本.lsp`：自包含的整合命令集，当前清单见 `COMMANDS.md`。
 - `V6/aicad_aa_loader.lsp`：3 个加载/面板命令，加载 V6 extension 与 DLL。
 - `V6/aicad_extension.lsp`：10 个 AICAD 命令。
 - `common/`：构建时公共源，不新增 CAD 启动加载项。

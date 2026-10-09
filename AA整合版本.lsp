@@ -14,6 +14,7 @@
 ;;;   - YSDL  : 提取选中文字到CSV文件，并改变文字颜色。
 ;;;   - HDDL  : 直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。
 ;;;   - QSTXT : 快速从当前选择中仅选中所有文字对象。
+;;;   - FKX   : 点选闭合矩形或指定两角点，仅选中框内对象，排除边框及压边、跨框对象。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距从上到下排列。
@@ -9927,6 +9928,56 @@
                   pts (cons (trans (trans (list (car pair) (cadr pair) z) en 0) 0 1) pts)
                   next (entnext next)))))
       (if ok (fdx:rect-from-points (reverse pts))))))
+
+;;; =======================================================================================
+;;; 命令: FKX
+;;; 功能: 点选闭合矩形或指定两角点，仅选中框内对象，排除边框及压边、跨框对象。
+;;; 矩形沿当前 UCS；复用 FDX 的闭合、四角及无弧段检查。区域须完整显示在当前视图。
+;;; =======================================================================================
+(defun c:FKX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               picked rect p1 p2 z lx ly rx ry gap ss)
+  (aa:cmd-begin "FKX")
+  (sssetfirst nil nil)
+  (princ "\r\n[FKX] 请先让整个方框显示在屏幕中；只选择完全在框内的对象。")
+  (setq picked (entsel "\r\n点选闭合矩形边框 <回车指定两个对角点>: "))
+  (cond
+    (picked
+     (if (member (cdr (assoc 0 (entget (car picked)))) '("LWPOLYLINE" "POLYLINE"))
+       (setq rect (fdx:poly-rect (car picked))))
+     (if (null rect)
+       (princ "\r\n所选对象不是沿当前 UCS 的闭合直边矩形。请重试；直线组成的框可用两角点方式。")))
+    (T
+     (setq p1 (getpoint "\r\n指定方框第一个角点: "))
+     (if p1
+       (progn
+         (setq p2 (getcorner p1 "\r\n指定方框的对角点: "))
+         (if p2
+           (progn
+             (setq z (caddr p1))
+             (setq rect (fdx:rect-from-points
+                          (list (list (car p1) (cadr p1) z)
+                                (list (car p2) (cadr p1) z)
+                                (list (car p2) (cadr p2) z)
+                                (list (car p1) (cadr p2) z))))))))
+     (if (null rect) (princ "\r\n未指定有效矩形，FKX 已取消。"))))
+  (if rect
+    (progn
+      (setq lx (nth 0 rect) ly (nth 1 rect)
+            rx (nth 2 rect) ry (nth 3 rect) z (nth 4 rect)
+            ;; 微量内缩同时排除重叠边框；按短边缩放，避免窄框反转。
+            gap (* 1e-8 (min (- rx lx) (- ry ly))))
+      (setq ss (ssget "_W" (list (+ lx gap) (+ ly gap) z)
+                           (list (- rx gap) (- ry gap) z)))
+      (if ss
+        (progn
+          (sssetfirst nil ss)
+          (princ (strcat "\r\nFKX 已选择 " (itoa (sslength ss))
+                         " 个框内对象（包含框内标题栏内容）。"))
+          (if (= (getvar "PICKFIRST") 0)
+            (princ "\r\nPICKFIRST=0：后续命令请输入 P 使用上一选择集；启用预选可设 PICKFIRST=1。")))
+        (princ "\r\n框内没有选到对象；请确认方框完整显示，且对象未压边或跨框。"))))
+  (aa:cmd-end)
+  (princ))
 
 (defun fdx:add-rect (rect rects / found other)
   (foreach other rects (if (equal rect other 1e-6) (setq found T)))
