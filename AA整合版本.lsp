@@ -87,7 +87,7 @@
 ;;;   - DX2   : 按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
-;;;   - HG5   : 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
+;;;   - FIVE2   : 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
 ;;;   - HBBG  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
 ;;;   - HZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
 ;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
@@ -11381,7 +11381,7 @@
 
 ;;; =======================================================================================
 
-;;; 命令: HG5
+;;; 命令: FIVE2
 ;;; 功能: 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
 (defun aa:hg5-rows (segments left right / seg ys sorted out y)
   ;; 短于表宽20%的横线视为符号；分段表格线先合并后再识别。
@@ -11441,14 +11441,14 @@
     (setq rest (cdr rest) idx (1+ idx)))
   target)
 
-(defun c:HG5 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+(defun c:FIVE2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                ss i en ed typ layer obj bbox lo hi p q seg segments items circles
                left right bottom top z rows problem item out pair dy target count)
   (vl-load-com)
   (setq ss (ssget "_I"))
   (if (null ss)
     (progn
-      (princ "\r\n[HG5] 请框选同一列上下相接的完整表格（含全部边线、文字和圆符号）：")
+      (princ "\r\n[FIVE2] 请框选同一列上下相接的完整表格（含全部边线、文字和圆符号）：")
       (setq ss (ssget))))
   (if ss
     (progn
@@ -11514,9 +11514,9 @@
             (if (null (aa:hg5-text-y (/ (+ (cadr lo) (cadr hi)) 2.0) rows))
               (setq problem "有文字无法归入表格行。")))))
       (if problem
-        (princ (strcat "\r\n[HG5] " problem " 未修改。"))
+        (princ (strcat "\r\n[FIVE2] " problem " 未修改。"))
         (progn
-          (aa:cmd-begin "HG5")
+          (aa:cmd-begin "FIVE2")
           (foreach item items
             (setq en (car item) ed (cadr item) bbox (caddr item)
                   typ (cdr (assoc 0 ed)) out nil)
@@ -11539,14 +11539,14 @@
                  (setq out (cons pair out)))
                (setq out (reverse out))))
             (if (null (entmod out))
-              (error "HG5 修改失败，请按一次 U 撤销本次修改。"))
+              (error "FIVE2 修改失败，请按一次 U 撤销本次修改。"))
             (setq count (1+ count)))
           (redraw)
           (aa:cmd-end)
-          (princ (strcat "\r\n[HG5] 已统一 " (itoa (1- (length rows)))
+          (princ (strcat "\r\n[FIVE2] 已统一 " (itoa (1- (length rows)))
                          " 行，行高5（含标题和表头），处理 " (itoa count)
                          " 个对象；顶边和列宽保持原位。一次 U 可整体撤销。")))))
-    (princ "\r\n[HG5] 未选择对象。"))
+    (princ "\r\n[FIVE2] 未选择对象。"))
   (sssetfirst nil nil)
   (princ))
 

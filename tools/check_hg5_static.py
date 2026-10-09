@@ -1,4 +1,4 @@
-"""Execute HG5 geometry helpers against 363 supplied QW3 objects; no CAD."""
+"""Execute FIVE2 geometry helpers against 363 supplied QW3 objects; no CAD."""
 import json
 import math
 import random
@@ -10,7 +10,8 @@ from lsp_common import ARITY, defun_forms, parse, read_source, walk
 def check():
     _, source = read_source()
     funcs = {f[1]: f for f in defun_forms(parse(source))}
-    affected = {n: f for n, f in funcs.items() if n.startswith('aa:hg5-') or n == 'c:hg5'}
+    affected = {n: f for n, f in funcs.items() if n.startswith('aa:hg5-') or n == 'c:five2'}
+    assert 'c:hg5' not in funcs
     assert len(affected) == 7
     for name, f in affected.items():
         declared = set(f[2])
@@ -23,8 +24,8 @@ def check():
                 assert all(v in declared for v in n[1::2]), (name, n)
             if n[0] == 'foreach':
                 assert n[1] in declared, (name, n)
-    calls = list(walk(funcs['c:hg5']))
-    assert ['aa:cmd-begin', '"HG5"'] in calls and ['aa:cmd-end'] in calls
+    calls = list(walk(funcs['c:five2']))
+    assert ['aa:cmd-begin', '"FIVE2"'] in calls and ['aa:cmd-end'] in calls
     assert ['vlax-release-object', 'obj'] in calls
     assert not any(n[0] in ('command', 'entupd', 'vl-sort') for n in calls)
     def call(name, *args):
@@ -81,7 +82,7 @@ def check():
     assert not call('aa:hg5-side-p',[],left,rows[-1],rows[0])
     for y in rows:
         assert math.isclose(call('aa:hg5-y',y-20000,[v-20000 for v in rows]),call('aa:hg5-y',y,rows)-20000)
-    print(f'PASS HG5: 363 QW3 objects, {len(rows)-1} rows, top fixed, 5-unit spacing, '
+    print(f'PASS FIVE2: 363 QW3 objects, {len(rows)-1} rows, top fixed, 5-unit spacing, '
           '178 text centers, 33 rigid circles, attached connectors, duplicated borders and selection permutations')
 
 

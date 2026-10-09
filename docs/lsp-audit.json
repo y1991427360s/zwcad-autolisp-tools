@@ -3,7 +3,7 @@
   "files": [
     {
       "file": "AA整合版本.lsp",
-      "bytes": 670436,
+      "bytes": 670454,
       "top_level_forms": 718,
       "functions": 632,
       "commands": 135
@@ -1850,6 +1850,54 @@
       "mutation_evidence": true
     },
     {
+      "command": "FIVE2",
+      "file": "AA整合版本.lsp",
+      "line": 11444,
+      "description": "同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。",
+      "params": [],
+      "inputs": [
+        "ssget"
+      ],
+      "input_prompts": [],
+      "direct_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:hg5-point",
+        "aa:hg5-rows",
+        "aa:hg5-side-p",
+        "aa:hg5-text-y",
+        "aa:hg5-y",
+        "aa:tbhb-border-p",
+        "aa:tbhb-merge-segments",
+        "aa:tbhb-segment",
+        "aa:try-get-bbox"
+      ],
+      "reachable_dependencies": [
+        "aa:cmd-begin",
+        "aa:cmd-end",
+        "aa:hg5-circle-dy",
+        "aa:hg5-point",
+        "aa:hg5-rows",
+        "aa:hg5-side-p",
+        "aa:hg5-text-y",
+        "aa:hg5-y",
+        "aa:merge-sort",
+        "aa:msort-merge",
+        "aa:tbhb-border-p",
+        "aa:tbhb-merge-segments",
+        "aa:tbhb-segment",
+        "aa:try-get-bbox"
+      ],
+      "external_files": [],
+      "object_candidates": [
+        "CIRCLE",
+        "LINE",
+        "MTEXT",
+        "TEXT"
+      ],
+      "mutation_evidence": true
+    },
+    {
       "command": "FKX",
       "file": "AA整合版本.lsp",
       "line": 10051,
@@ -2471,54 +2519,6 @@
       ],
       "external_files": [],
       "object_candidates": [
-        "MTEXT",
-        "TEXT"
-      ],
-      "mutation_evidence": true
-    },
-    {
-      "command": "HG5",
-      "file": "AA整合版本.lsp",
-      "line": 11444,
-      "description": "同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。",
-      "params": [],
-      "inputs": [
-        "ssget"
-      ],
-      "input_prompts": [],
-      "direct_dependencies": [
-        "aa:cmd-begin",
-        "aa:cmd-end",
-        "aa:hg5-point",
-        "aa:hg5-rows",
-        "aa:hg5-side-p",
-        "aa:hg5-text-y",
-        "aa:hg5-y",
-        "aa:tbhb-border-p",
-        "aa:tbhb-merge-segments",
-        "aa:tbhb-segment",
-        "aa:try-get-bbox"
-      ],
-      "reachable_dependencies": [
-        "aa:cmd-begin",
-        "aa:cmd-end",
-        "aa:hg5-circle-dy",
-        "aa:hg5-point",
-        "aa:hg5-rows",
-        "aa:hg5-side-p",
-        "aa:hg5-text-y",
-        "aa:hg5-y",
-        "aa:merge-sort",
-        "aa:msort-merge",
-        "aa:tbhb-border-p",
-        "aa:tbhb-merge-segments",
-        "aa:tbhb-segment",
-        "aa:try-get-bbox"
-      ],
-      "external_files": [],
-      "object_candidates": [
-        "CIRCLE",
-        "LINE",
         "MTEXT",
         "TEXT"
       ],
