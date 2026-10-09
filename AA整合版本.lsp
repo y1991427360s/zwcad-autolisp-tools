@@ -87,6 +87,7 @@
 ;;;   - DX2   : 按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
+;;;   - HG5   : 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
 ;;;   - HBBG  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
 ;;;   - HZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
 ;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
@@ -11379,6 +11380,176 @@
 )
 
 ;;; =======================================================================================
+
+;;; 命令: HG5
+;;; 功能: 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
+(defun aa:hg5-rows (segments left right / seg ys sorted out y)
+  ;; 短于表宽20%的横线视为符号；分段表格线先合并后再识别。
+  (foreach seg segments
+    (if (and (= (car seg) "H")
+             (>= (- (nth 3 seg) (nth 2 seg)) (* 0.2 (- right left))))
+      (setq ys (cons (cadr seg) ys))))
+  (setq sorted (aa:merge-sort ys '>))
+  (foreach y sorted
+    (if (or (null out) (not (equal y (car out) 0.01)))
+      (setq out (cons y out))))
+  (reverse out))
+
+(defun aa:hg5-y (y rows / top rest a b idx found result)
+  ;; 将旧边界分段映射到等距新边界，端点小偏差保留，避免倾斜线失真。
+  (setq top (car rows) rest rows idx 0 result y)
+  (cond
+    ((>= y top) y)
+    ((<= y (last rows)) (+ (- top (* 5.0 (1- (length rows)))) (- y (last rows))))
+    (T
+      (while (and (cdr rest) (not found))
+        (setq a (car rest) b (cadr rest))
+        (if (and (<= y a) (>= y b))
+          (setq result (- top (+ (* idx 5.0) (* 5.0 (/ (- a y) (- a b)))))
+                found T))
+        (setq rest (cdr rest) idx (1+ idx)))
+      result)))
+
+(defun aa:hg5-side-p (segments x bottom top / seg found)
+  (foreach seg segments
+    (if (and (= (car seg) "V") (equal (cadr seg) x 0.01)
+             (<= (nth 2 seg) (+ bottom 0.01))
+             (>= (nth 3 seg) (- top 0.01)))
+      (setq found T)))
+  found)
+
+(defun aa:hg5-circle-dy (p circles rows / circle center radius tip dy)
+  ;; 连接圆符号的线端点跟随圆平移，圆的半径保持原值。
+  (foreach circle circles
+    (setq center (car circle) radius (cadr circle))
+    (if (equal (car p) (car center) 0.03)
+      (foreach tip (list (+ (cadr center) radius) (- (cadr center) radius))
+        (if (equal (cadr p) tip 0.03)
+          (setq dy (- (aa:hg5-y (cadr center) rows) (cadr center)))))))
+  dy)
+
+(defun aa:hg5-point (p rows circles / dy)
+  (setq dy (aa:hg5-circle-dy p circles rows))
+  (list (car p) (if dy (+ (cadr p) dy) (aa:hg5-y (cadr p) rows)) (caddr p)))
+
+(defun aa:hg5-text-y (y rows / rest idx target)
+  ;; 文字按可见中心归行；合并单元格内的文字保持原有行归属。
+  (setq rest rows idx 0)
+  (while (and (cdr rest) (null target))
+    (if (and (<= y (+ (car rest) 0.01)) (>= y (- (cadr rest) 0.01)))
+      (setq target (- (car rows) (+ (* idx 5.0) 2.5))))
+    (setq rest (cdr rest) idx (1+ idx)))
+  target)
+
+(defun c:HG5 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               ss i en ed typ layer obj bbox lo hi p q seg segments items circles
+               left right bottom top z rows problem item out pair dy target count)
+  (vl-load-com)
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn
+      (princ "\r\n[HG5] 请框选同一列上下相接的完整表格（含全部边线、文字和圆符号）：")
+      (setq ss (ssget))))
+  (if ss
+    (progn
+      (setq i 0 count 0)
+      ;; 先缓存和检查全部对象，检查失败时不修改图纸。
+      (repeat (sslength ss)
+        (setq en (ssname ss i) ed (entget en) typ (cdr (assoc 0 ed))
+              layer (tblsearch "LAYER" (cdr (assoc 8 ed))) bbox nil seg nil)
+        (cond
+          ((not (member typ '("LINE" "TEXT" "MTEXT" "CIRCLE")))
+           (setq problem "仅支持直线、单行/多行文字和圆，请先处理块或多段线。"))
+          ((/= 0 (logand 4 (cdr (assoc 70 layer))))
+           (setq problem "所选对象含锁定图层。"))
+          ((and (assoc 210 ed) (not (equal (cdr (assoc 210 ed)) '(0.0 0.0 1.0) 1e-6)))
+           (setq problem "仅支持 WCS XY 平面内的表格。"))
+          (T
+            (setq obj (vlax-ename->vla-object en) bbox (aa:try-get-bbox obj))
+            (vlax-release-object obj)
+            (if (null bbox)
+              (setq problem "无法读取部分对象的可见范围。")
+              (progn
+                (setq lo (car bbox) hi (cadr bbox))
+                (if (null z) (setq z (caddr lo)))
+                (if (or (not (equal z (caddr lo) 0.01))
+                        (not (equal z (caddr hi) 0.01)))
+                  (setq problem "对象不在同一标高。"))
+                (cond
+                  ((= typ "LINE")
+                   (setq p (cdr (assoc 10 ed)) q (cdr (assoc 11 ed))
+                         seg (aa:tbhb-segment p q))
+                   (if seg (setq segments (cons seg segments)))
+                   ;; 整列的左右范围由横线确定，不使用可能越界的文字。
+                   (if (and seg (= (car seg) "H"))
+                     (setq left (if left (min left (nth 2 seg)) (nth 2 seg))
+                           right (if right (max right (nth 3 seg)) (nth 3 seg)))))
+                  ((= typ "CIRCLE")
+                   (setq circles (cons (list (cdr (assoc 10 ed)) (cdr (assoc 40 ed))) circles)))
+                  ((> (- (cadr hi) (cadr lo)) 4.8)
+                   (setq problem "部分文字高度超过4.8，无法保留字高放入行高5。")))
+                (setq items (cons (list en ed bbox) items))))))
+        (setq i (1+ i)))
+      (if (and (null problem) left right)
+        (progn
+          (setq segments (aa:tbhb-merge-segments segments)
+                rows (aa:hg5-rows segments left right)
+                top (car rows) bottom (last rows))
+          (if (or (< (length rows) 2)
+                  (not (aa:tbhb-border-p segments top left right))
+                  (not (aa:tbhb-border-p segments bottom left right))
+                  (not (aa:hg5-side-p segments left bottom top))
+                  (not (aa:hg5-side-p segments right bottom top)))
+            (setq problem "未找到一整列连续闭合的表格，请完整框选；不同列或不相接的表格分次处理。"))))
+      (if (null rows) (setq problem "未找到表格横线。"))
+      (if (null problem)
+        (foreach item items
+          (setq ed (cadr item) bbox (caddr item) lo (car bbox) hi (cadr bbox)
+                typ (cdr (assoc 0 ed)))
+          ;; 文字允许少量字形越出左右框；表外对象和跨边框对象拒绝处理。
+          (if (or (< (car lo) (- left 0.5)) (> (car hi) (+ right 0.5))
+                  (< (cadr lo) (- bottom 0.01)) (> (cadr hi) (+ top 0.01)))
+            (setq problem "选择中含表外对象或多列内容，请只选一整列相接表格。"))
+          (if (member typ '("TEXT" "MTEXT"))
+            (if (null (aa:hg5-text-y (/ (+ (cadr lo) (cadr hi)) 2.0) rows))
+              (setq problem "有文字无法归入表格行。")))))
+      (if problem
+        (princ (strcat "\r\n[HG5] " problem " 未修改。"))
+        (progn
+          (aa:cmd-begin "HG5")
+          (foreach item items
+            (setq en (car item) ed (cadr item) bbox (caddr item)
+                  typ (cdr (assoc 0 ed)) out nil)
+            (cond
+              ((= typ "LINE")
+               (setq p (cdr (assoc 10 ed)) q (cdr (assoc 11 ed)))
+               (setq out (subst (cons 10 (aa:hg5-point p rows circles)) (assoc 10 ed) ed)
+                     out (subst (cons 11 (aa:hg5-point q rows circles)) (assoc 11 out) out)))
+              ((= typ "CIRCLE")
+               (setq p (cdr (assoc 10 ed))
+                     q (list (car p) (aa:hg5-y (cadr p) rows) (caddr p))
+                     out (subst (cons 10 q) (assoc 10 ed) ed)))
+              (T
+               (setq target (aa:hg5-text-y (/ (+ (cadar bbox) (cadadr bbox)) 2.0) rows)
+                     dy (- target (/ (+ (cadar bbox) (cadadr bbox)) 2.0)))
+               ;; 普通TEXT的10/11均平移；MTEXT的11是方向向量，不修改。
+               (foreach pair ed
+                 (if (or (= (car pair) 10) (and (= typ "TEXT") (= (car pair) 11)))
+                   (setq pair (cons (car pair) (mapcar '+ (cdr pair) (list 0.0 dy 0.0)))))
+                 (setq out (cons pair out)))
+               (setq out (reverse out))))
+            (if (null (entmod out))
+              (error "HG5 修改失败，请按一次 U 撤销本次修改。"))
+            (setq count (1+ count)))
+          (redraw)
+          (aa:cmd-end)
+          (princ (strcat "\r\n[HG5] 已统一 " (itoa (1- (length rows)))
+                         " 行，行高5（含标题和表头），处理 " (itoa count)
+                         " 个对象；顶边和列宽保持原位。一次 U 可整体撤销。")))))
+    (princ "\r\n[HG5] 未选择对象。"))
+  (sssetfirst nil nil)
+  (princ))
+
 ;;; 命令: HBBG
 ;;; 功能: 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题/列顺序。
 ;;; =======================================================================================

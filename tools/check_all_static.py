@@ -147,6 +147,7 @@ def run_command_checks():
         'check_hzbg_static.py',
         'check_sss_static.py',
         'check_tbhb_static.py',
+        'check_hg5_static.py',
     ]
     for name in checks:
         path = tools / name
