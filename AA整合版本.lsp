@@ -14,7 +14,7 @@
 ;;;   - YSDL  : 提取选中文字到CSV文件，并改变文字颜色。
 ;;;   - HDDL  : 直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。
 ;;;   - QSTXT : 快速从当前选择中仅选中所有文字对象。
-;;;   - FKX   : 点选闭合矩形或指定两角点，仅选中框内对象，排除边框及压边、跨框对象。
+;;;   - FKX   : 单击框内空白处选择正文对象，自动排除图框和右下角标题栏；支持手动指定范围。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距从上到下排列。
@@ -9930,54 +9930,196 @@
       (if ok (fdx:rect-from-points (reverse pts))))))
 
 ;;; =======================================================================================
-;;; 命令: FKX
-;;; 功能: 点选闭合矩形或指定两角点，仅选中框内对象，排除边框及压边、跨框对象。
-;;; 矩形沿当前 UCS；复用 FDX 的闭合、四角及无弧段检查。区域须完整显示在当前视图。
+;;; FKX: 点框内空白处选内容，自动排除右下角标题栏。
+;;; 搜索仅使用当前视图附近的 _C 选择集；坐标和矩形均为当前 UCS。
 ;;; =======================================================================================
+(defun fkx:point-in-p (pt rect tol)
+  (and (> (car pt) (+ (nth 0 rect) tol))
+       (> (cadr pt) (+ (nth 1 rect) tol))
+       (< (car pt) (- (nth 2 rect) tol))
+       (< (cadr pt) (- (nth 3 rect) tol))))
+
+(defun fkx:area (rect)
+  (* (- (nth 2 rect) (nth 0 rect)) (- (nth 3 rect) (nth 1 rect))))
+
+(defun fkx:choose-frame (rects pt / best rect)
+  (foreach rect rects
+    (if (and (fkx:point-in-p pt rect 1e-6)
+             (or (null best) (< (fkx:area rect) (fkx:area best))))
+      (setq best rect)))
+  best)
+
+(defun fkx:overlap-p (box rect tol)
+  (and (<= (car (car box)) (+ (nth 2 rect) tol))
+       (>= (car (cadr box)) (- (nth 0 rect) tol))
+       (<= (cadr (car box)) (+ (nth 3 rect) tol))
+       (>= (cadr (cadr box)) (- (nth 1 rect) tol))))
+
+(defun fkx:inside-p (box rect tol)
+  (and (fkx:point-in-p (car box) rect tol)
+       (fkx:point-in-p (cadr box) rect tol)))
+
+(defun fkx:box (en / obj result box lo hi pts x y z)
+  ;; 只读包围盒；转换 WCS 的八角到 UCS，保守包络后再判定。
+  (vl-load-com)
+  (setq result (vl-catch-all-apply 'vlax-ename->vla-object (list en)))
+  (if (not (vl-catch-all-error-p result))
+    (progn
+      (setq obj result box (aa:try-get-bbox obj))
+      (vlax-release-object obj)
+      (if box
+        (progn
+          (setq lo (car box) hi (cadr box))
+          (foreach x (list (car lo) (car hi))
+            (foreach y (list (cadr lo) (cadr hi))
+              (foreach z (list (caddr lo) (caddr hi))
+                (setq pts (cons (trans (list x y z) 0 1) pts)))))
+          (list (list (apply 'min (mapcar 'car pts))
+                      (apply 'min (mapcar 'cadr pts)))
+                (list (apply 'max (mapcar 'car pts))
+                      (apply 'max (mapcar 'cadr pts)))))))))
+
+(defun fkx:collect (ss / i en ed typ box items tops p q)
+  ;; 缓存每个对象的包围盒和文字，只读取一次。tops 为实际水平直线。
+  (setq i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i) ed (entget en) typ (cdr (assoc 0 ed)))
+      (if (setq box (fkx:box en))
+        (setq items (cons (list en typ box
+                               (if (member typ '("TEXT" "MTEXT" "ATTDEF"))
+                                 (aa:ysdl-get-plain-text ed) "")) items)))
+      (if (= typ "LINE")
+        (progn
+          (setq p (trans (cdr (assoc 10 ed)) 0 1)
+                q (trans (cdr (assoc 11 ed)) 0 1))
+          (if (and (equal (cadr p) (cadr q) 1e-6)
+                   (equal (caddr p) (caddr q) 1e-6))
+            (setq tops (cons (list (min (car p) (car q)) (cadr p)
+                                   (max (car p) (car q))) tops)))))
+      (setq i (1+ i))))
+  (list (reverse items) tops))
+
+(defun fkx:label-kind (text / value)
+  (setq value (strcase text))
+  (cond
+    ((or (vl-string-search "图样名称" value) (vl-string-search "图纸名称" value)
+         (vl-string-search "图名" value) (vl-string-search "DWG NAME" value)
+         (vl-string-search "DRAWING TITLE" value)) 1)
+    ((or (vl-string-search "图样代号" value) (vl-string-search "图号" value)
+         (vl-string-search "DWG NO" value) (vl-string-search "DRAWING NO" value)) 2)))
+
+(defun fkx:title-rect (rect items tops / w h edge cut name-found no-found item box center kind best)
+  ;; 右下角长横线 + 两种独立标题字段共同确认；不依赖图层、句柄或固定坐标。
+  (setq w (- (nth 2 rect) (nth 0 rect)) h (- (nth 3 rect) (nth 1 rect)))
+  (foreach edge tops
+    (if (and (equal (nth 2 edge) (nth 2 rect) 1e-4)
+             (> (nth 0 edge) (nth 0 rect))
+             (>= (- (nth 2 edge) (nth 0 edge)) (* w 0.2))
+             (<= (- (nth 2 edge) (nth 0 edge)) (* w 0.85))
+             (> (nth 1 edge) (+ (nth 1 rect) 1e-4))
+             (<= (- (nth 1 edge) (nth 1 rect)) (* h 0.35)))
+      (progn
+        (setq cut (list (nth 0 edge) (nth 1 rect) (nth 2 rect) (nth 1 edge))
+              name-found nil no-found nil)
+        (foreach item items
+          (setq box (nth 2 item)
+                center (list (/ (+ (car (car box)) (car (cadr box))) 2.0)
+                             (/ (+ (cadr (car box)) (cadr (cadr box))) 2.0)))
+          (if (fkx:point-in-p center cut -1e-4)
+            (progn
+              (setq kind (fkx:label-kind (nth 3 item)))
+              (if (equal kind 1) (setq name-found T))
+              (if (equal kind 2) (setq no-found T)))))
+        (if (and name-found no-found
+                 (or (null best) (> (fkx:area cut) (fkx:area best))))
+          (setq best cut)))))
+  best)
+
+(defun fkx:filter (items rect title / ss item tol)
+  (setq ss (ssadd) tol (max 1e-6 (* 1e-8 (min (- (nth 2 rect) (nth 0 rect))
+                                             (- (nth 3 rect) (nth 1 rect))))))
+  (foreach item items
+    (if (and (fkx:inside-p (nth 2 item) rect tol)
+             (not (fkx:overlap-p (nth 2 item) title 1e-4)))
+      (ssadd (car item) ss)))
+  ss)
+
+;;; 命令: FKX
+;;; 功能: 单击框内空白处选择内部对象，自动排除图框和右下角标题栏；支持手动指定范围。
 (defun c:FKX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
-               picked rect p1 p2 z lx ly rx ry gap ss)
+               pt nearby radius screen rects i en rect title cache items tops
+               picked p1 p2 z ss e1 e2)
   (aa:cmd-begin "FKX")
   (sssetfirst nil nil)
-  (princ "\r\n[FKX] 请先让整个方框显示在屏幕中；只选择完全在框内的对象。")
-  (setq picked (entsel "\r\n点选闭合矩形边框 <回车指定两个对角点>: "))
-  (cond
-    (picked
-     (if (member (cdr (assoc 0 (entget (car picked)))) '("LWPOLYLINE" "POLYLINE"))
-       (setq rect (fdx:poly-rect (car picked))))
-     (if (null rect)
-       (princ "\r\n所选对象不是沿当前 UCS 的闭合直边矩形。请重试；直线组成的框可用两角点方式。")))
-    (T
-     (setq p1 (getpoint "\r\n指定方框第一个角点: "))
-     (if p1
-       (progn
-         (setq p2 (getcorner p1 "\r\n指定方框的对角点: "))
-         (if p2
-           (progn
-             (setq z (caddr p1))
-             (setq rect (fdx:rect-from-points
-                          (list (list (car p1) (cadr p1) z)
-                                (list (car p2) (cadr p1) z)
-                                (list (car p2) (cadr p2) z)
-                                (list (car p1) (cadr p2) z))))))))
-     (if (null rect) (princ "\r\n未指定有效矩形，FKX 已取消。"))))
+  (princ "\r\n[FKX] 请完整显示目标图框，并在正文空白处点一下；自动排除右下角标题栏。")
+  (setq pt (getpoint "\r\n点取方框内空白处 <回车手动选框>: "))
+  (if pt
+    (progn
+      (setq screen (getvar "SCREENSIZE")
+            radius (* (getvar "VIEWSIZE") (max 1.0 (/ (car screen) (float (cadr screen)))))
+            nearby (ssget "_C" (list (- (car pt) radius) (- (cadr pt) radius) (caddr pt))
+                               (list (+ (car pt) radius) (+ (cadr pt) radius) (caddr pt))
+                               '((0 . "LWPOLYLINE,POLYLINE")))
+            i 0)
+      (if nearby
+        (repeat (sslength nearby)
+          (setq en (ssname nearby i))
+          (if (setq rect (fdx:poly-rect en))
+            (setq rects (fdx:add-rect rect rects)))
+          (setq i (1+ i))))
+      (setq rect (fkx:choose-frame rects pt))
+      (if (null rect)
+        (princ "\r\n未找到包含该点、沿当前 UCS 的闭合矩形。请完整显示图框，或回车使用手动方式。")))
+    (progn
+      (setq picked (entsel "\r\n点选闭合矩形边框 <回车指定两个对角点>: "))
+      (if picked
+        (if (member (cdr (assoc 0 (entget (car picked)))) '("LWPOLYLINE" "POLYLINE"))
+          (setq rect (fdx:poly-rect (car picked))))
+        (progn
+          (setq p1 (getpoint "\r\n指定第一个角点: "))
+          (if (and p1 (setq p2 (getcorner p1 "\r\n指定对角点: ")))
+            (progn
+              (setq z (caddr p1))
+              (setq rect (fdx:rect-from-points
+                           (list (list (car p1) (cadr p1) z)
+                                 (list (car p2) (cadr p1) z)
+                                 (list (car p2) (cadr p2) z)
+                                 (list (car p1) (cadr p2) z))))))))
+      (if (null rect) (princ "\r\n未指定有效矩形，FKX 已取消。"))))
   (if rect
     (progn
-      (setq lx (nth 0 rect) ly (nth 1 rect)
-            rx (nth 2 rect) ry (nth 3 rect) z (nth 4 rect)
-            ;; 微量内缩同时排除重叠边框；按短边缩放，避免窄框反转。
-            gap (* 1e-8 (min (- rx lx) (- ry ly))))
-      (setq ss (ssget "_W" (list (+ lx gap) (+ ly gap) z)
-                           (list (- rx gap) (- ry gap) z)))
-      (if ss
+      (setq cache (fkx:collect (ssget "_C" (list (nth 0 rect) (nth 1 rect) (nth 4 rect))
+                                          (list (nth 2 rect) (nth 3 rect) (nth 4 rect))))
+            items (car cache) tops (cadr cache)
+            title (fkx:title-rect rect items tops))
+      (if (null title)
         (progn
-          (sssetfirst nil ss)
-          (princ (strcat "\r\nFKX 已选择 " (itoa (sslength ss))
-                         " 个框内对象（包含框内标题栏内容）。"))
-          (if (= (getvar "PICKFIRST") 0)
-            (princ "\r\nPICKFIRST=0：后续命令请输入 P 使用上一选择集；启用预选可设 PICKFIRST=1。")))
-        (princ "\r\n框内没有选到对象；请确认方框完整显示，且对象未压边或跨框。"))))
+          (princ "\r\n未可靠识别标题栏，请指定标题栏的两个角点；回车取消本次选择。")
+          (setq e1 (getpoint "\r\n标题栏第一个角点: "))
+          (if (and e1 (setq e2 (getcorner e1 "\r\n标题栏对角点: ")))
+            (setq title (list (min (car e1) (car e2)) (min (cadr e1) (cadr e2))
+                              (max (car e1) (car e2)) (max (cadr e1) (cadr e2)))))
+          (if (and title (or (<= (- (nth 2 title) (nth 0 title)) 1e-6)
+                             (<= (- (nth 3 title) (nth 1 title)) 1e-6)))
+            (setq title nil))))
+      (cond
+        ((null title) (princ "\r\n未确定排除范围，本次未生成选择集。"))
+        ((and pt (fkx:point-in-p pt title -1e-4))
+         (princ "\r\n点击位置位于标题栏内，请在正文空白处重试。"))
+        (T
+         (setq ss (fkx:filter items rect title))
+         (if (> (sslength ss) 0)
+           (progn
+             (sssetfirst nil ss)
+             (princ (strcat "\r\nFKX 已选择 " (itoa (sslength ss))
+                            " 个正文对象，已排除图框、压边/跨框对象和标题栏。"))
+             (if (= (getvar "PICKFIRST") 0)
+               (princ "\r\nPICKFIRST=0：请设 PICKFIRST=1 后重跑 FKX，再使用筛选结果。")))
+           (princ "\r\n未找到可选正文对象。"))))))
   (aa:cmd-end)
   (princ))
+
 
 (defun fdx:add-rect (rect rects / found other)
   (foreach other rects (if (equal rect other 1e-6) (setq found T)))

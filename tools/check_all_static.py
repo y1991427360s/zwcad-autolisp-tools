@@ -130,6 +130,7 @@ def run_command_checks():
     checks = [
         'check_t_static.py',
         'check_fdx_static.py',
+        'check_fkx_static.py',
         'check_cc_static.py',
         'check_c1c2_static.py',
         'check_des_static.py',

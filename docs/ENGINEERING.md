@@ -24,7 +24,7 @@ python scripts/audit_lsp.py --write
 python scripts/check_project.py
 ```
 
-`check_project.py` 顺序执行 9 项基础回归、公共展开一致性、审计产物一致性、两份命令索引检查、18 项命令专项检查。只读检查不连接 CAD、不生成预览图，不改变图纸或启动项。
+`check_project.py` 顺序执行 9 项基础回归、公共展开一致性、审计产物一致性、两份命令索引检查、19 项命令专项检查。只读检查不连接 CAD、不生成预览图，不改变图纸或启动项。
 
 单独运行：
 
