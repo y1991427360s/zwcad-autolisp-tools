@@ -20,6 +20,7 @@
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距从上到下排列。
 ;;;   - H2    : 先将选中文字统一为左中对正，右侧文字在最上、越靠左越靠下，按指定间距从上到下排列。
 ;;;   - Y     : 将选中对象的颜色快速变为青色。
+;;;   - DZ    : 将所选其他文字改为Y命令的青色，保留纯数字及数字后接单个小写a的文字原色。
 ;;;   - YY    : 将选中对象快速改为黄色。
 ;;;   - RR    : 将选中对象快速改为红色。
 ;;;   - WW    : 将选中对象快速改为白色；支持尺寸标注（转角标注等全要素变白）、引线及块内实体。
@@ -82,7 +83,7 @@
 ;;;   - CY    : 将选中对象按 5 个单位的递增间距向右复制指定份数。
 ;;;   - JZ    : 将矩形水平中线对齐到1条或2条直线中心线，可同步居中文字。
 ;;;   - DX    : 批量整理 100×100 方格内的端子号、原理号和终点柜文字，并将整组文字居中。
-;;;   - FDX   : 先选方框，再连续选择每批文字，按空格依次移动到下一方框并自动按 DX 规则排列。
+;;;   - FDX   : 先选方框，按从上到下、每行从左到右分配；每批文字按空格移动并按 DX 规则排列。
 ;;;   - DX1   : 提取选中文字及坐标，青色文字额外标注“端子名”，复制到剪贴板。
 ;;;   - DX2   : 按方格从左到右、从上到下导出文字，每个方格一行，框内按行排序并用顿号连接，复制到剪贴板。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
@@ -114,8 +115,8 @@
 ;;;   - C1    : 复制文字并递增减号右侧编号，使用原生拖动预览和捕捉连续放置。
 ;;;   - C2    : 复制文字并递减减号右侧编号，使用原生拖动预览和捕捉连续放置。
 ;;;   - C3    : 复制文字并每次将减号右侧编号加 2，使用原生拖动预览和捕捉连续放置。
-;;;   - ZJ    : 选中两条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
-;;;   - YJ    : 选中两条水平线后向右生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
+;;;   - ZJ    : 选中多条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
+;;;   - YJ    : 选中多条水平线后向右生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
 ;;;   - KMZ   : 选中两条水平线后向左生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。
 ;;;   - KMY   : 选中两条水平线后向右生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。
 ;;;   - LNZ   : 选中两条水平线后向左生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。
@@ -721,7 +722,7 @@
 (setq *ztf-selected-font* nil)
 (setq *ztf-all-styles* nil)
 (setq *ztf-filtered-styles* nil)
-(setq *ztf-project-dir* "E:/366256/ZW-auto_lisp")
+(setq *ztf-project-dir* "D:/Syncthing/Oracle-Sync/LISP/ZW-auto_lisp")
 
 (defun aa:insert-sort (items comparator / sorted item before)
   ;; 使用插入排序，避免 ZWCAD 2026 对 vl-sort 比较器的性能问题。
@@ -938,23 +939,47 @@
   (set_tile "style_info"
             (strcat "Style: " styleName "    Objects: " (itoa count))))
 
-(defun ztf:apply-font (/ styleObj fontPath result doc)
+(defun ztf:apply-font (/ styleObj fontPath fontName resolved result doc)
   (if (and *ztf-style-name* *ztf-selected-font*)
     (progn
       (setq fontPath (cdr *ztf-selected-font*))
-      (setq styleObj (ztf:style-object *ztf-style-name*))
-      (if styleObj
+      ;; SHX 使用支持路径可解析的文件名，避免 STYLE 将带路径的引用
+      ;; 与字体列表中的同名项分开显示。系统字体仍保留完整路径。
+      (setq fontName (strcat (vl-filename-base fontPath)
+                            (vl-filename-extension fontPath)))
+      (if (wcmatch (strcase fontName) "*.SHX")
         (progn
-          (setq result
-            (vl-catch-all-apply 'vla-put-FontFile
-                                (list styleObj fontPath)))
-          (if (vl-catch-all-error-p result)
-            (alert (strcat "字体写入失败：\r\n" (vl-catch-all-error-message result)))
+          (setq resolved (findfile fontName))
+          ;; 只在短文件名仍指向所选文件时写入，避免同名字体被替换。
+          (if (and resolved
+                   (= (strcase (vl-string-translate "/" "\\" resolved))
+                      (strcase (vl-string-translate "/" "\\" fontPath))))
+            (setq fontPath fontName)
+            (setq fontPath nil))))
+      (if (not fontPath)
+        (alert "所选 SHX 字体不能通过支持路径中的文件名定位，或存在同名冲突。请检查支持文件搜索路径。")
+        (progn
+          (setq styleObj (ztf:style-object *ztf-style-name*))
+          (if styleObj
             (progn
-              (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
-              (vla-Regen doc 1)
-              (alert (strcat "已将样式“" *ztf-style-name*
-                             "”的字体改为：\r\n" (car *ztf-selected-font*))))))))
+              (setq result
+                (vl-catch-all-apply 'vla-put-FontFile
+                                    (list styleObj fontPath)))
+              (if (vl-catch-all-error-p result)
+                (alert (strcat "字体写入失败：\r\n" (vl-catch-all-error-message result)))
+                (progn
+                  (setq resolved (cdr (assoc 3 (tblsearch "STYLE" *ztf-style-name*))))
+                  (if (or (not (wcmatch (strcase fontName) "*.SHX"))
+                          (and (= (type resolved) 'STR)
+                               (= (strcase resolved) (strcase fontPath))))
+                    (progn
+                      (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+                      (vla-Regen doc 1)
+                      (alert (strcat "已将样式“" *ztf-style-name*
+                                     "”的字体改为：\r\n" (car *ztf-selected-font*))))
+                    (alert "字体已写入，但样式保存的字体引用与预期不一致，请在 STYLE 中检查。"))))
+              (vlax-release-object styleObj))
+            (alert "找不到所选文字样式。")))))
     (alert "请先选择文字样式和字体。")))
 
 (defun ztf:run-dialog (/ dclPath dclId status styles styleIndex)
@@ -1302,13 +1327,190 @@
   (strcat "\"" field "\"")
 )
 
-;;; 命令: YSDL
-;;; 功能: 提取选中的文字，自动保存或追加到桌面指定名称的CSV文件中，然后改变文字颜色。
+(defun aa:ysdl-clean-text (str / s)
+  (setq s (if str str ""))
+  (if (vl-string-search "至" s)
+    (setq s (aa:str-replace-all "至" "" s))
+  )
+  (vl-string-trim " \t\r\n" s)
+)
+
+(defun aa:ysdl-reorder-row (row / c0 c1 c2 c3 c4 rest)
+  (if (>= (length row) 5)
+    (progn
+      (setq c0 (nth 0 row)   ; 原第1列: 起点
+            c1 (nth 1 row)   ; 原第2列: 电缆编号
+            c2 (nth 2 row)   ; 原第3列: 终点
+            c3 (nth 3 row)   ; 原第4列: 电缆型号
+            c4 (nth 4 row)   ; 原第5列: 芯数
+            rest row)
+      (repeat 5
+        (if rest (setq rest (cdr rest))))
+      ;; 重排后前五列: 1-电缆编号, 2-芯数, 3-电缆型号, 4-起点, 5-终点，后续列保持原样
+      (append (list c1 c4 c3 c0 c2) rest)
+    )
+    row
+  )
+)
+
 ;;; =======================================================================================
-(defun c:YSDL (/ aa:doc aa:undo-open *error* ss i ent edata text-data-list sorted-data
-               csv-path f fuzz userprofile file-mode action-msg
-               ename targetColor text-string ins-point all-rows current-row
-               last-y item current-y line-str cell cell-safe row)
+;;; YSDL 辅助函数: 多分类矩形框与行数据处理
+;;; =======================================================================================
+
+(defun aa:ysdl-get-lwpoly-rect (ent / edata closed pts has-bulge pair p x y min-x max-x min-y max-y w h ok z)
+  (if (and ent (setq edata (entget ent)) (= (cdr (assoc 0 edata)) "LWPOLYLINE"))
+    (progn
+      (setq closed (/= 0 (logand 1 (cond ((cdr (assoc 70 edata))) (0))))
+            pts    '()
+            has-bulge nil
+            z      (cond ((cdr (assoc 38 edata))) (0.0)))
+      (foreach pair edata
+        (cond
+          ((= (car pair) 10)
+           (setq p (trans (list (cadr pair) (caddr pair) z) ent 0))
+           (setq pts (cons (list (car p) (cadr p)) pts)))
+          ((= (car pair) 42)
+           (if (> (abs (cdr pair)) 1e-4)
+             (setq has-bulge T)))
+        )
+      )
+      (setq pts (reverse pts))
+      (if (and (not has-bulge) (>= (length pts) 4))
+        (progn
+          (if (and (>= (length pts) 5) (equal (car pts) (last pts) 1e-4))
+            (setq pts (reverse (cdr (reverse pts)))
+                  closed T)
+          )
+          (if (and closed (= (length pts) 4))
+            (progn
+              (setq min-x (car (car pts))
+                    max-x (car (car pts))
+                    min-y (cadr (car pts))
+                    max-y (cadr (car pts)))
+              (foreach p (cdr pts)
+                (setq x (car p)
+                      y (cadr p))
+                (if (< x min-x) (setq min-x x))
+                (if (> x max-x) (setq max-x x))
+                (if (< y min-y) (setq min-y y))
+                (if (> y max-y) (setq max-y y))
+              )
+              (setq w (- max-x min-x)
+                    h (- max-y min-y))
+              (if (and (<= 4800.0 w 5200.0)
+                       (<= 4800.0 h 5200.0))
+                (progn
+                  (setq ok T)
+                  (foreach p pts
+                    (setq x (car p)
+                          y (cadr p))
+                    (if (not (and (or (<= (abs (- x min-x)) 50.0)
+                                      (<= (abs (- x max-x)) 50.0))
+                                  (or (<= (abs (- y min-y)) 50.0)
+                                      (<= (abs (- y max-y)) 50.0))))
+                      (setq ok nil)
+                    )
+                  )
+                  (if ok
+                    (list min-x min-y max-x max-y)
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+)
+
+(defun aa:ysdl-sort-boxes (boxes / sorted out band anchor tol box)
+  (if boxes
+    (progn
+      ;; 1. 按顶边 Y 降序排序 (从上到下)
+      (setq sorted (aa:merge-sort boxes '(lambda (a b) (> (nth 3 a) (nth 3 b)))))
+      (setq out '())
+      (while sorted
+        (setq box    (car sorted)
+              sorted (cdr sorted)
+              band   (list box)
+              anchor (nth 3 box)
+              tol    1000.0)
+        (while (and sorted (<= (abs (- (nth 3 (car sorted)) anchor)) tol))
+          (setq band   (cons (car sorted) band)
+                sorted (cdr sorted))
+        )
+        ;; 同一行内按左边 X 升序排序 (从左到右)
+        (setq band (aa:merge-sort band '(lambda (a b) (< (car a) (car b)))))
+        (foreach box band
+          (setq out (cons box out))
+        )
+      )
+      (reverse out)
+    )
+    '()
+  )
+)
+
+(defun aa:ysdl-parse-rows-from-text-data (text-data-list fuzz / sorted-by-y all-rows cur-row-items base-y item current-y)
+  (if text-data-list
+    (progn
+      (setq sorted-by-y
+             (aa:merge-sort text-data-list
+                      '(lambda (a b)
+                         (> (caddr a) (caddr b))
+                       )
+             )
+      )
+      (setq all-rows      '()
+            cur-row-items '()
+            base-y        nil)
+      (foreach item sorted-by-y
+        (setq current-y (caddr item))
+        (if (or (null base-y) (<= (abs (- current-y base-y)) fuzz))
+          (progn
+            (setq cur-row-items (cons item cur-row-items))
+            (if (null base-y) (setq base-y current-y))
+          )
+          (progn
+            (setq cur-row-items (aa:merge-sort cur-row-items '(lambda (a b) (< (cadr a) (cadr b)))))
+            (setq all-rows (cons (mapcar 'car cur-row-items) all-rows))
+            (setq cur-row-items (list item)
+                  base-y        current-y)
+          )
+        )
+      )
+      (if cur-row-items
+        (progn
+          (setq cur-row-items (aa:merge-sort cur-row-items '(lambda (a b) (< (cadr a) (cadr b)))))
+          (setq all-rows (cons (mapcar 'car cur-row-items) all-rows))
+        )
+      )
+      (reverse all-rows)
+    )
+    '()
+  )
+)
+
+(defun aa:ysdl-format-categorized-row (raw-row title-str seq-str / c0 reordered)
+  (setq c0 (if (>= (length raw-row) 1) (nth 0 raw-row) ""))
+  (setq reordered (aa:ysdl-reorder-row raw-row))
+  (cons title-str (cons seq-str (cons c0 reordered)))
+)
+
+;;; 命令: YSDL
+;;; 功能: 提取图纸电缆文字，按行导出到桌面CSV文件并改变文字颜色。
+;;;       支持5000x5000闭合多段线分类框与500字高标题空间识别，增加分类、序号、安装单位名称列；
+;;;       未检测到分类框时自动平滑回退为传统无分类电缆导出逻辑。
+;;; =======================================================================================
+(defun c:YSDL (/ aa:doc aa:undo-open *error* ss i ent edata typ text-string ins-point h
+               text-data-list ename-list box-list box sorted-boxes
+               fuzz userprofile csv-path f file-mode action-msg targetColor
+               all-rows row line-str cell cell-safe
+               min-x min-y max-x max-y box-texts item x y
+               title-items cable-items title-str box-rows
+               cur-seq prev-start start-dev seq-str full-row raw-row
+               total-exported-rows exported-enames ename)
 
   ;; 自定义错误处理函数
   (defun *error* (msg)
@@ -1324,105 +1526,171 @@
 
   (aa:undo-mark-on)
   ;; 从全局配置获取容差值
-  (setq fuzz *YSDL_RowFuzz*) 
+  (setq fuzz *YSDL_RowFuzz*)
 
-  ;; 1. 提示用户选择文字对象
-  (princ "\r\n请选择要导出并改变颜色的文字对象: ")
-  (setq ss (ssget '((0 . "TEXT,MTEXT"))))
+  ;; 1. 提示用户选择图纸对象（支持框选包含5000x5000分类框及电缆文字）
+  (princ "\r\n请选择图纸对象（支持5000x5000分类框及电缆文字）: ")
+  (setq ss (ssget '((0 . "TEXT,MTEXT,LWPOLYLINE"))))
 
   (if ss
     (progn
-      ;; 2. 提取所选文字的内容和插入点坐标
+      ;; 2. 遍历选择集，提取文字数据与5000x5000分类框
       (setq text-data-list '()
-            i 0)
+            ename-list     '()
+            box-list       '()
+            i              0)
       (repeat (sslength ss)
-        (setq ent (ssname ss i))
-        (setq edata (entget ent))
-        (setq text-string (aa:ysdl-get-plain-text edata))
-        (setq ins-point (cdr (assoc 10 edata)))
-        (setq text-data-list (cons (list text-string ins-point) text-data-list))
+        (setq ent   (ssname ss i)
+              edata (entget ent)
+              typ   (cdr (assoc 0 edata)))
+        (cond
+          ((member typ '("TEXT" "MTEXT"))
+           (setq text-string (aa:ysdl-get-plain-text edata)
+                 ins-point   (cdr (assoc 10 edata))
+                 h           (cond ((cdr (assoc 40 edata))) (0.0)))
+           ;; 数据格式: (text-string x y ename height)
+           (setq text-data-list (cons (list text-string (car ins-point) (cadr ins-point) ent h) text-data-list)
+                 ename-list     (cons ent ename-list))
+          )
+          ((= typ "LWPOLYLINE")
+           (if (setq box (aa:ysdl-get-lwpoly-rect ent))
+             (if (not (vl-some '(lambda (b) (equal b box 1.0)) box-list))
+               (setq box-list (cons box box-list))
+             )
+           )
+          )
+        )
         (setq i (1+ i))
       )
 
-      ;; 3. 按坐标排序 (从上到下，从左到右)
-      (setq sorted-data
-             (aa:insert-sort text-data-list
-                      '(lambda (item1 item2 / y1 y2)
-                         (setq y1 (cadr (cadr item1)))
-                         (setq y2 (cadr (cadr item2)))
-                         (if (> y1 (+ y2 fuzz))
-                           T
-                           (if (< y1 (- y2 fuzz))
-                             nil
-                             (< (car (cadr item1)) (car (cadr item2)))
-                           )
-                         )
-                       )
-             )
-      )
+      ;; 3. 确定是否进入分类框模式
+      (setq sorted-boxes (if box-list (aa:ysdl-sort-boxes box-list) nil))
 
-      ;; 4. 将排序后的数据按行分组
-      (setq all-rows '())
-      (if sorted-data
-        (progn
-          (setq current-row (list (car (car sorted-data))))
-          (setq last-y (cadr (cadr (car sorted-data))))
-          (foreach item (cdr sorted-data)
-            (setq current-y (cadr (cadr item)))
-            (if (<= (abs (- current-y last-y)) fuzz)
-              (setq current-row (append current-row (list (car item))))
-              (progn
-                (setq all-rows (append all-rows (list current-row)))
-                (setq current-row (list (car item)))
-              )
-            )
-            (setq last-y current-y)
-          )
-          (setq all-rows (append all-rows (list current-row)))
-        )
-      )
-
-      ;; 5. 自动定位桌面路径并写入或追加CSV文件
+      ;; 4. 自动定位桌面路径并准备写入CSV文件
       (setq userprofile (getenv "USERPROFILE"))
       (if (and userprofile (/= userprofile ""))
         (progn
           (setq csv-path (strcat userprofile "\\Desktop\\" *YSDL_CsvFileName*))
           (if (findfile csv-path)
-            (progn (setq file-mode "a") (setq action-msg "数据已成功追加到桌面文件:\r\n"))
-            (progn (setq file-mode "w") (setq action-msg "已在桌面成功创建文件:\r\n"))
+            (setq file-mode "a" action-msg "数据已成功追加到桌面文件:\r\n")
+            (setq file-mode "w" action-msg "已在桌面成功创建文件:\r\n")
           )
-          
-          (setq f (open csv-path file-mode))
-          (foreach row all-rows
-            (setq line-str "")
-            (foreach cell row
-                (setq cell-safe (aa:ysdl-build-csv-field cell))
-                (setq line-str (strcat line-str cell-safe ","))
+
+          (setq f (open csv-path file-mode)
+                total-exported-rows 0
+                exported-enames     '())
+
+          (if sorted-boxes
+            ;; 模式A: 多分类框识别导出 (R1, R2, R3)
+            (foreach box sorted-boxes
+              (setq min-x (nth 0 box)
+                    min-y (nth 1 box)
+                    max-x (nth 2 box)
+                    max-y (nth 3 box))
+              ;; 检索框内文字
+              (setq box-texts '())
+              (foreach item text-data-list
+                (setq x (cadr item)
+                      y (caddr item))
+                (if (and (>= x (- min-x 1e-4))
+                         (<= x (+ max-x 1e-4))
+                         (>= y (- min-y 1e-4))
+                         (<= y (+ max-y 1e-4)))
+                  (setq box-texts (cons item box-texts))
+                )
+              )
+              ;; 分离字高500 (470~530) 的标题文字与电缆文字
+              (setq title-items '()
+                    cable-items '())
+              (foreach item box-texts
+                (setq h (nth 4 item))
+                (if (<= 470.0 h 530.0)
+                  (setq title-items (cons item title-items))
+                  (setq cable-items (cons item cable-items))
+                )
+              )
+              ;; 提取分类名称
+              (setq title-str "")
+              (if title-items
+                (progn
+                  (setq title-items (aa:merge-sort title-items '(lambda (a b) (> (caddr a) (caddr b)))))
+                  (setq title-str (vl-string-trim " \t\r\n" (car (car title-items))))
+                )
+              )
+              ;; 行解析与聚类序号编排 (切换分类后序号重置为 1)
+              (setq box-rows   (aa:ysdl-parse-rows-from-text-data cable-items fuzz)
+                    cur-seq    0
+                    prev-start nil)
+              (foreach raw-row box-rows
+                (setq start-dev (if (>= (length raw-row) 1)
+                                  (aa:ysdl-clean-text (nth 0 raw-row))
+                                  ""))
+                (if (or (null prev-start) (/= start-dev prev-start))
+                  (setq cur-seq    (1+ cur-seq)
+                        prev-start start-dev)
+                )
+                (setq seq-str  (itoa cur-seq)
+                      full-row (aa:ysdl-format-categorized-row raw-row title-str seq-str)
+                      line-str "")
+                (foreach cell full-row
+                  (setq cell (aa:ysdl-clean-text cell))
+                  (setq cell-safe (aa:ysdl-build-csv-field cell))
+                  (setq line-str (strcat line-str cell-safe ","))
+                )
+                (if (> (strlen line-str) 0)
+                  (setq line-str (substr line-str 1 (1- (strlen line-str))))
+                )
+                (write-line line-str f)
+                (setq total-exported-rows (1+ total-exported-rows))
+              )
+              ;; 记录该框内文字（包含电缆文字与标题文字）
+              (foreach item box-texts
+                (setq exported-enames (cons (nth 3 item) exported-enames))
+              )
             )
-            (setq line-str (substr line-str 1 (1- (strlen line-str))))
-            (write-line line-str f)
+            ;; 模式B: 平滑兼容回退传统无分类模式 (无5000x5000框)
+            (progn
+              (setq all-rows (aa:ysdl-parse-rows-from-text-data text-data-list fuzz))
+              (foreach raw-row all-rows
+                (setq row      (aa:ysdl-reorder-row raw-row)
+                      line-str "")
+                (foreach cell row
+                  (setq cell (aa:ysdl-clean-text cell))
+                  (setq cell-safe (aa:ysdl-build-csv-field cell))
+                  (setq line-str (strcat line-str cell-safe ","))
+                )
+                (if (> (strlen line-str) 0)
+                  (setq line-str (substr line-str 1 (1- (strlen line-str))))
+                )
+                (write-line line-str f)
+                (setq total-exported-rows (1+ total-exported-rows))
+              )
+              (setq exported-enames ename-list)
+            )
           )
           (close f)
+          (setq f nil)
 
-          ;; 修改已导出文字的颜色
+          ;; 5. 快速修改已导出文字的颜色
           (setq targetColor *YSDL_TextColor*)
-          (setq i 0)
-          (repeat (sslength ss)
-            (setq ename (ssname ss i))
+          (foreach ename exported-enames
             (aa:set-entity-aci-color ename targetColor)
-            (setq i (1+ i))
           )
           (redraw)
 
-          (alert (strcat action-msg csv-path "\r\n\r\n并且所有选中的文字颜色已更改。"))
+          (if sorted-boxes
+            (princ (strcat "\r\n[YSDL] " action-msg csv-path " (已识别 " (itoa (length sorted-boxes)) " 个分类框，共导出 " (itoa total-exported-rows) " 行数据)。"))
+            (princ (strcat "\r\n[YSDL] " action-msg csv-path " (未检测到分类框，已回退为常规模式，共导出 " (itoa total-exported-rows) " 行数据)。"))
+          )
+          (alert (strcat action-msg csv-path "\r\n\r\n已成功导出 " (itoa total-exported-rows) " 行数据，所有选中文字颜色已更改。"))
         )
         (alert "错误: 无法自动获取您的桌面路径!")
       )
     )
-    (princ "\r\n未选择任何文字对象。")
+    (princ "\r\n未选择任何对象。")
   )
   (aa:undo-mark-off)
-  (princ) 
+  (princ)
 )
 
 
@@ -2450,6 +2718,80 @@
   (aa:color-cmd *Y_TextColor* "\r\n选择要改变颜色的对象: " "\r\n所有选中的对象颜色已更改。")
   (aa:cmd-end)
 )
+
+;;; =======================================================================================
+;;; 命令: DZ
+;;; 功能: 将所选其他文字改为Y命令的青色，保留纯数字及数字后接单个小写a的文字原色。
+;;; =======================================================================================
+(defun aa:dz-number-p (text / chars valid ch)
+  ;; 只排除整段为数字的文字；3I4D、1ZD 等含数字的端子名仍需改色。
+  (setq text (vl-string-trim " \t\r\n　" (if text text "")))
+  ;; 数字末尾的单个小写 a 是补充端子号（如 7a），也按数字保留原色。
+  ;; 只去掉末尾一个 a 后校验全部剩余字符，a、7aa、7A、1ZDa 仍需改色。
+  (if (and (> (strlen text) 1) (= (substr text (strlen text) 1) "a"))
+    (setq text (substr text 1 (1- (strlen text)))))
+  (setq chars (vl-string->list text)
+        valid (not (null chars)))
+  (while (and chars valid)
+    (setq ch (chr (car chars)))
+    (if (not (vl-string-search ch "0123456789０１２３４５６７８９零〇○一二三四五六七八九十百千万亿两壹贰叁肆伍陆柒捌玖拾佰仟萬億"))
+      (setq valid nil))
+    (setq chars (cdr chars)))
+  valid)
+
+(defun aa:dz-color-text (en ed / obj result raw clean)
+  ;; 多行文字先去掉内嵌颜色，避免其覆盖实体青色；保留其余格式。
+  (setq result T)
+  (if (= (cdr (assoc 0 ed)) "MTEXT")
+    (progn
+      (setq raw (aa:ysdl-get-raw-text ed)
+            clean (aa:strip-mtext-color-format raw))
+      (if (/= raw clean)
+        (progn
+          (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list en)))
+          (if (vl-catch-all-error-p obj)
+            (setq result nil)
+            (progn
+              (setq result (vl-catch-all-apply 'vla-put-TextString (list obj clean)))
+              (vlax-release-object obj)
+              (setq result (not (vl-catch-all-error-p result)))))))))
+  (and result (aa:set-entity-aci-color en *Y_TextColor*)))
+
+(defun c:DZ (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               ss i en ed text layer changed kept skipped result)
+  (aa:cmd-begin "DZ")
+  (setq changed 0 kept 0 skipped 0
+        ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
+  (if (null ss)
+    (progn
+      (princ "\r\nDZ：选择文字，纯数字及数字后接小写a保留原色，其余改为青色：")
+      (setq ss (ssget '((0 . "TEXT,MTEXT"))))))
+  (if ss
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq en (ssname ss i)
+              ed (entget en)
+              text (vl-string-trim " \t\r\n　" (aa:ysdl-get-plain-text ed))
+              layer (tblsearch "LAYER" (cdr (assoc 8 ed)))
+              i (1+ i))
+        (cond
+          ((aa:dz-number-p text) (setq kept (1+ kept)))
+          ((or (= text "") (/= 0 (logand 4 (cdr (assoc 70 layer)))))
+           (setq skipped (1+ skipped)))
+          (T
+           (setq result (vl-catch-all-apply 'aa:dz-color-text (list en ed)))
+           (if (and (not (vl-catch-all-error-p result)) result)
+             (setq changed (1+ changed))
+             (setq skipped (1+ skipped))))))
+      (if (> changed 0) (redraw))
+      (princ (strcat "\r\nDZ 完成：已设为青色 " (itoa changed)
+                     " 个，保留数字及小写a编号 " (itoa kept)
+                     " 个，跳过空文字、锁定图层或修改失败 " (itoa skipped) " 个。")))
+    (princ "\r\n未选择文字。"))
+  (sssetfirst nil nil)
+  (aa:cmd-end)
+  (princ))
 
 ;;; =======================================================================================
 ;;; Command: YY
@@ -10179,19 +10521,15 @@
   (foreach rect (fdx:line-rects vs hs) (setq rects (fdx:add-rect rect rects)))
   rects)
 
-(defun fdx:sort-frames (rects mode / sorted out band anchor tol rect)
-  (setq sorted (aa:merge-sort rects
-    (if (= mode "C") '(lambda (a b) (< (car a) (car b)))
-                       '(lambda (a b) (> (nth 3 a) (nth 3 b))))))
+(defun fdx:sort-frames (rects / sorted out band anchor tol rect)
+  (setq sorted (aa:merge-sort rects '(lambda (a b) (> (nth 3 a) (nth 3 b)))))
   (while sorted
     (setq rect (car sorted) sorted (cdr sorted) band (list rect)
-          anchor (if (= mode "C") (car rect) (nth 3 rect))
-          tol (* 0.1 (if (= mode "C") (- (nth 2 rect) (car rect)) (- (nth 3 rect) (cadr rect)))))
-    (while (and sorted (<= (abs (- (if (= mode "C") (caar sorted) (nth 3 (car sorted))) anchor)) tol))
+          anchor (nth 3 rect)
+          tol (* 0.1 (- (nth 3 rect) (cadr rect))))
+    (while (and sorted (<= (abs (- (nth 3 (car sorted)) anchor)) tol))
       (setq band (cons (car sorted) band) sorted (cdr sorted)))
-    (setq band (aa:merge-sort band
-      (if (= mode "C") '(lambda (a b) (> (nth 3 a) (nth 3 b)))
-                         '(lambda (a b) (< (car a) (car b))))))
+    (setq band (aa:merge-sort band '(lambda (a b) (< (car a) (car b)))))
     (foreach rect band (setq out (cons rect out))))
   (reverse out))
 
@@ -10281,7 +10619,7 @@
       (redraw)
       ok)))
 
-(defun c:FDX (/ *error* aa:doc aa:undo-open frames-ss frames mode texts index total assigned running pending)
+(defun c:FDX (/ *error* aa:doc aa:undo-open frames-ss frames texts index total assigned running pending)
   (vl-load-com)
   (defun *error* (msg)
     (if (and pending (not (fdx:restore pending)))
@@ -10299,10 +10637,7 @@
       (setq frames-ss (ssget '((0 . "LINE,LWPOLYLINE,POLYLINE"))))))
   (if (and frames-ss (setq frames (fdx:frames frames-ss)))
     (progn
-      (initget "R C")
-      (setq mode (getkword "\r\n[FDX] 方框顺序 [按行(R)/按列(C)] <R>: "))
-      (if (null mode) (setq mode "R"))
-      (setq frames (fdx:sort-frames frames mode)
+      (setq frames (fdx:sort-frames frames)
             total (length frames) index 1 assigned 0 running T)
       (princ (strcat "\r\n[FDX] 已识别 " (itoa total) " 个方框；每批文字选好后按空格，空选回车或 Esc 结束。"))
       (while (and frames running)
@@ -10534,16 +10869,18 @@
 )
 
 (defun c:DX (/ *error* doc aa:doc aa:undo-open ss text-ss i en info infos groups group result
-              moved failed skipped tol rect-tol overflow-count)
+              moved failed skipped tol rect-tol overflow-count line-ss spatial-index)
   (vl-load-com)
-  (setq doc       (vla-get-ActiveDocument (vlax-get-acad-object))
-        aa:undo-open nil
+  (setq doc            (vla-get-ActiveDocument (vlax-get-acad-object))
+        aa:undo-open   nil
         overflow-count 0
-        moved     0
-        failed    0
-        skipped   0
-        tol       1e-8
-        rect-tol  0.1)
+        moved          0
+        failed         0
+        skipped        0
+        tol            1e-8
+        rect-tol       0.1
+        line-ss        nil
+        spatial-index  nil)
 
   (defun *error* (msg)
     (aa:undo-mark-off)
@@ -10566,34 +10903,37 @@
      (if (= (sslength text-ss) 0)
        (princ "\r\n[DX] 选择中没有 TEXT/MTEXT 文字。")
        (progn
-         (setq i 0 infos nil)
+         (setq i             0
+               infos         nil
+               line-ss       (aa:zz-harvest-lines doc text-ss ss)
+               spatial-index (aa:zz-build-spatial-index line-ss tol))
          (repeat (sslength text-ss)
            (setq en   (ssname text-ss i)
-                 info (aa:zz-text-info doc en tol))
+                 info (aa:zz-text-info doc en tol spatial-index))
            (if info
              (setq infos (cons info infos))
              (setq skipped (1+ skipped)))
            (setq i (1+ i)))
          (setq groups (aa:zz-group-by-rect (reverse infos) rect-tol))
-          (aa:undo-mark-on)
+         (aa:undo-mark-on)
          (foreach group groups
-           (setq result  (dx:apply-group doc group)
-                 moved   (+ moved (car result))
-                 failed  (+ failed (cadr result))
-                  skipped (+ skipped (caddr result))
-                  overflow-count (+ overflow-count (nth 3 result))))
-          (aa:undo-mark-off)
+           (setq result         (dx:apply-group doc group)
+                 moved          (+ moved (car result))
+                 failed         (+ failed (cadr result))
+                 skipped        (+ skipped (caddr result))
+                 overflow-count (+ overflow-count (nth 3 result))))
+         (aa:undo-mark-off)
          (redraw)
          (princ
            (strcat "\r\n[DX] 完成：整理 "
-                    (itoa (- (length groups) overflow-count))
+                   (itoa (- (length groups) overflow-count))
                    " 个方格，处理 "
                    (itoa moved)
                    " 个文字"
                    (if (> skipped 0) (strcat "，跳过 " (itoa skipped) " 个") "")
-                    (if (> failed 0) (strcat "，失败 " (itoa failed) " 个") "")
-                    (if (> overflow-count 0)
-                      (strcat "，空间不足，保留原位 " (itoa overflow-count) " 个方格") "")
+                   (if (> failed 0) (strcat "，失败 " (itoa failed) " 个") "")
+                   (if (> overflow-count 0)
+                     (strcat "，空间不足，保留原位 " (itoa overflow-count) " 个方格") "")
                    "。"))))))
   (sssetfirst nil nil)
   (princ)
@@ -10638,13 +10978,13 @@
     (T (cons (car items) (dx2:insert-group item (cdr items)))))
 )
 
-(defun dx2:sort-groups (groups / out group index)
-  (setq out nil
-        index 0)
+(defun dx2:sort-groups (groups / records index group)
+  (setq records nil
+        index   0)
   (foreach group groups
-    (setq out (dx2:insert-group (dx2:group-record group index) out)
-          index (1+ index)))
-  out
+    (setq records (cons (dx2:group-record group index) records)
+          index   (1+ index)))
+  (aa:merge-sort (reverse records) 'dx2:group-before-p)
 )
 
 (defun dx2:text-record (doc info index / item text)
@@ -10669,11 +11009,15 @@
     (T (cons (car items) (dx2:insert-y-desc item (cdr items)))))
 )
 
-(defun dx2:sort-y-desc (items / out item)
-  (setq out nil)
-  (foreach item items
-    (setq out (dx2:insert-y-desc item out)))
-  out
+(defun dx2:sort-y-desc (items)
+  (aa:merge-sort
+    items
+    '(lambda (a b)
+       (cond
+         ((> (nth 2 a) (nth 2 b)) T)
+         ((and (equal (nth 2 a) (nth 2 b) 1e-8)
+               (< (nth 5 a) (nth 5 b))) T)
+         (T nil))))
 )
 
 (defun dx2:insert-x-asc (item items)
@@ -10686,11 +11030,15 @@
     (T (cons (car items) (dx2:insert-x-asc item (cdr items)))))
 )
 
-(defun dx2:sort-x-asc (items / out item)
-  (setq out nil)
-  (foreach item items
-    (setq out (dx2:insert-x-asc item out)))
-  out
+(defun dx2:sort-x-asc (items)
+  (aa:merge-sort
+    items
+    '(lambda (a b)
+       (cond
+         ((< (nth 1 a) (nth 1 b)) T)
+         ((and (equal (nth 1 a) (nth 1 b) 1e-8)
+               (< (nth 5 a) (nth 5 b))) T)
+         (T nil))))
 )
 
 (defun dx2:group-rows (items / rows row row-y row-h item tol)
@@ -10734,14 +11082,16 @@
 )
 
 (defun c:DX2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho doc ss text-ss i en info infos groups sorted-groups group-record
-               group-text out skipped ok tol rect-tol)
+               group-text out skipped ok tol rect-tol line-ss spatial-index)
   (aa:cmd-begin "DX2")
   (vl-load-com)
-  (setq doc      (vla-get-ActiveDocument (vlax-get-acad-object))
-        skipped  0
-        out      ""
-        tol      1e-8
-        rect-tol 0.1)
+  (setq doc           (vla-get-ActiveDocument (vlax-get-acad-object))
+        skipped       0
+        out           ""
+        tol           1e-8
+        rect-tol      0.1
+        line-ss       nil
+        spatial-index nil)
 
   (setq ss (ssget "_I"))
   (if (null ss)
@@ -10757,10 +11107,13 @@
      (if (= (sslength text-ss) 0)
        (princ "\r\n[DX2] 选择中没有 TEXT/MTEXT 文字。")
        (progn
-         (setq i 0 infos nil)
+         (setq i             0
+               infos         nil
+               line-ss       (aa:zz-harvest-lines doc text-ss ss)
+               spatial-index (aa:zz-build-spatial-index line-ss tol))
          (repeat (sslength text-ss)
            (setq en   (ssname text-ss i)
-                 info (aa:zz-text-info doc en tol))
+                 info (aa:zz-text-info doc en tol spatial-index))
            (if info
              (setq infos (cons info infos))
              (setq skipped (1+ skipped)))
@@ -10832,7 +11185,7 @@
   )
 )
 
-(defun aa:zz-collect-lwpoly-pts (ed / pts)
+(defun aa:zz-collect-lwpoly-pts (ed / pts pair)
   (setq pts '())
   (foreach pair ed
     (if (= (car pair) 10)
@@ -10845,7 +11198,7 @@
   (if f (/= 0 (logand 1 f)) nil)
 )
 
-(defun aa:zz-build-line-cache (line-ss tol / i en ed typ p1 p2 near vlist hlist pts closed prev first en2 ed2)
+(defun aa:zz-build-line-cache (line-ss tol / i en ed typ p1 p2 near vlist hlist pts closed prev first en2 ed2 p)
   (setq i    0
         near (aa:zz-near-line-tol tol)
         vlist '()
@@ -10897,92 +11250,137 @@
   (list vlist hlist)
 )
 
-(defun aa:zz-find-bound-lines (line-cache cx cy tol / vlist hlist rec x y left-x right-x top-y bottom-y dl dr dt db dist)
-  (setq vlist (car line-cache)
-        hlist (cadr line-cache)
-        left-x nil
-        right-x nil
-        top-y nil
-        bottom-y nil
-        dl nil
-        dr nil
-        dt nil
-        db nil)
-  (foreach rec vlist
-    (if (aa:zz-between-p cy (cadr rec) (caddr rec) tol)
-      (progn
-        (setq x (car rec))
-        (cond
-          ((< x (- cx tol))
-           (setq dist (- cx x))
-           (if (or (null dl) (< dist dl))
-             (setq dl dist
-                   left-x x)))
-          ((> x (+ cx tol))
-           (setq dist (- x cx))
-           (if (or (null dr) (< dist dr))
-             (setq dr dist
-                   right-x x)))))))
-  (foreach rec hlist
-    (if (aa:zz-between-p cx (cadr rec) (caddr rec) tol)
-      (progn
-        (setq y (car rec))
-        (cond
-          ((< y (- cy tol))
-           (setq dist (- cy y))
-           (if (or (null db) (< dist db))
-             (setq db dist
-                   bottom-y y)))
-          ((> y (+ cy tol))
-           (setq dist (- y cy))
-           (if (or (null dt) (< dist dt))
-             (setq dt dist
-                   top-y y)))))))
-  (if (and left-x right-x top-y bottom-y)
-    (list left-x right-x top-y bottom-y))
+(defun aa:zz-calc-texts-bbox (doc text-ss / i en bbox min-x min-y max-x max-y bx1 by1 bx2 by2)
+  (setq i     0
+        min-x nil
+        min-y nil
+        max-x nil
+        max-y nil)
+  (if text-ss
+    (repeat (sslength text-ss)
+      (setq en (ssname text-ss i))
+      (if (setq bbox (aa:safe-get-bbox doc en))
+        (progn
+          (setq bx1 (aa:bbox-left-x bbox)
+                by1 (aa:bbox-bottom-y bbox)
+                bx2 (aa:bbox-right-x bbox)
+                by2 (aa:bbox-top-y bbox))
+          (setq min-x (if min-x (min min-x bx1) bx1)
+                min-y (if min-y (min min-y by1) by1)
+                max-x (if max-x (max max-x bx2) bx2)
+                max-y (if max-y (max max-y by2) by2))))
+      (setq i (1+ i))))
+  (if (and min-x min-y max-x max-y)
+    (list min-x min-y max-x max-y)
+    nil)
 )
 
-(defun aa:zz-text-info (doc en tol / bbox cx cy line-ss line-cache bounds margin pt1 pt2 lx rx ty by max-dist left-dist right-dist top-dist bottom-dist)
-  ;; Compute the rectangle (lx rx ty by) bounding a text via spatial query.
+(defun aa:zz-harvest-lines (doc text-ss ss / bbox-union min-x min-y max-x max-y pt1 pt2 line-ss line-filter i en typ)
+  (setq line-filter '((-4 . "<OR") (0 . "LINE") (0 . "LWPOLYLINE") (0 . "POLYLINE") (-4 . "OR>"))
+        line-ss     nil)
+  (if (setq bbox-union (aa:zz-calc-texts-bbox doc text-ss))
+    (progn
+      (setq min-x (nth 0 bbox-union)
+            min-y (nth 1 bbox-union)
+            max-x (nth 2 bbox-union)
+            max-y (nth 3 bbox-union)
+            pt1   (list (- min-x 350.0) (- min-y 350.0))
+            pt2   (list (+ max-x 350.0) (+ max-y 350.0))
+            line-ss (ssget "_C" (trans pt1 0 1) (trans pt2 0 1) line-filter))))
+  (if (and ss (> (sslength ss) 0))
+    (progn
+      (if (null line-ss) (setq line-ss (ssadd)))
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq en  (ssname ss i)
+              typ (cdr (assoc 0 (entget en))))
+        (if (member typ '("LINE" "LWPOLYLINE" "POLYLINE"))
+          (ssadd en line-ss))
+        (setq i (1+ i)))))
+  line-ss
+)
+
+(defun aa:zz-build-spatial-index (line-ss tol / cache vlist hlist)
+  (setq cache (aa:zz-build-line-cache line-ss tol)
+        vlist (car cache)
+        hlist (cadr cache))
+  (list (if vlist (aa:merge-sort vlist '(lambda (a b) (< (car a) (car b)))) nil)
+        (if hlist (aa:merge-sort hlist '(lambda (a b) (< (car a) (car b)))) nil))
+)
+
+(defun aa:zz-find-bound-lines (line-cache cx cy tol / vlist hlist rec x y left-x right-x top-y bottom-y dl dr dt db dist max-dist)
+  (setq vlist    (car line-cache)
+        hlist    (cadr line-cache)
+        max-dist 300.0
+        left-x   nil
+        right-x  nil
+        top-y    nil
+        bottom-y nil
+        dl       nil
+        dr       nil
+        dt       nil
+        db       nil)
+  (if vlist
+    (foreach rec vlist
+      (if (aa:zz-between-p cy (cadr rec) (caddr rec) tol)
+        (progn
+          (setq x (car rec))
+          (cond
+            ((and (< x (- cx tol)) (>= x (- cx max-dist)))
+             (setq dist (- cx x))
+             (if (or (null dl) (< dist dl))
+               (setq dl dist
+                     left-x x)))
+            ((and (> x (+ cx tol)) (<= x (+ cx max-dist)))
+             (setq dist (- x cx))
+             (if (or (null dr) (< dist dr))
+               (setq dr dist
+                     right-x x))))))))
+  (if hlist
+    (foreach rec hlist
+      (if (aa:zz-between-p cx (cadr rec) (caddr rec) tol)
+        (progn
+          (setq y (car rec))
+          (cond
+            ((and (< y (- cy tol)) (>= y (- cy max-dist)))
+             (setq dist (- cy y))
+             (if (or (null db) (< dist db))
+               (setq db dist
+                     bottom-y y)))
+            ((and (> y (+ cy tol)) (<= y (+ cy max-dist)))
+             (setq dist (- y cy))
+             (if (or (null dt) (< dist dt))
+               (setq dt dist
+                     top-y y))))))))
+  (if (and left-x right-x top-y bottom-y)
+    (list left-x right-x top-y bottom-y)
+    nil)
+)
+
+(defun aa:zz-find-rect-in-index (spatial-index center-pt tol / cx cy)
+  (if (listp center-pt)
+    (setq cx (car center-pt)
+          cy (cadr center-pt))
+    (setq cx center-pt
+          cy 0.0))
+  (aa:zz-find-bound-lines spatial-index cx cy tol)
+)
+
+(defun aa:zz-text-info (doc en tol spatial-index / bbox cx cy bounds lx rx ty by)
+  ;; Compute the rectangle (lx rx ty by) bounding a text using in-memory spatial index.
   ;; Returns (en cx cy lx rx ty by) or nil if no valid enclosing rectangle.
   (if (setq bbox (aa:safe-get-bbox doc en))
     (progn
-      (setq cx       (aa:bbox-center-x bbox)
-            cy       (/ (+ (aa:bbox-top-y bbox) (aa:bbox-bottom-y bbox)) 2.0)
-            max-dist 300.0
-            margin   max-dist
-            pt1      (list (- cx margin) (- cy margin))
-            pt2      (list (+ cx margin) (+ cy margin))
-            line-ss  (ssget "_CP"
-                       (mapcar '(lambda (pt) (trans pt 0 1))
-                         (list pt1 (list (+ cx margin) (- cy margin))
-                               pt2 (list (- cx margin) (+ cy margin))))
-                       '((-4 . "<OR")
-                         (0 . "LINE")
-                         (0 . "LWPOLYLINE")
-                         (0 . "POLYLINE")
-                         (-4 . "OR>"))))
-      (if line-ss
+      (setq cx     (aa:bbox-center-x bbox)
+            cy     (/ (+ (aa:bbox-top-y bbox) (aa:bbox-bottom-y bbox)) 2.0)
+            bounds (aa:zz-find-bound-lines spatial-index cx cy tol))
+      (if bounds
         (progn
-          (setq line-cache (aa:zz-build-line-cache line-ss tol)
-                bounds     (aa:zz-find-bound-lines line-cache cx cy tol))
-          (if bounds
-            (progn
-              (setq lx          (car bounds)
-                    rx          (cadr bounds)
-                    ty          (caddr bounds)
-                    by          (cadddr bounds)
-                    left-dist   (abs (- cx lx))
-                    right-dist  (abs (- rx cx))
-                    top-dist    (abs (- ty cy))
-                    bottom-dist (abs (- cy by)))
-              (if (or (> left-dist max-dist)
-                      (> right-dist max-dist)
-                      (> top-dist max-dist)
-                      (> bottom-dist max-dist))
-                nil
-                (list en cx cy lx rx ty by)))
-            nil))
+          (setq lx (car bounds)
+                rx (cadr bounds)
+                ty (caddr bounds)
+                by (cadddr bounds))
+          (list en cx cy lx rx ty by))
         nil))
     nil)
 )
@@ -11003,24 +11401,42 @@
        (equal (nth 6 a) (nth 6 b) rect-tol))
 )
 
-(defun aa:zz-group-by-rect (infos rect-tol / groups info placed new-groups g)
-  ;; Bucket text-info records by shared rectangle. Returns list of groups,
-  ;; each group is a list of text-info records.
-  (setq groups '())
-  (foreach info infos
-    (setq placed     nil
-          new-groups '())
-    (foreach g groups
-      (cond
-        ((and (not placed) (aa:zz-rect-match-p info (car g) rect-tol))
-         (setq new-groups (cons (cons info g) new-groups)
-               placed     T))
-        (T
-         (setq new-groups (cons g new-groups)))))
-    (if (not placed)
-      (setq new-groups (cons (list info) new-groups)))
-    (setq groups (reverse new-groups)))
-  groups
+(defun aa:zz-info-before-p (a b / tya tyb)
+  (setq tya (nth 5 a)
+        tyb (nth 5 b))
+  (cond
+    ((> (abs (- tya tyb)) 0.1)
+     (> tya tyb))
+    ((> (abs (- (nth 3 a) (nth 3 b))) 0.1)
+     (< (nth 3 a) (nth 3 b)))
+    ((> (abs (- (nth 6 a) (nth 6 b))) 0.1)
+     (> (nth 6 a) (nth 6 b)))
+    ((> (abs (- (nth 4 a) (nth 4 b))) 0.1)
+     (< (nth 4 a) (nth 4 b)))
+    (T
+     (> (nth 2 a) (nth 2 b))))
+)
+
+(defun aa:zz-group-by-rect (infos rect-tol / sorted groups cur-group cur-ref info)
+  ;; Bucket text-info records by shared rectangle in O(N log N) time without nested reversals.
+  (if (null infos)
+    nil
+    (progn
+      (setq sorted    (aa:merge-sort infos 'aa:zz-info-before-p)
+            groups    '()
+            cur-group '()
+            cur-ref   nil)
+      (foreach info sorted
+        (if (and cur-ref (aa:zz-rect-match-p info cur-ref rect-tol))
+          (setq cur-group (cons info cur-group))
+          (progn
+            (if cur-group
+              (setq groups (cons (reverse cur-group) groups)))
+            (setq cur-group (list info)
+                  cur-ref   info))))
+      (if cur-group
+        (setq groups (cons (reverse cur-group) groups)))
+      (reverse groups)))
 )
 
 (defun aa:zz-insert-y-desc (item items)
@@ -11031,12 +11447,9 @@
     (T (cons (car items) (aa:zz-insert-y-desc item (cdr items)))))
 )
 
-(defun aa:zz-sort-y-desc (items / out item)
-  ;; Sort text-info records by original cy descending (top text first).
-  (setq out nil)
-  (foreach item items
-    (setq out (aa:zz-insert-y-desc item out)))
-  out
+(defun aa:zz-sort-y-desc (items)
+  ;; Sort text-info records by original cy descending (top text first) using aa:merge-sort.
+  (aa:merge-sort items '(lambda (a b) (> (nth 2 a) (nth 2 b))))
 )
 
 (defun aa:zz-apply-group (group / cnt info en cx cy lx rx ty by tx sorted n i spacing center-y start-y y)
@@ -11058,19 +11471,19 @@
     (T
      ;; Keep adjacent text centers 5 units apart. Position the complete stack
      ;; symmetrically around the rectangle center while preserving top-to-bottom order.
-     (setq sorted (aa:zz-sort-y-desc group)
-           n      (length sorted)
-           info   (car sorted)
-           lx     (nth 3 info)
-           rx     (nth 4 info)
-           ty     (nth 5 info)
-           by     (nth 6 info)
-           tx     (/ (+ lx rx) 2.0)
-           spacing 5.0
+     (setq sorted   (aa:zz-sort-y-desc group)
+           n        (length sorted)
+           info     (car sorted)
+           lx       (nth 3 info)
+           rx       (nth 4 info)
+           ty       (nth 5 info)
+           by       (nth 6 info)
+           tx       (/ (+ lx rx) 2.0)
+           spacing  5.0
            center-y (/ (+ ty by) 2.0)
-           start-y (+ center-y (* 0.5 (1- n) spacing))
-           cnt    0
-           i      0)
+           start-y  (+ center-y (* 0.5 (1- n) spacing))
+           cnt      0
+           i        0)
      (foreach info sorted
        (setq y (- start-y (* i spacing)))
        (if (aa:zz-move-text (nth 0 info) (nth 1 info) (nth 2 info) tx y)
@@ -11079,14 +11492,16 @@
      cnt))
 )
 
-(defun aa:zz-run (/ *error* doc undo-open ss text-ss i en changed skipped tol rect-tol infos groups info alignment-ok)
+(defun aa:zz-run (/ *error* doc undo-open ss text-ss i en changed skipped tol rect-tol infos groups info alignment-ok line-ss spatial-index g)
   (vl-load-com)
-  (setq doc       (vla-get-activedocument (vlax-get-acad-object))
-        undo-open nil
-        changed   0
-        skipped   0
-        tol       1e-8
-        rect-tol  0.1)
+  (setq doc           (vla-get-activedocument (vlax-get-acad-object))
+        undo-open     nil
+        changed       0
+        skipped       0
+        tol           1e-8
+        rect-tol      0.1
+        line-ss       nil
+        spatial-index nil)
 
   (defun *error* (msg)
     (if undo-open
@@ -11111,14 +11526,16 @@
         (progn
           (sssetfirst nil text-ss)
           (vla-startundomark doc)
-          (setq undo-open T
-                i         0
-                infos     '())
+          (setq undo-open     T
+                i             0
+                infos         '()
+                line-ss       (aa:zz-harvest-lines doc text-ss ss)
+                spatial-index (aa:zz-build-spatial-index line-ss tol))
           (repeat (sslength text-ss)
-            (setq en   (ssname text-ss i)
+            (setq en (ssname text-ss i)
                   ;; 先统一为中下对正，再以新的包围盒执行后续居中计算。
                   alignment-ok (aa:normalize-text-vertical-align doc en 3)
-                  info (aa:zz-text-info doc en tol))
+                  info (aa:zz-text-info doc en tol spatial-index))
             (if info
               (setq infos (cons info infos))
               (setq skipped (1+ skipped)))
@@ -11128,6 +11545,7 @@
             (setq changed (+ changed (aa:zz-apply-group g))))
           (vla-endundomark doc)
           (setq undo-open nil)
+          (redraw)
           (princ
             (strcat
               "\r\n[ZZ] 完成。已居中: "
@@ -11624,7 +12042,23 @@
        (<= (nth 2 bounds) (+ (nth 2 frame) 0.01))
        (<= (nth 3 bounds) (+ (nth 3 frame) 0.01))))
 
-(defun aa:tbhb-group-problem (items boxes / box other item count width problem)
+(defun aa:tbhb-item-inside-p (item frame / anchor found)
+  ;; Text glyph extents can overhang a border slightly although the text is in
+  ;; the cell. Keep strict extents ownership for all other content; for TEXT,
+  ;; also accept its WCS insertion/alignment anchor inside the frame.
+  (setq found nil)
+  (if (aa:tbhb-inside-p (nth 2 item) frame)
+    (setq found T)
+    (if (= (cadr item) "TEXT")
+      (foreach anchor (if (>= (length item) 5) (nth 4 item) nil)
+        (if (and (>= (car anchor) (- (car frame) 0.01))
+                 (>= (cadr anchor) (- (cadr frame) 0.01))
+                 (<= (car anchor) (+ (nth 2 frame) 0.01))
+                 (<= (cadr anchor) (+ (nth 3 frame) 0.01)))
+          (setq found T)))))
+  found)
+
+(defun aa:tbhb-group-problem (items boxes / box other item count width problem found)
   (setq problem nil width (- (nth 2 (car boxes)) (caar boxes)))
   (foreach box boxes
     (if (and (null problem)
@@ -11640,7 +12074,7 @@
   (foreach item items
     (setq count 0)
     (foreach box boxes
-      (if (aa:tbhb-inside-p (nth 2 item) box) (setq count (1+ count))))
+      (if (aa:tbhb-item-inside-p item box) (setq count (1+ count))))
     (if (null problem)
       (cond
         ((= count 0)
@@ -11656,7 +12090,7 @@
       (foreach box boxes
         (setq members nil)
         (foreach item items
-          (if (aa:tbhb-inside-p (nth 2 item) box) (setq members (cons item members))))
+          (if (aa:tbhb-item-inside-p item box) (setq members (cons item members))))
         (setq groups (cons (list box (reverse members)) groups)))
       (reverse groups))))
 
@@ -11684,11 +12118,11 @@
   (princ (strcat "\r\n[HBBG] " msg))
   (exit))
 
-(defun aa:tbhb-collect (ss / i en ed typ obj bbox pts seg items segments problem layer)
+(defun aa:tbhb-collect (ss / i en ed typ obj bbox pts seg items segments problem layer anchors)
   (setq i 0 items nil segments nil)
   (repeat (sslength ss)
     (setq en (ssname ss i) ed (entget en) typ (cdr (assoc 0 ed))
-          pts nil seg nil bbox nil problem nil
+          pts nil seg nil bbox nil anchors nil problem nil
           layer (tblsearch "LAYER" (cdr (assoc 8 ed))))
     (if (= 4 (logand 4 (cond ((cdr (assoc 70 layer))) (T 0))))
       (setq problem "对象位于锁定图层，请先解锁。")
@@ -11717,13 +12151,17 @@
                   (setq bbox (aa:try-get-bbox obj))
                   (if (null bbox)
                     (setq problem "无法读取对象范围。")
-                    (setq bbox (list (caar bbox) (cadar bbox) (caadr bbox) (cadadr bbox)))))))
+                    (setq bbox (list (caar bbox) (cadar bbox) (caadr bbox) (cadadr bbox))))
+                  (if (= typ "TEXT")
+                    (foreach anchor (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed)))
+                      (if (and anchor (listp anchor))
+                        (setq anchors (cons (trans anchor en 0) anchors))))))))
             (vlax-release-object obj)
             (setq obj nil)))))
     (if problem
       (aa:tbhb-abort
         (strcat typ " 句柄=" (cond ((cdr (assoc 5 ed))) (T "?")) "：" problem)))
-    (setq items (cons (list en typ bbox pts) items))
+    (setq items (cons (list en typ bbox pts (reverse anchors)) items))
     (if seg (setq segments (cons seg segments)))
     (setq i (1+ i)))
   (list (reverse items) segments))
@@ -11774,7 +12212,7 @@
          (foreach box boxes
            (setq group nil)
            (foreach item (car data)
-             (if (aa:tbhb-inside-p (nth 2 item) box) (setq group (cons item group))))
+             (if (aa:tbhb-item-inside-p item box) (setq group (cons item group))))
            (setq groups (cons (list box (reverse group)) groups)))
          (setq groups (reverse groups))
          (princ (strcat "\r\n[HBBG] 已识别 " (itoa (length groups))
@@ -15320,12 +15758,13 @@
                        / *error* aa:doc aa:undo-open doc oldcmd oldct oldce
                          ss all-lines lines-by-y y-keys valid base-z
                          en ed p1 p2 dx dy attach-pt item
-                         upper-y lower-y upper-lines lower-lines
-                         upper-x lower-x
-                         joint-x rect-w rect-x1 rect-x2 rect-cx height center-y
+                         upper-y lower-y
+                         extreme-x-list base-ext-x joint-x
+                         rect-w rect-x1 rect-x2 rect-cx height center-y
                          bottom top rect-pt1 rect-pt2
-                         line-mid-x t-upper-center t-lower-center rect-center
-                         t-rect-en t-rect-bbox t-w)
+                         line-mid-x rect-center
+                         t-rect-en t-rect-bbox t-w
+                         n-lines idx cur-y cur-lines cur-ext-x y-item cur-txt cur-center)
   (vl-load-com)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
         aa:undo-open nil
@@ -15347,7 +15786,7 @@
   (setq ss (ssget "_I" '((0 . "LINE,LWPOLYLINE,POLYLINE"))))
   (if (null ss)
     (progn
-      (princ (strcat "\r\n[" tag-name "] 请选择两条水平直线或多段线（多段线将自动分解）："))
+      (princ (strcat "\r\n[" tag-name "] 请选择水平直线或多段线（多段线将自动分解）："))
       (setq ss (ssget "_:L" '((0 . "LINE,LWPOLYLINE,POLYLINE"))))))
 
   (if ss
@@ -15388,55 +15827,49 @@
           (if (not valid)
             (princ (strcat "\r\n[" tag-name "] 所选直线必须接近水平（Y差≤0.1且斜率≤1%）且位于同一标高。"))
             (progn
-              ;; 按照 Y 坐标分组并排序
-              (setq lines-by-y
-                (aa:merge-sort
-                  lines-by-y
-                  (function (lambda (a b) (< (car a) (car b))))))
+              ;; 获取所有不同的 Y 高度并降序排序（从上到下）
               (setq y-keys nil)
               (foreach item lines-by-y
                 (if (not (vl-some (function (lambda (y) (equal y (car item) 1e-4))) y-keys))
                   (setq y-keys (cons (car item) y-keys))))
-              (setq y-keys (reverse y-keys))
+              (setq y-keys
+                (aa:merge-sort
+                  y-keys
+                  (function (lambda (a b) (> a b)))))
 
-              (if (/= (length y-keys) 2)
-                (princ (strcat "\r\n[" tag-name "] 请选择刚好处于上下两个高度的两条水平直线（当前检测到 " (itoa (length y-keys)) " 个不同高度）。"))
+              (if (< (length y-keys) 2)
+                (princ (strcat "\r\n[" tag-name "] 请至少选择处于两个不同高度的水平直线。"))
                 (progn
-                  (setq lower-y (car y-keys)
-                        upper-y (cadr y-keys))
-                  (setq lower-lines (vl-remove-if-not (function (lambda (item) (equal (car item) lower-y 1e-4))) lines-by-y)
-                        upper-lines (vl-remove-if-not (function (lambda (item) (equal (car item) upper-y 1e-4))) lines-by-y))
+                  (setq upper-y (car y-keys)
+                        lower-y (last y-keys))
 
-                  ;; 获取上下两组基准水平线的极端 X 坐标
+                  ;; 获取各高度水平线的极端 X 坐标
+                  (setq extreme-x-list nil)
+                  (foreach cur-y y-keys
+                    (setq cur-lines (vl-remove-if-not (function (lambda (item) (equal (car item) cur-y 1e-4))) lines-by-y))
+                    (if is-left
+                      (setq cur-ext-x
+                        (apply 'min
+                          (mapcar (function (lambda (item)
+                                               (min (car (nth 2 item)) (car (nth 3 item)))))
+                                  cur-lines)))
+                      (setq cur-ext-x
+                        (apply 'max
+                          (mapcar (function (lambda (item)
+                                               (max (car (nth 2 item)) (car (nth 3 item)))))
+                                  cur-lines))))
+                    (setq extreme-x-list (cons (cons cur-y cur-ext-x) extreme-x-list)))
+                  (setq extreme-x-list (reverse extreme-x-list))
+
                   (if is-left
                     (progn
-                      ;; 向左：取最左侧的 X
-                      (setq upper-x
-                        (apply 'min
-                          (mapcar (function (lambda (item)
-                                              (min (car (nth 2 item)) (car (nth 3 item)))))
-                                  upper-lines)))
-                      (setq lower-x
-                        (apply 'min
-                          (mapcar (function (lambda (item)
-                                              (min (car (nth 2 item)) (car (nth 3 item)))))
-                                  lower-lines)))
-                      (setq joint-x (- (min upper-x lower-x) 15.0)
-                            line-mid-x (/ (+ (min upper-x lower-x) joint-x) 2.0)))
+                      (setq base-ext-x (apply 'min (mapcar 'cdr extreme-x-list))
+                            joint-x (- base-ext-x 15.0)
+                            line-mid-x (/ (+ base-ext-x joint-x) 2.0)))
                     (progn
-                      ;; 向右：取最右侧的 X
-                      (setq upper-x
-                        (apply 'max
-                          (mapcar (function (lambda (item)
-                                              (max (car (nth 2 item)) (car (nth 3 item)))))
-                                  upper-lines)))
-                      (setq lower-x
-                        (apply 'max
-                          (mapcar (function (lambda (item)
-                                              (max (car (nth 2 item)) (car (nth 3 item)))))
-                                  lower-lines)))
-                      (setq joint-x (+ (max upper-x lower-x) 15.0)
-                            line-mid-x (/ (+ (max upper-x lower-x) joint-x) 2.0))))
+                      (setq base-ext-x (apply 'max (mapcar 'cdr extreme-x-list))
+                            joint-x (+ base-ext-x 15.0)
+                            line-mid-x (/ (+ base-ext-x joint-x) 2.0))))
 
                   (setq height (max 20.0 (+ (- upper-y lower-y) 4.0))
                         center-y (/ (+ lower-y upper-y) 2.0)
@@ -15454,21 +15887,17 @@
                   (setvar "CELTYPE" "HIDDEN2")
                   (setvar "CECOLOR" "4")
 
-                  ;; 1. 生成两条延伸短线（长 15，虚线 HIDDEN2，青色 4）
-                  (entmakex
-                    (list '(0 . "LINE")
-                          (cons 8 (getvar "CLAYER"))
-                          '(62 . 4)
-                          '(6 . "HIDDEN2")
-                          (cons 10 (list upper-x upper-y base-z))
-                          (cons 11 (list joint-x upper-y base-z))))
-                  (entmakex
-                    (list '(0 . "LINE")
-                          (cons 8 (getvar "CLAYER"))
-                          '(62 . 4)
-                          '(6 . "HIDDEN2")
-                          (cons 10 (list lower-x lower-y base-z))
-                          (cons 11 (list joint-x lower-y base-z))))
+                  ;; 1. 为每个高度生成延伸短线（长 15，虚线 HIDDEN2，青色 4）
+                  (foreach y-item extreme-x-list
+                    (setq cur-y (car y-item)
+                          cur-ext-x (cdr y-item))
+                    (entmakex
+                      (list '(0 . "LINE")
+                            (cons 8 (getvar "CLAYER"))
+                            '(62 . 4)
+                            '(6 . "HIDDEN2")
+                            (cons 10 (list cur-ext-x cur-y base-z))
+                            (cons 11 (list joint-x cur-y base-z)))))
 
                   ;; 2. 先创建矩形内文字（初始在 joint-x 处），以便精准测量文字包围盒宽度
                   (setq t-rect-en (aa:km-create-centered-text doc txt-rect (list joint-x center-y base-z)))
@@ -15498,21 +15927,32 @@
                     (aa:safe-move-entity t-rect-en (vlax-3d-point (list (- rect-cx joint-x) 0.0 0.0))))
 
                   ;; 5. 生成短线上方标注文字（青色 4，HZ样式，字高 3.0，完全居中）
-                  ;; (a) 上面直线上方 1.5mm 标注 txt-up
-                  (setq t-upper-center (list line-mid-x (+ upper-y 1.5 (/ 3.0 2.0)) base-z))
-                  (aa:km-create-centered-text doc txt-up t-upper-center)
-
-                  ;; (b) 下面直线上方 1.5mm 标注 txt-low
-                  (setq t-lower-center (list line-mid-x (+ lower-y 1.5 (/ 3.0 2.0)) base-z))
-                  (aa:km-create-centered-text doc txt-low t-lower-center)
+                  (setq n-lines (length y-keys)
+                        idx 0)
+                  (foreach cur-y y-keys
+                    (setq cur-txt
+                      (cond
+                        ((= idx 0) txt-up)
+                        ((= idx (1- n-lines)) txt-low)
+                        ((equal txt-up txt-low) txt-up)
+                        (T nil)))
+                    (if (and cur-txt (/= cur-txt ""))
+                      (progn
+                        (setq cur-center (list line-mid-x (+ cur-y 1.5 (/ 3.0 2.0)) base-z))
+                        (aa:km-create-centered-text doc cur-txt cur-center)))
+                    (setq idx (1+ idx)))
 
                   (redraw)
                   (setvar "CELTYPE" oldct)
                   (setvar "CECOLOR" oldce)
                   (setvar "CMDECHO" oldcmd)
                   (setq oldcmd nil)
-                  (princ (strcat "\r\n[" tag-name "] 已成功生成两条短线（长15）、矩形（自适应宽"
-                                 (rtos rect-w 2 2) "×高" (rtos height 2 2) "）及居中文注。")))))))
+                  (if (= (length y-keys) 2)
+                    (princ (strcat "\r\n[" tag-name "] 已成功生成两条短线（长15）、矩形（自适应宽"
+                                   (rtos rect-w 2 2) "×高" (rtos height 2 2) "）及居中文注。"))
+                    (princ (strcat "\r\n[" tag-name "] 已成功为 " (itoa (length y-keys))
+                                   " 条水平线生成短线（长15）、矩形（自适应宽"
+                                   (rtos rect-w 2 2) "×高" (rtos height 2 2) "）及居中文注。"))))))))
         (princ (strcat "\r\n[" tag-name "] 分解后至少需要两条水平直线。"))))
     (princ (strcat "\r\n[" tag-name "] 必须选择直线或多段线。")))
   (aa:undo-mark-off)
@@ -15569,13 +16009,13 @@
 )
 
 ;;; Command: ZJ
-;;; Function: 选中两条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
+;;; Function: 选中多条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
 (defun c:ZJ ()
   (aa:km-ln-cmd "ZJ" T "原理号" "原理号" "终点柜名")
 )
 
 ;;; Command: YJ
-;;; Function: 选中两条水平线后向右生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
+;;; Function: 选中多条水平线后向右生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。
 (defun c:YJ ()
   (aa:km-ln-cmd "YJ" nil "原理号" "原理号" "终点柜名")
 )

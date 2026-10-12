@@ -88,6 +88,14 @@ def check():
         assert call('aa:tbhb-segment', p, q) is None
     extra = ['outside', 'TEXT', [10000, 10000, 10001, 10001], None]
     assert call('aa:tbhb-groups', items + [extra], ordered) is None
+    # A TEXT glyph box may cross the frame edge while its insertion anchor is
+    # still inside; non-text objects remain subject to strict bbox ownership.
+    overhang = ['overhang', 'TEXT', [49.5, 20, 50.5, 23], None, [[49.7, 21, 0]]]
+    small_frame = [0, 0, 50, 60]
+    assert call('aa:tbhb-item-inside-p', overhang, small_frame)
+    assert not call('aa:tbhb-item-inside-p',
+                    ['outside', 'CIRCLE', [49.5, 20, 50.5, 23], None, []], small_frame)
+    assert call('aa:tbhb-groups', [overhang], [small_frame])
     different_widths = [ordered[0], [0, -60, 40, 0]]
     assert call('aa:tbhb-groups', [], different_widths) is None
     overlapping = [[0, 0, 50, 60], [20, 20, 70, 80]]
@@ -240,6 +248,7 @@ def check():
         'aa:try-get-bbox': lambda obj: None if obj.get('bbox_failure') else
             [[obj['bounds'][0], obj['bounds'][1], obj.get('z', 0)],
              [obj['bounds'][2], obj['bounds'][3], obj.get('z', 0)]],
+        'trans': lambda point, _from, _to: point,
         'vlax-release-object': lambda obj: released.append(obj['handle']),
         'strcat': lambda *xs: ''.join(xs),
         'princ': lambda msg: messages.append(msg), 'exit': exit_mock,

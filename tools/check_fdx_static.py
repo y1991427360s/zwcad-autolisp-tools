@@ -29,6 +29,7 @@ def check():
     assert '(defun c:FDX ' in source
     preview = next(f for f in targets if f[1] == 'fdx:show-frame')
     check_preview(preview)
+    check_frame_order(next(f for f in targets if f[1] == 'fdx:sort-frames'))
     check_pair_rows(next(f for f in forms if isinstance(f, list)
                          and f[:2] == ['defun', 'dx:pair-rows']))
     for form in targets:
@@ -37,6 +38,92 @@ def check():
                         and isinstance(node[1], list) and node[1][:1] == ['last']), \
                 (form[1], 'AutoLISP last returns the element, not a tail list')
     print(f'PASS: {len(targets)} FDX functions; balanced forms, call arities, local assignments')
+
+
+def check_frame_order(form):
+    """Evaluate the actual frame sorting body, including its lambda comparators."""
+    from functools import cmp_to_key
+    a = [0, 80, 30, 100, 0]
+    b = [100, 80, 130, 100, 0]
+    c = [200, 80, 230, 100, 0]
+    d = [0, 20, 30, 40, 0]
+    e = [100, 20, 130, 40, 0]
+    f = [200, 20, 230, 40, 0]
+    # Input order is deliberately unrelated to row/column order.
+    jitter = [100, 79, 130, 99, 0]
+    beyond = [100, 77, 130, 97, 0]
+    negative = [-100, -80, -70, -60, 5]
+    cases = [
+        ([], []), ([a], [a]),
+        ([f, b, d, c, a, e], [a, b, c, d, e, f]),
+        ([e, b, a, d], [a, b, d, e]),
+        ([c, a, b], [a, b, c]), ([d, a], [a, d]),
+        ([e, jitter, a, d], [a, jitter, d, e]),
+        ([beyond, c, a], [a, c, beyond]),
+        ([negative, a, d], [a, d, negative]),
+    ]
+    for rects, expected in cases:
+        env = {name: None for name in form[2] if name != '/'}
+        env['rects'] = rects
+
+        def evaluate(node):
+            if not isinstance(node, list):
+                if node in env:
+                    return env[node]
+                return float(node)
+            op, *args = node
+            if op == 'quote':
+                return args[0]
+            if op == 'setq':
+                for name, expression in zip(args[::2], args[1::2]):
+                    env[name] = evaluate(expression)
+                return env[name]
+            if op == 'and':
+                return all(evaluate(arg) for arg in args)
+            if op == 'while':
+                iterations = 0
+                while evaluate(args[0]):
+                    iterations += 1
+                    assert iterations <= len(rects)
+                    for expression in args[1:]:
+                        evaluate(expression)
+                return None
+            if op == 'foreach':
+                for value in evaluate(args[1]):
+                    env[args[0]] = value
+                    for expression in args[2:]:
+                        evaluate(expression)
+                return None
+            values = [evaluate(arg) for arg in args]
+            if op == 'aa:merge-sort':
+                items, comparator = values
+                assert comparator[0] == 'lambda'
+                def compare(left, right):
+                    env.update(zip(comparator[1], [left, right]))
+                    forward = evaluate(comparator[2])
+                    env.update(zip(comparator[1], [right, left]))
+                    backward = evaluate(comparator[2])
+                    return -1 if forward else (1 if backward else 0)
+                return sorted(items or [], key=cmp_to_key(compare))
+            functions = {
+                'car': lambda x: x[0] if x else None,
+                'cdr': lambda x: x[1:] if x else None,
+                'cadr': lambda x: x[1],
+                'caar': lambda x: x[0][0],
+                'nth': lambda i, x: x[int(i)],
+                'list': lambda *x: list(x),
+                'cons': lambda a, b: [a] + (b or []),
+                'reverse': lambda x: list(reversed(x or [])),
+                'abs': abs, '-': lambda a, b: a - b,
+                '*': lambda a, b: a * b, '<': lambda a, b: a < b,
+                '>': lambda a, b: a > b, '<=': lambda a, b: a <= b,
+            }
+            return functions[op](*values)
+
+        for expression in form[3:]:
+            actual = evaluate(expression)
+        assert actual == expected, (rects, actual, expected)
+    print('PASS: FDX row order; rows left-to-right, jitter, negative coordinates, empty input')
 
 
 def check_pair_rows(form):

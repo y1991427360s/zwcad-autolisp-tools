@@ -1,7 +1,7 @@
 (vl-load-com)
 
 (setq *AICAD_BaseDirectoryEnvVar* "AICADAA_BASEDIR")
-(setq *AICAD_DefaultInstallDirectory* "E:\\366256\\ZW-auto_lisp\\V6")
+(setq *AICAD_DefaultInstallDirectory* "D:\\Syncthing\\Oracle-Sync\\LISP\\ZW-auto_lisp\\V6")
 
 ;;; Generated from common/aicad_pure.lsp: aicad:normalize-path; run scripts/sync_common.py.
 (defun aicad:normalize-path (path)

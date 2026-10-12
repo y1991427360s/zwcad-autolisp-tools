@@ -1,7 +1,7 @@
 (vl-load-com)
 
 (setq *AICADAA_BaseDirectoryEnvVar* "AICADAA_BASEDIR")
-(setq *AICADAA_DefaultInstallDirectory* "E:\\366256\\ZW-auto_lisp\\V6")
+(setq *AICADAA_DefaultInstallDirectory* "D:\\Syncthing\\Oracle-Sync\\LISP\\ZW-auto_lisp\\V6")
 (setq *AICADAA_EnvStack* nil)
 (setq *AICADAA_SystemVariablesToRestore*
   '("CMDECHO" "OSMODE" "PICKFIRST" "FILEDIA" "CMDDIA")
