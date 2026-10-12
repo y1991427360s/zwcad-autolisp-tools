@@ -7,8 +7,12 @@
 远程开发入口：双击 `develop-on-sen3.cmd` 在 sen3 上使用 Codex；完成提交和推送后，双击 `update-from-sen3.cmd` 更新 Windows。详见 [服务器开发说明](docs/服务器开发.md)。
 
 1. 在 CAD 中运行 `APPLOAD`。
-2. 加载 `E:\366256\ZW-auto_lisp\AA整合版本.lsp`（或将其加入 APPLOAD 启动组，实现每次启动自动加载）。
+2. 加载 `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp\AA整合版本.lsp`（或将其加入 APPLOAD 启动组，实现每次启动自动加载）。
 3. 输入所需命令。完整清单见 [`命令索引.md`](命令索引.md)。
+
+## 屏柜命令设置
+
+屏柜命令可通过双击根目录的 **屏柜命令设置.cmd** 打开可视化设置窗口，编辑 KMZ/KMY、LNZ/LNY、UPSZ/UPSY 等命令的柜内文字、上下标注与方向，也可复制新增同系列命令。保存后自行重新加载当前项目的 `AA整合版本.lsp`。详见 [面板使用说明](docs/屏柜命令设置.md)。
 
 ## ZTF 字体搜索器
 
@@ -59,7 +63,7 @@
 - `AA整合版本.lsp`：主整合程序（自包含全部命令，直接加载即可）。
 - `AAE.dcl`：快速属性编辑对话框界面定义。
 - `ZTF.dcl`：字体搜索器对话框界面定义。
-- `V6/`：AICAD 扩展、桥接脚本和功能区 DLL，固定安装位置为 `E:\366256\ZW-auto_lisp\V6`。
+- `V6/`：AICAD 扩展、桥接脚本和功能区 DLL，固定安装位置为 `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp\V6`。
 - `命令索引.md`：自动生成的命令、文件和行号索引。
 - `gen_命令索引.py`：命令索引生成脚本。
 
@@ -75,7 +79,7 @@
 
 CADTools/YS-Tools 已从 ZWCAD 支持目录、启动文件和 APPLOAD 注册表中卸载，不再参与命令加载。不要重新部署该工具箱，否则可能覆盖整合版本中的同名命令。
 
-ZWCAD 启动套件只保留 `AA整合版本.lsp` 和 `V6/aicad_aa_loader.lsp`。AICAD 的默认目录及 `AICADAA_BASEDIR` 均应指向 `E:\366256\ZW-auto_lisp\V6`。
+ZWCAD 启动套件只保留 `AA整合版本.lsp` 和 `V6/aicad_aa_loader.lsp`。AICAD 的默认目录及 `AICADAA_BASEDIR` 均应指向 `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp\V6`。
 
 ## 开发约束
 
