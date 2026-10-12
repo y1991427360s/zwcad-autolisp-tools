@@ -4,8 +4,6 @@
 
 ## 使用
 
-远程开发入口：双击 `develop-on-sen3.cmd` 在 sen3 上使用 Codex；完成提交和推送后，双击 `update-from-sen3.cmd` 更新 Windows。详见 [服务器开发说明](docs/服务器开发.md)。
-
 1. 在 CAD 中运行 `APPLOAD`。
 2. 加载 `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp\AA整合版本.lsp`（或将其加入 APPLOAD 启动组，实现每次启动自动加载）。
 3. 输入所需命令。完整清单见 [`命令索引.md`](命令索引.md)。
@@ -83,7 +81,7 @@ ZWCAD 启动套件只保留 `AA整合版本.lsp` 和 `V6/aicad_aa_loader.lsp`。
 
 ## 开发约束
 
-项目统一使用 `main` 作为交付和同步分支。以本地确认的版本为准；工作分支完成后合并并推送到 `origin/main`，再切回 `main`。远程更新脚本从 `main` 拉取。
+项目统一使用 `main` 作为交付和同步分支。以本地确认的版本为准；工作分支完成后合并并推送到 `origin/main`，再切回 `main`。
 
 所有项目文本统一使用 UTF-8 无 BOM；`.lsp` 及 CAD 相关文本文件使用 CRLF 换行。ZWCAD 2026 中需将 `LISPSYS` 设为 `1` 并重启后加载。修改主文件前必须做字节级备份，写入后检查 UTF-8、无 BOM、CRLF 和括号结构。详细规则见 [`AGENTS.md`](AGENTS.md) 或 [`CLAUDE.md`](CLAUDE.md)。
 
