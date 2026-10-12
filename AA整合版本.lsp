@@ -91,7 +91,7 @@
 ;;;   - FIVE2   : 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
 ;;;   - HBBG  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
 ;;;   - HZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
-;;;   - ZDWI  : 按各列最宽文字自动调整表格列宽，文字左右各留 3 个图纸单位。
+;;;   - ZDWI  : 按各列最宽文字自动放宽或缩窄表格列宽，文字左右各留 3 个图纸单位。
 ;;;   - JACC  : ZZ 的同功能入口。
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
 ;;;   - DF    : 删除每个选中文字开头的 N 个字符。
@@ -12474,8 +12474,12 @@
                       (setq bbox (aa:safe-get-bbox nil en))
                       (setq inside
                         (and bbox
-                             (>= (caar bbox) (- x1 aa:zdwi-tol))
-                             (<= (caadr bbox) (+ x2 aa:zdwi-tol))
+                             ;; Keep overflowing text by its center, not its
+                             ;; full extents: these labels determine expansion.
+                             (>= (/ (+ (caar bbox) (caadr bbox)) 2.0)
+                                 (- x1 aa:zdwi-tol))
+                             (<= (/ (+ (caar bbox) (caadr bbox)) 2.0)
+                                 (+ x2 aa:zdwi-tol))
                              (>= (cadar bbox) (- lower aa:zdwi-tol))
                              (<= (cadadr bbox) (+ upper aa:zdwi-tol)))))
                     (progn

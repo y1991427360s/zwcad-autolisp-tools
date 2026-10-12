@@ -18,6 +18,11 @@ def lisp_equal(a, b, tol=0):
     return a == b
 
 
+def truth(value):
+    # AutoLISP regards numeric zero as true (including column index zero).
+    return value is not None and value is not False and value != []
+
+
 def evaluate(expr, env):
     if not isinstance(expr, list):
         if expr.startswith('"'):
@@ -48,16 +53,16 @@ def evaluate(expr, env):
             value = env[name] = evaluate(arg, env)
         return value
     if head == 'if':
-        branch = 1 if evaluate(args[0], env) else 2
+        branch = 1 if truth(evaluate(args[0], env)) else 2
         return evaluate(args[branch], env) if branch < len(args) else None
     if head == 'and':
-        return all(evaluate(arg, env) for arg in args)
+        return all(truth(evaluate(arg, env)) for arg in args)
     if head == 'or':
-        return any(evaluate(arg, env) for arg in args)
+        return any(truth(evaluate(arg, env)) for arg in args)
     if head == 'cond':
         for clause in args:
             value = evaluate(clause[0], env)
-            if value:
+            if truth(value):
                 for arg in clause[1:]:
                     value = evaluate(arg, env)
                 return value
@@ -67,7 +72,7 @@ def evaluate(expr, env):
         count = evaluate(args[0], env) if head == 'repeat' else 1
         value = None
         iterations = 0
-        while count > 0 and (head != 'while' or evaluate(args[0], env)):
+        while count > 0 and (head != 'while' or truth(evaluate(args[0], env))):
             iterations += 1
             assert iterations < 10000, 'Unexpected nonterminating loop'
             for arg in body:
@@ -99,19 +104,20 @@ def evaluate(expr, env):
         'caar': lambda xs: xs[0][0], 'caadr': lambda xs: xs[1][0],
         'cadar': lambda xs: xs[0][1], 'cadadr': lambda xs: xs[1][1],
         'nth': lambda i, xs: xs[i],
-        'not': lambda x: not x, 'null': lambda x: x is None or x == [],
+        'not': lambda x: not truth(x), 'null': lambda x: not truth(x),
         'member': lambda x, xs: x in xs,
         'cons': lambda a, b: [a] + (b or []) if b is None or isinstance(b, list) else (a, b),
         'ssget': lambda *args: env['__ssget'](*args),
         'ssadd': lambda *args: [] if not args else add_entity(*args),
         'trans': lambda p, _from, _to: p,
         'aa:safe-get-bbox': lambda _, en: en['bbox'],
-        'list': lambda *xs: list(xs), 'append': operator.add,
-        'logand': operator.and_, '1+': lambda x: x + 1,
+        'list': lambda *xs: list(xs), 'append': lambda a, b: (a or []) + (b or []),
+        'logand': operator.and_, '1+': lambda x: x + 1, '1-': lambda x: x - 1,
         '=': operator.eq, '/=': operator.ne, '>': operator.gt, '<': operator.lt,
         'length': len, 'reverse': lambda xs: list(reversed(xs or [])),
         '>=': operator.ge, '<=': operator.le,
-        '+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.truediv,
+        '+': lambda *xs: sum(xs), '-': operator.sub, '*': operator.mul, '/': operator.truediv,
+        'last': lambda xs: xs[-1], 'itoa': str, 'strcat': lambda *xs: ''.join(xs),
         'abs': abs, 'min': min, 'max': max,
         'equal': lisp_equal,
     }
@@ -217,8 +223,71 @@ def check():
     same_layer = [en | {'layer': '0'} for en in inside]
     assert expand(funcs, same_layer, [same_layer[0]]) == same_layer
     assert expand(funcs, [top, bottom, divider, label], [top]) is None
+    # Long labels crossing either outer border must remain in the table.
+    overflow_left = label | {'bbox': [[4495, -3200], [4535, -3197]]}
+    overflow_right = label | {'bbox': [[4650, -3200], [4690, -3197]]}
+    outside_text = label | {'bbox': [[4480, -3200], [4500, -3197]]}
+    assert expand(funcs, inside + [overflow_left, overflow_right, outside_text],
+                  [top]) == inside + [overflow_left, overflow_right]
+
+    # Reduced QW3 fixture from the 2026-10-12 equipment table. Execute the
+    # actual command with CAD reads/writes replaced by offline captures.
+    xs = [10403.7177, 10412.4677, 10453.7177, 10499.9677,
+          10537.4677, 10547.4677, 10569.9677, 10643.7177]
+    frame = {'type': 'LWPOLYLINE', 'flags': 1, 'layer': '0',
+             'pts': [[xs[0], -13953.3478], [xs[-1], -13953.3478],
+                     [xs[-1], -13880.8478], [xs[0], -13880.8478]]}
+    grid = [frame] + [line([x, -13953.3478], [x, -13880.8478], '0')
+                      for x in xs[1:-1]]
+    extents = [(10406.1994, 10409.986), (10431.1746, 10435.0108),
+               (10474.9494, 10478.736), (10516.7913, 10520.6441),
+               (10540.5165, 10544.4189), (10555.824, 10561.6114),
+               (10604.8171, 10608.8683),
+               (10400.1927, 10465.9927),  # 65.8-unit overflowing identifier
+               (10500.1677, 10537.2677)]  # 37.1-unit model
+    labels = [{'type': 'TEXT', 'layer': '0',
+               'bbox': [[a, -13927.5978], [b, -13924.0978]]}
+              for a, b in extents]
+    selected = expand(funcs, grid + labels, [frame])
+    assert selected == grid + labels, 'Overflowing QW3 identifier was lost'
+    mapped, moved, undo = [], [], []
+    command_env = {
+        '__functions': {name: form for name, form in affected.items()
+                        if name not in ('aa:zdwi-vertices', 'aa:zdwi-map-entity',
+                                        'aa:zdwi-expand-selection')},
+        '__ssget': lambda *args: selected,
+        '__builtins': {
+            'vl-load-com': lambda: None, 'princ': lambda *args: None,
+            'aa:zdwi-expand-selection': lambda ss: ss,
+            'aa:merge-sort': lambda values, comparator: sorted(values),
+            'aa:cmd-begin': lambda tag: undo.append('begin'),
+            'aa:cmd-end': lambda: undo.append('end'),
+            'aa:zdwi-map-entity': lambda en, old, new:
+                mapped.append((old, new)) or True,
+            'aa:zz-move-text': lambda en, x, y, target, target_y:
+                moved.append((en, x, target)) or True,
+            'redraw': lambda: None, 'sssetfirst': lambda *args: None,
+        },
+    }
+    evaluate(['c:zdwi'], command_env)
+    assert len(mapped) == len(grid) and len(moved) == len(labels)
+    assert undo == ['begin', 'end'], undo
+    old, new = mapped[0]
+    widths = [b - a for a, b in zip(new, new[1:])]
+    assert abs(widths[1] - 71.8) < 1e-7, widths
+    assert abs(widths[3] - 43.1) < 1e-7, widths
+    assert widths[1] > old[2] - old[1]  # Widen identifier.
+    assert widths[3] > old[4] - old[3]  # Widen model in the same execution.
+    assert widths[2] < old[3] - old[2]  # Narrow name.
+    assert widths[6] < old[7] - old[6]  # Narrow remarks.
+    for en, center, target in moved:
+        col = next(i for i in range(7) if old[i] <= center <= old[i + 1])
+        half = (en['bbox'][1][0] - en['bbox'][0][0]) / 2
+        assert target - half >= new[col] + 3 - 1e-7
+        assert target + half <= new[col + 1] - 3 + 1e-7
     print('PASS ZDWI: command structure, closed/open row borders, reversed vertices, '
-          'LINE chains, disconnected frames and mixed-layer selection '
+          'LINE chains, disconnected frames, mixed-layer selection, overflow '
+          'retention and simultaneous column expansion/contraction with margins '
           '(actual LISP functions)')
 
 
