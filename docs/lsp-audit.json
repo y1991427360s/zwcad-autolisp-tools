@@ -17,14 +17,14 @@
     },
     {
       "file": "V6/aicad_aa_loader.lsp",
-      "bytes": 9606,
+      "bytes": 9914,
       "top_level_forms": 32,
       "functions": 24,
       "commands": 3
     },
     {
       "file": "V6/aicad_extension.lsp",
-      "bytes": 60713,
+      "bytes": 60953,
       "top_level_forms": 142,
       "functions": 112,
       "commands": 10
@@ -213,7 +213,7 @@
     {
       "command": "AICAD",
       "file": "V6/aicad_extension.lsp",
-      "line": 1785,
+      "line": 1788,
       "description": "根据自然语言指令或对话修改选中的 CAD 对象",
       "params": [],
       "inputs": [
@@ -311,7 +311,7 @@
     {
       "command": "AICADCLEANUI",
       "file": "V6/aicad_extension.lsp",
-      "line": 1936,
+      "line": 1939,
       "description": "清理残留的旧版临时 UI 与界面元素",
       "params": [],
       "inputs": [],
@@ -343,7 +343,7 @@
     {
       "command": "AICADREPLACEPANELSHOW",
       "file": "V6/aicad_aa_loader.lsp",
-      "line": 304,
+      "line": 307,
       "description": "打开 AICAD 查找替换浮动面板",
       "params": [],
       "inputs": [],
@@ -368,7 +368,7 @@
     {
       "command": "AICADRIBBON",
       "file": "V6/aicad_extension.lsp",
-      "line": 1826,
+      "line": 1829,
       "description": "执行 Ribbon 功能区输入框中提交的自然语言指令",
       "params": [],
       "inputs": [
@@ -466,7 +466,7 @@
     {
       "command": "AICADRIBBONFIND",
       "file": "V6/aicad_extension.lsp",
-      "line": 1919,
+      "line": 1922,
       "description": "执行 Ribbon 查找面板中的文字查找与定位",
       "params": [],
       "inputs": [
@@ -520,7 +520,7 @@
     {
       "command": "AICADRIBBONFOCUSMATCH",
       "file": "V6/aicad_extension.lsp",
-      "line": 1931,
+      "line": 1934,
       "description": "聚焦并定位 Ribbon 查找匹配的目标图元",
       "params": [],
       "inputs": [],
@@ -555,7 +555,7 @@
     {
       "command": "AICADRIBBONREPLACE",
       "file": "V6/aicad_extension.lsp",
-      "line": 1886,
+      "line": 1889,
       "description": "执行 Ribbon 替换面板中的批量查找替换",
       "params": [],
       "inputs": [
@@ -596,7 +596,7 @@
     {
       "command": "ASCAD",
       "file": "V6/aicad_extension.lsp",
-      "line": 1790,
+      "line": 1793,
       "description": "AICAD 启动命令别名",
       "params": [],
       "inputs": [
@@ -3112,7 +3112,7 @@
     {
       "command": "LOADAICADAA",
       "file": "V6/aicad_aa_loader.lsp",
-      "line": 292,
+      "line": 295,
       "description": "加载并初始化 AICAD Ribbon 功能区面板",
       "params": [],
       "inputs": [
@@ -3159,7 +3159,7 @@
     {
       "command": "LOADAICADZW",
       "file": "V6/aicad_aa_loader.lsp",
-      "line": 300,
+      "line": 303,
       "description": "加载并初始化 AICAD Ribbon 功能区面板（别名）",
       "params": [],
       "inputs": [
@@ -3965,7 +3965,7 @@
     {
       "command": "UNLOAD_AA",
       "file": "V6/aicad_extension.lsp",
-      "line": 1946,
+      "line": 1949,
       "description": "卸载 AICAD 扩展插件（别名）",
       "params": [],
       "inputs": [],
@@ -3988,7 +3988,7 @@
     {
       "command": "UNLOAD_AICAD",
       "file": "V6/aicad_extension.lsp",
-      "line": 1941,
+      "line": 1944,
       "description": "卸载 AICAD 扩展插件及注册环境",
       "params": [],
       "inputs": [],
@@ -4010,7 +4010,7 @@
     {
       "command": "UNLOAD_XXX",
       "file": "V6/aicad_extension.lsp",
-      "line": 1950,
+      "line": 1953,
       "description": "卸载 AICAD 扩展插件（别名）",
       "params": [],
       "inputs": [],
@@ -6139,7 +6139,7 @@
       "rule": "undo-error-path",
       "level": "review",
       "file": "V6/aicad_extension.lsp",
-      "line": 968,
+      "line": 971,
       "function": "aicad:apply-zuo",
       "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
     },
@@ -6147,7 +6147,7 @@
       "rule": "undo-error-path",
       "level": "review",
       "file": "V6/aicad_extension.lsp",
-      "line": 1009,
+      "line": 1012,
       "function": "aicad:apply-you",
       "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
     },
@@ -6155,7 +6155,7 @@
       "rule": "undo-error-path",
       "level": "review",
       "file": "V6/aicad_extension.lsp",
-      "line": 1066,
+      "line": 1069,
       "function": "aicad:apply-shang",
       "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
     },
@@ -6163,7 +6163,7 @@
       "rule": "undo-error-path",
       "level": "review",
       "file": "V6/aicad_extension.lsp",
-      "line": 1098,
+      "line": 1101,
       "function": "aicad:apply-xia",
       "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
     },
@@ -6171,7 +6171,7 @@
       "rule": "undo-error-path",
       "level": "review",
       "file": "V6/aicad_extension.lsp",
-      "line": 1130,
+      "line": 1133,
       "function": "aicad:apply-zhong",
       "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
     },
@@ -6179,25 +6179,17 @@
       "rule": "undo-error-path",
       "level": "review",
       "file": "V6/aicad_extension.lsp",
-      "line": 1279,
+      "line": 1282,
       "function": "aicad:apply-text-replacements",
       "evidence": "正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证"
-    },
-    {
-      "rule": "duplicate-function",
-      "level": "error",
-      "file": "V6/aicad_aa_loader.lsp",
-      "line": 72,
-      "function": "*error*",
-      "evidence": "同名顶层定义: V6/aicad_aa_loader.lsp:72, V6/aicad_extension.lsp:236"
     },
     {
       "rule": "shared-global",
       "level": "review",
       "file": "V6/aicad_aa_loader.lsp",
-      "line": 261,
+      "line": 264,
       "function": "*aicad_basedirectory*",
-      "evidence": "跨文件写入: V6/aicad_aa_loader.lsp:261 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (<load>)"
+      "evidence": "跨文件写入: V6/aicad_aa_loader.lsp:264 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (<load>)"
     }
   ],
   "global_writes": {
@@ -6226,7 +6218,7 @@
     "*aicad_basedirectory*": [
       {
         "file": "V6/aicad_aa_loader.lsp",
-        "line": 261,
+        "line": 264,
         "function": "aicadloader:command-load"
       },
       {
@@ -6286,17 +6278,17 @@
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 800,
+        "line": 803,
         "function": "aicad:reset-find-state"
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 856,
+        "line": 859,
         "function": "aicad:pick-find-match"
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 866,
+        "line": 869,
         "function": "aicad:focus-find-match"
       }
     ],
@@ -6308,12 +6300,12 @@
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 810,
+        "line": 813,
         "function": "aicad:clear-last-find-highlight"
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 867,
+        "line": 870,
         "function": "aicad:focus-find-match"
       }
     ],
@@ -6325,12 +6317,12 @@
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 800,
+        "line": 803,
         "function": "aicad:reset-find-state"
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 854,
+        "line": 857,
         "function": "aicad:pick-find-match"
       }
     ],
@@ -6342,12 +6334,12 @@
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 800,
+        "line": 803,
         "function": "aicad:reset-find-state"
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 855,
+        "line": 858,
         "function": "aicad:pick-find-match"
       }
     ],
@@ -6380,19 +6372,19 @@
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 207,
+        "line": 209,
         "function": "aicad:register-reactor"
       },
       {
         "file": "V6/aicad_extension.lsp",
-        "line": 218,
+        "line": 220,
         "function": "aicad:remove-reactors"
       }
     ],
     "*aicad_replacepanelonload*": [
       {
         "file": "V6/aicad_aa_loader.lsp",
-        "line": 310,
+        "line": 313,
         "function": "<load>"
       }
     ],
@@ -6521,12 +6513,12 @@
     "*aicadaa_loaderdirectory*": [
       {
         "file": "V6/aicad_aa_loader.lsp",
-        "line": 206,
+        "line": 209,
         "function": "aicadloader:remember-base-directory"
       },
       {
         "file": "V6/aicad_aa_loader.lsp",
-        "line": 222,
+        "line": 225,
         "function": "<load>"
       }
     ],

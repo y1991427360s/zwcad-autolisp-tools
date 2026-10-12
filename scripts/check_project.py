@@ -11,7 +11,7 @@ def main():
     steps = [
         ['-m', 'unittest', 'discover', '-s', 'tests', '-v'],
         ['scripts/sync_common.py'],
-        ['scripts/audit_lsp.py', '--check'],
+        ['scripts/audit_lsp.py', '--check', '--strict'],
         ['gen_命令索引.py', '--check'],
         ['tools/check_all_static.py'],
     ]

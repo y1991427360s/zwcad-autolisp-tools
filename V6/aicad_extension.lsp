@@ -188,7 +188,9 @@
   )
 )
 
-(defun aicad:safe-apply (context fn args / result message)
+(defun aicad:safe-apply (context fn args / *error* result message)
+  ;; 动态局部绑定，仅保护本次调用；返回后自动恢复外层错误处理函数。
+  (setq *error* aicad:handle-error)
   (aicad:push-environment)
   (setq result (vl-catch-all-apply fn args))
   (aicad:pop-environment)
@@ -233,7 +235,8 @@
   (princ "\nAICAD unloaded: reactors removed and environment restored.")
 )
 
-(defun *error* (message)
+;; 专属兜底处理函数，不在加载时覆盖 CAD 会话的全局 *error*。
+(defun aicad:handle-error (message)
   (aicad:restore-all-environments)
   (aicad:print-error "global handler" message)
   (princ)

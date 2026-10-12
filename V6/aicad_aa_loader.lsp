@@ -55,7 +55,9 @@
   )
 )
 
-(defun aicadloader:safe-apply (context fn args / result message)
+(defun aicadloader:safe-apply (context fn args / *error* result message)
+  ;; 动态局部绑定，仅保护本次调用；返回后自动恢复外层错误处理函数。
+  (setq *error* aicadloader:handle-error)
   (aicadloader:push-environment)
   (setq result (vl-catch-all-apply fn args))
   (aicadloader:pop-environment)
@@ -69,7 +71,8 @@
   )
 )
 
-(defun *error* (message)
+;; 专属兜底处理函数，不在加载时覆盖 CAD 会话的全局 *error*。
+(defun aicadloader:handle-error (message)
   (aicadloader:restore-all-environments)
   (princ (strcat "\nAICAD loader interrupted: " message))
   (princ)
@@ -292,7 +295,7 @@
 (defun c:LOADAICADAA ()
   (aicadloader:safe-apply "LOADAICADAA" 'aicadloader:command-load '())
   (if (and (boundp '*AICAD_ReplacePanelOnLoad*) *AICAD_ReplacePanelOnLoad*)
-    (aicadloader:show-replace-panel)
+    (aicadloader:safe-apply "LOADAICADAA replace panel" 'aicadloader:show-replace-panel '())
   )
   (princ)
 )

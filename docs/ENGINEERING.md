@@ -24,7 +24,7 @@ python scripts/audit_lsp.py --write
 python scripts/check_project.py
 ```
 
-`check_project.py` 顺序执行 9 项基础回归、公共展开一致性、审计产物一致性、两份命令索引检查、19 项命令专项检查。只读检查不连接 CAD、不生成预览图，不改变图纸或启动项。
+`check_project.py` 顺序执行 11 项基础回归、公共展开一致性、审计产物一致性、两份命令索引检查、23 项命令专项检查。只读检查不连接 CAD、不生成预览图，不改变图纸或启动项。
 
 单独运行：
 
@@ -36,7 +36,7 @@ python scripts/audit_lsp.py --check --strict
 python tools/check_ys1_static.py --preview
 ```
 
-无参数 audit 只扫描并输出计数；`--write` 生成文档；`--check` 发现产物过期时返回非零；`--strict` 另将确定的结构发现作为失败。本仓库保留的全局 `*error*` 重复定义会使 strict 返回 1，这是已记录的存量问题，不代表语法失败。
+无参数 audit 只扫描并输出计数；`--write` 生成文档；`--check` 发现产物过期时返回非零；`--strict` 另将确定的结构发现作为失败。加载器和扩展模块各自使用专属 `handle-error`，仅在 `safe-apply` 内动态局部绑定 `*error*`；加载时不覆盖会话的全局错误处理函数。统一检查入口启用 `--strict`，确定的结构告警会使检查失败。
 
 ## 文档解释
 

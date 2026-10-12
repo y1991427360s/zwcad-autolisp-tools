@@ -10,8 +10,8 @@
 | --- | ---: | ---: | ---: | ---: |
 | AA整合版本.lsp | 689448 | 733 | 647 | 136 |
 | common/aicad_pure.lsp | 483 | 3 | 3 | 0 |
-| V6/aicad_aa_loader.lsp | 9606 | 32 | 24 | 3 |
-| V6/aicad_extension.lsp | 60713 | 142 | 112 | 10 |
+| V6/aicad_aa_loader.lsp | 9914 | 32 | 24 | 3 |
+| V6/aicad_extension.lsp | 60953 | 142 | 112 | 10 |
 
 ## 检查结论与边界
 
@@ -27,7 +27,7 @@
 
 | 规则 | 数量 |
 | --- | ---: |
-| duplicate-function | 1 |
+| duplicate-function | 0 |
 | shared-global | 1 |
 | command-conflict | 0 |
 | nested-command | 0 |
@@ -44,7 +44,6 @@
 
 | 级别 | 检查 | 文件:行 | 函数 / 变量 | 证据 |
 | --- | --- | --- | --- | --- |
-| error | duplicate-function | V6/aicad_aa_loader.lsp:72 | *error* | 同名顶层定义: V6/aicad_aa_loader.lsp:72, V6/aicad_extension.lsp:236 |
 | review | error-binding | AA整合版本.lsp:667 | aa:cmd-begin | *error* 赋值未局部声明；可能为动态作用域框架 |
 | review | error-binding | AA整合版本.lsp:16842 | c:hddl | *error* 赋值未局部声明；可能为动态作用域框架 |
 | review | error-binding | AA整合版本.lsp:16842 | c:hddl | 局部错误处理定义缺少 *error* 局部绑定 |
@@ -103,7 +102,7 @@
 | review | implicit-global | AA整合版本.lsp:16029 | aa:yd-cmd | 写入未声明变量 p1；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:16029 | aa:yd-cmd | 写入未声明变量 p2；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:16330 | c:dao | 写入未声明变量 item；动态调用方局部绑定需人工确认 |
-| review | shared-global | V6/aicad_aa_loader.lsp:261 | *aicad_basedirectory* | 跨文件写入: V6/aicad_aa_loader.lsp:261 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (&lt;load>) |
+| review | shared-global | V6/aicad_aa_loader.lsp:264 | *aicad_basedirectory* | 跨文件写入: V6/aicad_aa_loader.lsp:264 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (&lt;load>) |
 | review | sysvar-restore | AA整合版本.lsp:4756 | aa:ss-do-interactive-stretch | "CMDECHO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:4756 | aa:ss-do-interactive-stretch | "DRAGMODE": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:4791 | c:ss | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
@@ -120,12 +119,12 @@
 | review | undo-close | AA整合版本.lsp:14881 | de:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:15014 | c:ge | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:16596 | c:bk | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-error-path | V6/aicad_extension.lsp:968 | aicad:apply-zuo | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
-| review | undo-error-path | V6/aicad_extension.lsp:1009 | aicad:apply-you | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
-| review | undo-error-path | V6/aicad_extension.lsp:1066 | aicad:apply-shang | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
-| review | undo-error-path | V6/aicad_extension.lsp:1098 | aicad:apply-xia | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
-| review | undo-error-path | V6/aicad_extension.lsp:1130 | aicad:apply-zhong | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
-| review | undo-error-path | V6/aicad_extension.lsp:1279 | aicad:apply-text-replacements | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
+| review | undo-error-path | V6/aicad_extension.lsp:971 | aicad:apply-zuo | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
+| review | undo-error-path | V6/aicad_extension.lsp:1012 | aicad:apply-you | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
+| review | undo-error-path | V6/aicad_extension.lsp:1069 | aicad:apply-shang | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
+| review | undo-error-path | V6/aicad_extension.lsp:1101 | aicad:apply-xia | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
+| review | undo-error-path | V6/aicad_extension.lsp:1133 | aicad:apply-zhong | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
+| review | undo-error-path | V6/aicad_extension.lsp:1282 | aicad:apply-text-replacements | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
 
 ## 公共库与实际修复
 

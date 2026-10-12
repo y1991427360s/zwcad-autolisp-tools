@@ -13,14 +13,14 @@
 | AAE | 选择块内属性文字，在自定义窗口中编辑并按回车直接保存。 | 无函数形参; 交互: nentsel, ssget; 提示: 选择要编辑的属性文字: | aa:cmd-begin, aa:cmd-end, aae:locate-dcl, aae:resolve-val, aae:split-lines, AAE.DCL, \\AAE.DCL | ATTRIB；存在修改调用 | AA整合版本.lsp:9195 |
 | AB | 在每个选中文字末尾增加输入的文字。 | 无函数形参; 交互: getstring, ssget; 提示: 请输入要增加的文字: | aa:cmd-begin, aa:cmd-end, db:add | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:12790 |
 | AF | 在每个选中文字开头增加输入的文字。 | 无函数形参; 交互: getstring, ssget; 提示: 请输入要增加的文字: | aa:cmd-begin, aa:cmd-end, db:add | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:12796 |
-| AICAD | 根据自然语言指令或对话修改选中的 CAD 对象 | 无函数形参; 交互: getstring, ssget; 提示: Describe the change for the selected objects: / Execute this action? [Yes/No] &lt;No>: | aicad:command-aicad, aicad:safe-apply, AICAD_BRIDGE.PS1, AICAD_LAUNCH.VBS, WSCRIPT.EXE | ATTRIB, INSERT, LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | V6/aicad_extension.lsp:1785 |
-| AICADCLEANUI | 清理残留的旧版临时 UI 与界面元素 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:cleanup-legacy-ui, aicad:safe-apply | 未静态确定；存在修改调用 | V6/aicad_extension.lsp:1936 |
-| AICADREPLACEPANELSHOW | 打开 AICAD 查找替换浮动面板 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicadloader:safe-apply, aicadloader:show-replace-panel | 未静态确定；存在修改调用 | V6/aicad_aa_loader.lsp:304 |
-| AICADRIBBON | 执行 Ribbon 功能区输入框中提交的自然语言指令 | 无函数形参; 交互: getstring, ssget; 提示: Execute this action? [Yes/No] &lt;No>: | aicad:command-ribbon, aicad:safe-apply, AICAD_BRIDGE.PS1, AICAD_LAUNCH.VBS, WSCRIPT.EXE | ATTRIB, INSERT, LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | V6/aicad_extension.lsp:1826 |
-| AICADRIBBONFIND | 执行 Ribbon 查找面板中的文字查找与定位 | 无函数形参; 交互: ssget | aicad:command-ribbon-find, aicad:safe-apply | ATTRIB, INSERT, MTEXT, TEXT；存在修改调用 | V6/aicad_extension.lsp:1919 |
-| AICADRIBBONFOCUSMATCH | 聚焦并定位 Ribbon 查找匹配的目标图元 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:command-ribbon-focus-match, aicad:safe-apply | 未静态确定；存在修改调用 | V6/aicad_extension.lsp:1931 |
-| AICADRIBBONREPLACE | 执行 Ribbon 替换面板中的批量查找替换 | 无函数形参; 交互: ssget | aicad:command-ribbon-replace, aicad:safe-apply | ATTRIB, INSERT, MTEXT, TEXT；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1886 |
-| ASCAD | AICAD 启动命令别名 | 无函数形参; 交互: getstring, ssget; 提示: Describe the change for the selected objects: / Execute this action? [Yes/No] &lt;No>: | c:aicad, AICAD_BRIDGE.PS1, AICAD_LAUNCH.VBS, WSCRIPT.EXE | ATTRIB, INSERT, LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | V6/aicad_extension.lsp:1790 |
+| AICAD | 根据自然语言指令或对话修改选中的 CAD 对象 | 无函数形参; 交互: getstring, ssget; 提示: Describe the change for the selected objects: / Execute this action? [Yes/No] &lt;No>: | aicad:command-aicad, aicad:safe-apply, AICAD_BRIDGE.PS1, AICAD_LAUNCH.VBS, WSCRIPT.EXE | ATTRIB, INSERT, LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | V6/aicad_extension.lsp:1788 |
+| AICADCLEANUI | 清理残留的旧版临时 UI 与界面元素 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:cleanup-legacy-ui, aicad:safe-apply | 未静态确定；存在修改调用 | V6/aicad_extension.lsp:1939 |
+| AICADREPLACEPANELSHOW | 打开 AICAD 查找替换浮动面板 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicadloader:safe-apply, aicadloader:show-replace-panel | 未静态确定；存在修改调用 | V6/aicad_aa_loader.lsp:307 |
+| AICADRIBBON | 执行 Ribbon 功能区输入框中提交的自然语言指令 | 无函数形参; 交互: getstring, ssget; 提示: Execute this action? [Yes/No] &lt;No>: | aicad:command-ribbon, aicad:safe-apply, AICAD_BRIDGE.PS1, AICAD_LAUNCH.VBS, WSCRIPT.EXE | ATTRIB, INSERT, LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | V6/aicad_extension.lsp:1829 |
+| AICADRIBBONFIND | 执行 Ribbon 查找面板中的文字查找与定位 | 无函数形参; 交互: ssget | aicad:command-ribbon-find, aicad:safe-apply | ATTRIB, INSERT, MTEXT, TEXT；存在修改调用 | V6/aicad_extension.lsp:1922 |
+| AICADRIBBONFOCUSMATCH | 聚焦并定位 Ribbon 查找匹配的目标图元 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:command-ribbon-focus-match, aicad:safe-apply | 未静态确定；存在修改调用 | V6/aicad_extension.lsp:1934 |
+| AICADRIBBONREPLACE | 执行 Ribbon 替换面板中的批量查找替换 | 无函数形参; 交互: ssget | aicad:command-ribbon-replace, aicad:safe-apply | ATTRIB, INSERT, MTEXT, TEXT；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1889 |
+| ASCAD | AICAD 启动命令别名 | 无函数形参; 交互: getstring, ssget; 提示: Describe the change for the selected objects: / Execute this action? [Yes/No] &lt;No>: | c:aicad, AICAD_BRIDGE.PS1, AICAD_LAUNCH.VBS, WSCRIPT.EXE | ATTRIB, INSERT, LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | V6/aicad_extension.lsp:1793 |
 | ASHANG | 选择一条水平直线作为基准线，框选其他所有对象作为一个整体整体移动并向上对齐到该直线。 | 无函数形参; 交互: entsel, ssget; 提示: [ASHANG] 请选择作为对齐基准的水平直线: | aa:bbox-top-y, aa:cmd-begin, aa:cmd-end, aa:safe-get-bbox, aa:safe-move-entity | LINE；存在修改调用 | AA整合版本.lsp:3906 |
 | ATW | 拾取两点指定最大宽度，将超宽单行文字的宽度比例缩小至两点间距的 95% 并保持左侧不动。 | 无函数形参; 交互: getpoint, ssget; 提示: [ATW] 请指定最大宽度第一点: / [ATW] 请指定最大宽度第二点: | aa:bbox-left-x, aa:bbox-right-x, aa:cmd-begin, aa:cmd-end, aa:safe-get-bbox, aa:safe-move-entity | TEXT；存在修改调用 | AA整合版本.lsp:4432 |
 | AW | 自动微移选中文字，尽量避开旁边线段、文字和其他对象重叠。 | 无函数形参; 交互: ssget | aw:get-selection, aw:process-one | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:13742 |
@@ -85,8 +85,8 @@
 | LAN | 竖直线/斜线/水平线联动复制+移动插件。 | 无函数形参; 交互: getkword, ssget | aa:cmd-begin, aa:cmd-end, lan-get-option | 未静态确定；存在修改调用 | AA整合版本.lsp:6084 |
 | LNY | 选中两条水平线后向右生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:15983 |
 | LNZ | 选中两条水平线后向左生成短线、矩形并居中标注L、N及相邻屏柜（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:15977 |
-| LOADAICADAA | 加载并初始化 AICAD Ribbon 功能区面板 | 无函数形参; 交互: getfiled | aicadloader:command-load, aicadloader:safe-apply, aicadloader:show-replace-panel, AICADRIBBON.DLL, AICADRIBBONHOST.DLL, AICADRIBBONHOSTV5.DLL, AICADRIBBONHOSTV6.DLL, AICAD_EXTENSION.LSP, LOCATE AICAD_EXTENSION.LSP OR AICADRIBBONHOST.DLL | 未静态确定；存在修改调用 | V6/aicad_aa_loader.lsp:292 |
-| LOADAICADZW | 加载并初始化 AICAD Ribbon 功能区面板（别名） | 无函数形参; 交互: getfiled | c:loadaicadaa, AICADRIBBON.DLL, AICADRIBBONHOST.DLL, AICADRIBBONHOSTV5.DLL, AICADRIBBONHOSTV6.DLL, AICAD_EXTENSION.LSP, LOCATE AICAD_EXTENSION.LSP OR AICADRIBBONHOST.DLL | 未静态确定；存在修改调用 | V6/aicad_aa_loader.lsp:300 |
+| LOADAICADAA | 加载并初始化 AICAD Ribbon 功能区面板 | 无函数形参; 交互: getfiled | aicadloader:command-load, aicadloader:safe-apply, aicadloader:show-replace-panel, AICADRIBBON.DLL, AICADRIBBONHOST.DLL, AICADRIBBONHOSTV5.DLL, AICADRIBBONHOSTV6.DLL, AICAD_EXTENSION.LSP, LOCATE AICAD_EXTENSION.LSP OR AICADRIBBONHOST.DLL | 未静态确定；存在修改调用 | V6/aicad_aa_loader.lsp:295 |
+| LOADAICADZW | 加载并初始化 AICAD Ribbon 功能区面板（别名） | 无函数形参; 交互: getfiled | c:loadaicadaa, AICADRIBBON.DLL, AICADRIBBONHOST.DLL, AICADRIBBONHOSTV5.DLL, AICADRIBBONHOSTV6.DLL, AICAD_EXTENSION.LSP, LOCATE AICAD_EXTENSION.LSP OR AICADRIBBONHOST.DLL | 未静态确定；存在修改调用 | V6/aicad_aa_loader.lsp:303 |
 | MING | 按行列网格顺序，批量将单行文字填充到对应属性块的图名属性中。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, blk-insertpt, ming:cluster-and-sort, ming:find-title-attrib, ming:get-block-height, ming:get-text-info | INSERT, MTEXT, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:9847 |
 | MJ | 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。 | 无函数形参; 交互: ssget | aa:mj-collect-text-data, aa:mj-frame-bounds, aa:mj-horizontal-ys, aa:mj-move-cached-texts, aa:mj-scale-line-x | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:11711 |
 | NU | 材料表数字加数字，从选中文字中提取数字并执行加法运算。 | 无函数形参; 交互: getreal, ssget; 提示: [NU] 请输入要相加的数值: | aa:nu-rewrite-text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:8264 |
@@ -112,9 +112,9 @@
 | T | 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, txt:run | ATTDEF, MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:1906 |
 | T2 | 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, txt2:process-selection | ARC, CIRCLE, DIMENSION, INSERT, LEADER, LINE, LWPOLYLINE, MTEXT, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:2404 |
 | TONG | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | 无函数形参; 交互: getpoint, ssget; 提示: 请指定放置起点 (从上到下排列): | aa:cmd-begin, aa:cmd-end, aa:merge-sort | MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:17650 |
-| UNLOAD_AA | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1946 |
-| UNLOAD_AICAD | 卸载 AICAD 扩展插件及注册环境 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:unload | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1941 |
-| UNLOAD_XXX | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1950 |
+| UNLOAD_AA | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1949 |
+| UNLOAD_AICAD | 卸载 AICAD 扩展插件及注册环境 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:unload | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1944 |
+| UNLOAD_XXX | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1953 |
 | UPSY | 选中两条水平线后向右生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:15995 |
 | UPSZ | 选中两条水平线后向左生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:15989 |
 | UT | 先将文字统一为左中对正，再按最上方一对的位置整理文字；支持直线及按首尾端点计算的未闭合多段线，保留宽度。 | 无函数形参; 交互: ssget | aa:normalize-text-horizontal-align, aa:undo-mark-off, aa:undo-mark-on, ut:bbox-bottom, ut:bbox-left, ut:get-bbox, ut:horizontal-line-p, ut:line-y, ut:move, ut:sort-desc | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:15227 |

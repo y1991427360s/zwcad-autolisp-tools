@@ -108,5 +108,31 @@ class AuditTests(unittest.TestCase):
                     self.assertTrue(required <= set(args[args.index('/')+1:]))
 
 
+class ErrorHandlerIsolationTests(unittest.TestCase):
+    def test_modules_preserve_session_handler_and_restore_on_caught_errors(self):
+        # 加载两个模块都不得重新定义会话错误处理函数；嵌套保护由局部绑定隔离。
+        for filename, namespace in [('V6/aicad_aa_loader.lsp', 'aicadloader:'),
+                                    ('V6/aicad_extension.lsp', 'aicad:')]:
+            with self.subTest(module=filename):
+                _, text = read_source(ROOT / filename)
+                functions = {f[1]: f for f in defun_forms(parse(text))}
+                self.assertNotIn('*error*', functions)
+                safe = functions[namespace + 'safe-apply']
+                self.assertIn('*error*', safe[2][safe[2].index('/') + 1:])
+                self.assertEqual(safe[3], ['setq', '*error*', namespace + 'handle-error'])
+                # 捕获结果后必须先恢复当前帧，再判断错误并返回，失败也不能绕过恢复。
+                self.assertEqual(safe[4], [namespace + 'push-environment'])
+                self.assertEqual(safe[5], ['setq', 'result',
+                                          ['vl-catch-all-apply', 'fn', 'args']])
+                self.assertEqual(safe[6], [namespace + 'pop-environment'])
+                handler = functions[namespace + 'handle-error']
+                self.assertEqual(handler[3], [namespace + 'restore-all-environments'])
+
+    def test_strict_repository_audit_has_no_structural_errors(self):
+        _, findings, _, _ = scan(ROOT)
+        errors = [f for f in findings if f['level'] == 'error']
+        self.assertEqual(errors, [])
+
+
 if __name__ == '__main__':
     unittest.main()
