@@ -32,8 +32,8 @@ def check_hddl_ast():
     assert has_strlen_zhi, 'hddl:cabinet must compute (strlen "至") dynamically'
 
     tail_diff_nodes = list(walk(funcs['hddl:tail-different-p']))
-    assert any(isinstance(n, list) and n and n[0] == 'hddl:cell' for n in tail_diff_nodes), \
-        'hddl:tail-different-p must compare principle cell contents'
+    assert any(isinstance(n, list) and n and n[0] == 'hddl:tail-values' for n in tail_diff_nodes), \
+        'hddl:tail-different-p must compare principle values regardless of column order'
     color_diff_nodes = list(walk(funcs['hddl:color-tail-diffs']))
     assert any(isinstance(n, list) and n and n[0] == 'hddl:color' for n in color_diff_nodes), \
         'hddl:color-tail-diffs must color mismatched principle cells'
@@ -143,8 +143,12 @@ def check_hddl_principle_value_comparison():
     mirror = ['电能质量监测柜', '2SYH-136B', '至主变保护柜2', '4×4', '4', "A640'",
               "B640'", "C640'", 'N600']
     tail_count = lambda row: sum(bool(value.strip()) for value in row[4:])
-    differing_principles = [i for i, (a, b) in enumerate(zip(first[5:], mirror[5:]), start=5)
-                             if a.strip().casefold() != b.strip().casefold()]
+    def unmatched_indices(row, other):
+        values = {value.strip().upper() for value in other[5:] if value.strip()}
+        return [i for i, value in enumerate(row[5:], start=5)
+                if value.strip() and value.strip().upper() not in values]
+
+    differing_principles = unmatched_indices(first, mirror)
 
     assert tail_count(first) == tail_count(mirror) == 5, 'Regression setup must have equal tail counts'
     assert differing_principles == [5, 6, 7], 'HDDL must identify the three mismatched principles'
@@ -155,9 +159,22 @@ def check_hddl_principle_value_comparison():
                 "B630'", "C630'", 'N600']
     matching_mirror = ['电能质量监测柜', '1SYH-136B', '至主变保护柜1', '4×4', '4', "A630'",
                        "B630'", "C630'", 'N600']
-    assert not any(a.strip().casefold() != b.strip().casefold()
-                   for a, b in zip(matching[5:], matching_mirror[5:])), \
-        'Valid 1SYH mirror rows must not be treated as mismatched'
+    assert not unmatched_indices(matching, matching_mirror)
+
+    # QW3 中 1B-103、2B-103：原理号内容一致，仅排列顺序不同。
+    for prefix in ('1B', '2B'):
+        first = ['主变保护柜', prefix + '-103', '至10kV分段开关柜', '7×2.5', '4',
+                 prefix + '-01', prefix + '-BT01', prefix + '-33', prefix + '-BT03']
+        mirror = ['10kV分段开关柜', prefix + '-103', '至主变保护柜', '7×2.5', '4',
+                  prefix + '-BT01', prefix + '-BT03', prefix + '-01', prefix + '-33']
+        assert not unmatched_indices(first, mirror)
+        assert not unmatched_indices(mirror, first)
+        mirror[6] = prefix + '-BT99'
+        assert unmatched_indices(first, mirror) == [8]
+        assert unmatched_indices(mirror, first) == [6]
+        mirror[6] = ' ' + prefix.lower() + '-bt03\t'
+        assert not unmatched_indices(first, mirror)
+        assert not unmatched_indices(mirror, first)
 
     print('PASS: HDDL detects equal-count principle value mismatches and preserves matching cells')
 

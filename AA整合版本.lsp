@@ -16906,24 +16906,34 @@
       (setq j (1+ j)))
     (setq i (1+ i))))
 
-(defun hddl:tail-different-p (a b / i va vb hit)
-  ;; 第 6 列起为原理号；逐列比较镜像行的实际内容，而不只比较数量。
-  (setq i 5 hit nil)
-  (while (and (not hit) (or (hddl:item a i) (hddl:item b i)))
-    (setq va (hddl:cell a i) vb (hddl:cell b i))
-    (if (/= (strcase va) (strcase vb)) (setq hit T))
+(defun hddl:tail-values (row / i value values)
+  ;; 第 6 列起收集非空原理号；沿用去首尾空白、忽略大小写的规则。
+  (setq i 5 values nil)
+  (while (hddl:item row i)
+    (setq value (strcase (hddl:cell row i)))
+    (if (/= value "") (setq values (cons value values)))
     (setq i (1+ i)))
+  values)
+
+(defun hddl:tail-different-p (a b / av bv value hit)
+  ;; 原理号按内容比对，排列顺序不同不算问题；行内重复另行检查。
+  (setq av (hddl:tail-values a) bv (hddl:tail-values b)
+        hit (/= (length av) (length bv)))
+  (foreach value av
+    (if (not (member value bv)) (setq hit T)))
+  (foreach value bv
+    (if (not (member value av)) (setq hit T)))
   hit)
 
-(defun hddl:color-tail-diffs (row other / i va vb rec)
-  ;; 仅将镜像行中内容不同的原理号单元格标红，芯数及相同原理号保持原色。
-  (setq i 5)
-  (while (or (hddl:item row i) (hddl:item other i))
-    (setq va (hddl:cell row i) vb (hddl:cell other i))
-    (if (/= (strcase va) (strcase vb))
-      (foreach rec (list (hddl:item row i) (hddl:item other i))
-        (if (and rec (car rec)) (hddl:color (car rec) 1))))
-    (setq i (1+ i))))
+(defun hddl:color-tail-diffs (row other / pair current values i value rec)
+  ;; 两行分别只标红在另一行中找不到的原理号，不按列位置标红。
+  (foreach pair (list (list row other) (list other row))
+    (setq current (car pair) values (hddl:tail-values (cadr pair)) i 5)
+    (while (setq rec (hddl:item current i))
+      (setq value (strcase (hddl:cell current i)))
+      (if (and (/= value "") (not (member value values)) (car rec))
+        (hddl:color (car rec) 1))
+      (setq i (1+ i)))))
 
 (defun hddl:cabinet (s / blank z-len)
   ;; 柜名比较忽略内部空白，不修改图中原文字。核对时一律先去掉空格再对比。
@@ -17021,7 +17031,7 @@
       (redraw)
       (alert (strcat "HDDL 校核完成\r\n\r\n问题行: " (itoa bad)
                      "\r\n已生成红色标记: " (itoa made)
-                     "\r\n\r\n规则：合法的起终点互换镜像行不标红；同向重复、原理号数量不一致会标红芯数，柜名不一致会标红柜名，原理号内容不一致或重复会标红对应原理号。")))
+                     "\r\n\r\n规则：合法的起终点互换镜像行不标红，原理号排列顺序不影响校核；同向重复、原理号数量不一致会标红芯数，柜名不一致会标红柜名，原理号内容不一致或重复会标红对应原理号。")))
       (princ "\r\n未选择文字。"))
   (aa:undo-mark-off)
   (setq *error* olderr)

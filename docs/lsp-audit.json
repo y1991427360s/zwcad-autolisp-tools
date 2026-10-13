@@ -3,9 +3,9 @@
   "files": [
     {
       "file": "AA整合版本.lsp",
-      "bytes": 695334,
-      "top_level_forms": 736,
-      "functions": 650,
+      "bytes": 695786,
+      "top_level_forms": 737,
+      "functions": 651,
       "commands": 137
     },
     {
@@ -1184,7 +1184,7 @@
     {
       "command": "CD",
       "file": "AA整合版本.lsp",
-      "line": 17106,
+      "line": 17116,
       "description": "将选中对象按 5 个单位的递增间距向下复制指定份数。",
       "params": [],
       "inputs": [
@@ -1236,7 +1236,7 @@
     {
       "command": "CU",
       "file": "AA整合版本.lsp",
-      "line": 17102,
+      "line": 17112,
       "description": "将选中对象按 5 个单位的递增间距向上复制指定份数。",
       "params": [],
       "inputs": [
@@ -1259,7 +1259,7 @@
     {
       "command": "CY",
       "file": "AA整合版本.lsp",
-      "line": 17114,
+      "line": 17124,
       "description": "将选中对象按 5 个单位的递增间距向右复制指定份数。",
       "params": [],
       "inputs": [
@@ -1282,7 +1282,7 @@
     {
       "command": "CZ",
       "file": "AA整合版本.lsp",
-      "line": 17110,
+      "line": 17120,
       "description": "将选中对象按 5 个单位的递增间距向左复制指定份数。",
       "params": [],
       "inputs": [
@@ -2472,7 +2472,7 @@
     {
       "command": "HDDL",
       "file": "AA整合版本.lsp",
-      "line": 16947,
+      "line": 16957,
       "description": "直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。",
       "params": [],
       "inputs": [
@@ -2531,6 +2531,7 @@
         "hddl:tail-count",
         "hddl:tail-different-p",
         "hddl:tail-duplicate-p",
+        "hddl:tail-values",
         "hddl:text"
       ],
       "external_files": [],
@@ -2683,7 +2684,7 @@
     {
       "command": "HS",
       "file": "AA整合版本.lsp",
-      "line": 17168,
+      "line": 17178,
       "description": "选中物体单向横向缩放，左右宽度改变，高度保持不变。",
       "params": [],
       "inputs": [
@@ -3675,7 +3676,7 @@
     {
       "command": "SC3",
       "file": "AA整合版本.lsp",
-      "line": 17553,
+      "line": 17563,
       "description": "将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。",
       "params": [],
       "inputs": [
@@ -3972,7 +3973,7 @@
     {
       "command": "TONG",
       "file": "AA整合版本.lsp",
-      "line": 17755,
+      "line": 17765,
       "description": "框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。",
       "params": [],
       "inputs": [
@@ -4205,7 +4206,7 @@
     {
       "command": "VPO1",
       "file": "AA整合版本.lsp",
-      "line": 17736,
+      "line": 17746,
       "description": "切换到“单个”标准视口。",
       "params": [],
       "inputs": [],
@@ -4225,7 +4226,7 @@
     {
       "command": "VPO2",
       "file": "AA整合版本.lsp",
-      "line": 17744,
+      "line": 17754,
       "description": "切换到“两个：垂直”标准视口。",
       "params": [],
       "inputs": [],
@@ -5069,7 +5070,7 @@
     {
       "command": "Z0",
       "file": "AA整合版本.lsp",
-      "line": 17687,
+      "line": 17697,
       "description": "将选中对象的 Z 坐标全部归零（压平到 XY 平面）。",
       "params": [],
       "inputs": [
@@ -5426,7 +5427,7 @@
     {
       "command": "ZS",
       "file": "AA整合版本.lsp",
-      "line": 17349,
+      "line": 17359,
       "description": "选中物体单向纵向缩放，上下高度改变，宽度保持不变。",
       "params": [],
       "inputs": [
@@ -6122,7 +6123,7 @@
       "rule": "error-binding",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 16947,
+      "line": 16957,
       "function": "c:hddl",
       "evidence": "*error* 赋值未局部声明；可能为动态作用域框架"
     },
@@ -6130,7 +6131,7 @@
       "rule": "error-binding",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 16947,
+      "line": 16957,
       "function": "c:hddl",
       "evidence": "局部错误处理定义缺少 *error* 局部绑定"
     },
@@ -6138,7 +6139,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 17168,
+      "line": 17178,
       "function": "c:hs",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -6146,7 +6147,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 17349,
+      "line": 17359,
       "function": "c:zs",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -6154,7 +6155,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 17553,
+      "line": 17563,
       "function": "c:sc3",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -6162,7 +6163,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 17736,
+      "line": 17746,
       "function": "c:vpo1",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -6170,7 +6171,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 17744,
+      "line": 17754,
       "function": "c:vpo2",
       "evidence": "\"CMDECHO\": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置"
     },
@@ -6576,7 +6577,7 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 17027,
+        "line": 17037,
         "function": "c:hddl"
       }
     ],
@@ -6597,17 +6598,17 @@
     "*hs_last_scale*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 17120,
+        "line": 17130,
         "function": "<load>"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 17219,
+        "line": 17229,
         "function": "c:hs"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 17261,
+        "line": 17271,
         "function": "c:hs"
       }
     ],
@@ -6901,17 +6902,17 @@
     "*zs_last_scale*": [
       {
         "file": "AA整合版本.lsp",
-        "line": 17346,
+        "line": 17356,
         "function": "<load>"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 17400,
+        "line": 17410,
         "function": "c:zs"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 17442,
+        "line": 17452,
         "function": "c:zs"
       }
     ],
