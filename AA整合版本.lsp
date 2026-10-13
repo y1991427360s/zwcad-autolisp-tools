@@ -5629,11 +5629,119 @@
   )
 )
 
+(defun aa:gty-separated-rows (items tol newest-first / indexed i item ordered bands band high last-y y safe out pair line)
+  ;; 仅在每个相邻 Y 带的跨度 <= 容差、带间距 > 容差时走快速路径。
+  ;; 此时分行与输入顺序无关；仍用原输入序号恢复建行和入行顺序。
+  ;; 连锁容差等歧义返回 nil，由调用方沿用原来的逐项判断。
+  (setq indexed nil i 0)
+  (foreach item items
+    (setq indexed (cons (list i item) indexed) i (1+ i)))
+  (setq ordered (aa:merge-sort (reverse indexed)
+                  '(lambda (a b) (> (aa:gty-get-item-y (cadr a))
+                                    (aa:gty-get-item-y (cadr b)))))
+        bands nil band nil safe T)
+  (while (and ordered safe)
+    (setq pair (car ordered) y (aa:gty-get-item-y (cadr pair)))
+    (if (or (null band) (> (- last-y y) tol))
+      (progn
+        (if band (setq bands (cons band bands)))
+        (setq band (list pair) high y))
+      (setq band (cons pair band)))
+    (if (> (- high y) tol) (setq safe nil))
+    (setq last-y y ordered (cdr ordered)))
+  (if safe
+    (progn
+      (if band (setq bands (cons band bands)))
+      (setq out nil)
+      (foreach band bands
+        (setq band (aa:merge-sort band '(lambda (a b) (< (car a) (car b))))
+              line (mapcar 'cadr band))
+        (setq out (cons (list (caar band) (if newest-first (reverse line) line)) out)))
+      (setq out (aa:merge-sort out
+                  (if newest-first '(lambda (a b) (> (car a) (car b)))
+                                   '(lambda (a b) (< (car a) (car b))))))
+      (list T (mapcar 'cadr out)))
+    nil))
+
+(defun aa:gty-add-row (item rows tol / prefix rest line hit)
+  ;; 保留新行在前、最新入行文字成为代表点的语义；命中后复用尾链。
+  (setq prefix nil rest rows hit nil)
+  (while (and rest (not hit))
+    (setq line (car rest))
+    (if (<= (abs (- (aa:gty-get-item-y item) (aa:gty-get-item-y (car line)))) tol)
+      (setq hit T)
+      (setq prefix (cons line prefix) rest (cdr rest))))
+  (if hit
+    (append (reverse prefix) (cons (cons item line) (cdr rest)))
+    (cons (list item) rows)))
+
+(defun aa:gty-row-tree (rows n / half left rest i)
+  ;; 原生字符串排序之后按原序号查回行；平衡树避免逐键 assoc 扫全表。
+  (if (= n 1)
+    (list 0 (car rows))
+    (progn
+      (setq half (/ n 2) left nil rest rows i 0)
+      (while (< i half)
+        (setq left (cons (car rest) left) rest (cdr rest) i (1+ i)))
+      (list half (aa:gty-row-tree (reverse left) half)
+                 (aa:gty-row-tree rest (- n half))))))
+
+(defun aa:gty-tree-item (tree i)
+  (while (> (car tree) 0)
+    (if (< i (car tree))
+      (setq tree (cadr tree))
+      (setq i (- i (car tree)) tree (caddr tree))))
+  (cadr tree))
+
+(defun aa:gty-move-text-fast (ename from-pt to-pt / ed normal result)
+  ;; 普通左基线、WCS 平面且无扩展字典/反应器的 TEXT 只改插入点。
+  (if (equal from-pt to-pt)
+    T
+    (if (and (setq ed (entget ename))
+             (= (cdr (assoc 0 ed)) "TEXT")
+             (null (assoc 360 ed))
+             (null (assoc 102 ed))
+             (or (null (assoc 72 ed)) (= (cdr (assoc 72 ed)) 0))
+             (or (null (assoc 73 ed)) (= (cdr (assoc 73 ed)) 0))
+             (or (null (setq normal (cdr (assoc 210 ed))))
+                 (equal normal '(0.0 0.0 1.0))))
+      (progn
+        (setq result (vl-catch-all-apply 'entmod
+                       (list (subst (cons 10 to-pt) (assoc 10 ed) ed))))
+        (if (and (not (vl-catch-all-error-p result)) result)
+          T
+          (aa:gty-move-entity ename from-pt to-pt)))
+      (aa:gty-move-entity ename from-pt to-pt))))
+
+(defun aa:gty-order-rows (rows row-tol fast-rows / comparator)
+  (setq comparator '(lambda (a b / ay by ax bx)
+             (setq ay (aa:gty-get-item-y (car a))
+                   by (aa:gty-get-item-y (car b))
+                   ax (aa:gty-get-item-x (car a))
+                   bx (aa:gty-get-item-x (car b)))
+             (if (> (abs (- ay by)) row-tol)
+               (> ay by)
+               (< ax bx))))
+  (if fast-rows (aa:merge-sort rows comparator)
+               (aa:insert-sort rows comparator)))
+
+(defun aa:gty-column-widths (rows gap / widths rest out row item width)
+  ;; 逐列沿尾链更新最大宽度，避免每格 length/nth 和整列替换扫描。
+  (setq widths nil)
+  (foreach row rows
+    (setq rest widths out nil)
+    (foreach item row
+      (setq width (max gap (aa:gty-get-item-width item)
+                           (if rest (car rest) gap))
+            out (cons width out) rest (cdr rest)))
+    (setq widths (append (reverse out) rest)))
+  widths)
+
 (defun c:GTY (/ *error* ss i ent ent-data text-string insertion-point text-height text-width
                text-data total-height avg-height row-tol split-gap col-gap line-height
                rows current-item current-y found split-rows current-row last-item-x current-item-x
                anchor-x anchor-y col-widths col-index row row-index sort-keys row-map token sorted-rows
-               doc undo-started)
+               doc undo-started fast-rows width-rest)
 
   (vl-load-com)
   (setq doc          (vla-get-ActiveDocument (vlax-get-acad-object))
@@ -5685,29 +5793,19 @@
             col-gap     (max 10.0 (* avg-height 2.0))
             line-height 5.0)  ;; 行间 Y 坐标差固定为 5
 
-      (setq rows '())
-      (foreach current-item text-data
-        (setq current-y (aa:gty-get-item-y current-item)
-              found     nil)
-        (setq rows
-          (mapcar
-            '(lambda (line)
-               (if (and (not found)
-                        (<= (abs (- current-y (aa:gty-get-item-y (car line)))) row-tol))
-                 (progn
-                   (setq found T)
-                   (cons current-item line))
-                 line))
-            rows))
-        (if (not found)
-          (setq rows (cons (list current-item) rows))
-        )
-      )
+      (setq fast-rows (if (> (length text-data) 128)
+                        (aa:gty-separated-rows text-data row-tol T)))
+      (if fast-rows
+        (setq rows (cadr fast-rows))
+        (progn
+          (setq rows nil)
+          (foreach current-item text-data
+            (setq rows (aa:gty-add-row current-item rows row-tol)))))
 
       (setq rows
         (mapcar
           '(lambda (line)
-             (aa:insert-sort line '(lambda (a b) (< (aa:gty-get-item-x a) (aa:gty-get-item-x b)))))
+             (aa:merge-sort line '(lambda (a b) (< (aa:gty-get-item-x a) (aa:gty-get-item-x b)))))
           rows))
 
       (setq split-rows '())
@@ -5720,29 +5818,19 @@
               (setq current-item-x (aa:gty-get-item-x current-item))
               (if (> (- current-item-x last-item-x) split-gap)
                 (progn
-                  (setq split-rows (cons current-row split-rows))
+                  (setq split-rows (cons (reverse current-row) split-rows))
                   (setq current-row (list current-item)))
-                (setq current-row (append current-row (list current-item)))
+                (setq current-row (cons current-item current-row))
               )
               (setq last-item-x current-item-x)
             )
-            (setq split-rows (cons current-row split-rows))
+            (setq split-rows (cons (reverse current-row) split-rows))
           )
         )
       )
       (setq rows (reverse split-rows))
 
-      (setq rows
-        (aa:insert-sort
-          rows
-          '(lambda (a b / ay by ax bx)
-             (setq ay (aa:gty-get-item-y (car a))
-                   by (aa:gty-get-item-y (car b))
-                   ax (aa:gty-get-item-x (car a))
-                   bx (aa:gty-get-item-x (car b)))
-             (if (> (abs (- ay by)) row-tol)
-               (> ay by)
-               (< ax bx)))))
+      (setq rows (aa:gty-order-rows rows row-tol fast-rows))
 
       (setq anchor-x (aa:gty-get-item-x (car text-data))
             anchor-y (aa:gty-get-item-y (car text-data)))
@@ -5755,53 +5843,41 @@
         )
       )
 
-      (setq col-widths '())
-      (foreach row rows
-        (setq col-index 0)
-        (foreach current-item row
-          (if (>= col-index (length col-widths))
-            (setq col-widths
-              (append col-widths (list (max (aa:gty-get-item-width current-item) col-gap))))
-            (if (> (aa:gty-get-item-width current-item) (nth col-index col-widths))
-              (setq col-widths
-                (aa:gty-update-nth col-index (aa:gty-get-item-width current-item) col-widths))
-            )
-          )
-          (setq col-index (1+ col-index))
-        )
-      )
+      (setq col-widths (aa:gty-column-widths rows col-gap))
 
       (setq sort-keys '()
-            row-map   '()
+            row-map   (aa:gty-row-tree rows (length rows))
             row-index 0)
       (foreach row rows
         (setq token     (aa:gty-build-sort-key row row-index)
               sort-keys (cons token sort-keys)
-              row-map   (cons (cons token row) row-map)
               row-index (1+ row-index))
       )
       (setq sorted-rows
         (mapcar
-          '(lambda (key) (cdr (assoc key row-map)))
+          '(lambda (key)
+             (aa:gty-tree-item row-map
+               (atoi (substr key (+ 2 (vl-string-position 124 key nil T))))))
           (acad_strlsort sort-keys)))
 
       (setq row-index 0)
       (foreach row sorted-rows
         (setq current-item-x anchor-x
-              col-index      0)
+              width-rest     col-widths)
         (foreach current-item row
-          (aa:gty-move-entity
+          (aa:gty-move-text-fast
             (aa:gty-get-item-ename current-item)
             (aa:gty-get-item-pt current-item)
             (list current-item-x
                   (- anchor-y (* row-index line-height))
                   (aa:gty-get-item-z current-item)))
-          (setq current-item-x (+ current-item-x (nth col-index col-widths) col-gap)
-                col-index      (1+ col-index))
+          (setq current-item-x (+ current-item-x (car width-rest) col-gap)
+                width-rest     (cdr width-rest))
         )
         (setq row-index (1+ row-index))
       )
 
+      (redraw)
       (vla-EndUndoMark doc)
       (setq undo-started nil)
       (princ "\r\n[GTY] 电缆文字整理完成。")
@@ -16769,7 +16845,8 @@
   (aa:ysdl-get-plain-text ed))
 
 (defun hddl:color (e c / d)
-  (if (setq d (entget e))
+  (if (and (setq d (entget e))
+           (or (assoc 420 d) (assoc 430 d) (not (equal (cdr (assoc 62 d)) c))))
     (progn
       (setq d (vl-remove-if '(lambda (x) (member (car x) '(420 430))) d))
       (if (assoc 62 d) (setq d (subst (cons 62 c) (assoc 62 d) d))
@@ -16805,30 +16882,66 @@
   (if (> ya (+ yb 1.0)) T
     (if (< ya (- yb 1.0)) nil (< xa xb))))
 
-(defun hddl:insert-sorted (rec sorted / head)
-  (if (null sorted)
-    (list rec)
-    (if (hddl:row-sort rec (car sorted))
-      (cons rec sorted)
-      (cons (car sorted) (hddl:insert-sorted rec (cdr sorted))))))
+(defun hddl:insert-sorted (rec sorted / prefix)
+  ;; 保持原逐项插入的比较次序，改为迭代，避免长行递归栈。
+  (setq prefix nil)
+  (while (and sorted (not (hddl:row-sort rec (car sorted))))
+    (setq prefix (cons (car sorted) prefix) sorted (cdr sorted)))
+  (append (reverse prefix) (cons rec sorted)))
 
-(defun hddl:sort (items / result rec)
+(defun hddl:sort (items / result rec low high y)
   (setq result nil)
-  (foreach rec items (setq result (hddl:insert-sorted rec result)))
-  result)
+  (foreach rec items
+    (setq y (hddl:coord rec 1)
+          low (if low (min low y) y) high (if high (max high y) y)))
+  ;; 只有全行 Y 跨度 <= 1 才可证明比较器退化成纯 X 的严格排序。
+  (if (and low (<= (- high low) 1.0))
+    (aa:merge-sort items 'hddl:row-sort)
+    (progn
+      (foreach rec items (setq result (hddl:insert-sorted rec result)))
+      result)))
 
-(defun hddl:add-row (rec rows / y out hit row)
-  (setq y (hddl:coord rec 1) out '() hit nil)
-  (foreach row rows
-    (if (and (not hit) (<= (abs (- y (hddl:coord (car row) 1))) 1.0))
-      (progn (setq out (append out (list (append row (list rec)))) hit T))
-      (setq out (append out (list row)))))
-  (if hit out (append out (list (list rec)))))
+(defun hddl:add-row (rec rows / prefix rest row hit y)
+  ;; 固定首项代表点，命中后只重建前缀；不再在每一行反复 append。
+  (setq y (hddl:coord rec 1) prefix nil rest rows hit nil)
+  (while (and rest (not hit))
+    (setq row (car rest))
+    (if (<= (abs (- y (hddl:coord (car row) 1))) 1.0)
+      (setq hit T)
+      (setq prefix (cons row prefix) rest (cdr rest))))
+  (if hit
+    (append (reverse prefix) (cons (append row (list rec)) (cdr rest)))
+    (append (reverse prefix) (list (list rec)))))
+
+(defun hddl:rows (items / packed rows rec)
+  (setq packed (if (> (length items) 128)
+                 (aa:gty-separated-rows items 1.0 nil)))
+  (if packed
+    (cadr packed)
+    (progn
+      (setq rows nil)
+      (foreach rec items (setq rows (hddl:add-row rec rows)))
+      rows)))
 
 (defun hddl:sort-rows (rows / out row)
-  (setq out '())
-  (foreach row rows (setq out (append out (list (hddl:sort row)))))
-  out)
+  (setq out nil)
+  (foreach row rows (setq out (cons (hddl:sort row) out)))
+  (reverse out))
+
+(defun hddl:group-rows (rows / pairs row id groups key members pair)
+  ;; 稳定排序后顺序归组，替代逐行 assoc/subst 全表扫描。
+  (setq pairs nil groups nil members nil key nil)
+  (foreach row rows
+    (setq id (strcase (hddl:cell row 1)))
+    (if (/= id "") (setq pairs (cons (list id row) pairs))))
+  (setq pairs (aa:merge-sort (reverse pairs) '(lambda (a b) (< (car a) (car b)))))
+  (foreach pair pairs
+    (if (and key (/= key (car pair)))
+      (progn
+        (setq groups (cons (cons key (reverse members)) groups) members nil)))
+    (setq key (car pair) members (cons (cadr pair) members)))
+  (if key (setq groups (cons (cons key (reverse members)) groups)))
+  (reverse groups))
 
 (defun hddl:make-marker (rec txt / ed pt h style rot layer dist p)
   (setq ed (entget (car rec))
@@ -16955,7 +17068,7 @@
           (strcase (hddl:cabinet (hddl:cell b 0))))))
 
 (defun c:HDDL (/ aa:doc aa:undo-open ss i e d items sorted rows cur lasty rec row id groups grp
-                 issue bad marker made mirror-ok olderr stage highlight-type)
+                 issue bad marker made mirror-ok olderr stage highlight-type group group-issue colored)
   (setq olderr *error*)
   (defun *error* (msg)
     (aa:undo-mark-off)
@@ -16977,56 +17090,52 @@
         (setq items (cons (list e (hddl:text d) (hddl:point (cdr (assoc 10 d)))) items))
         (setq i (1+ i)))
       ;; 逐条按 Y 坐标归行，再只对每一行的小列表按 X 排序，避免大列表递归。
-      (setq stage "按坐标分行" rows '())
-      (foreach rec items (setq rows (hddl:add-row rec rows)))
-      (setq rows (hddl:sort-rows rows))
-      ;; 第二列是 YSDL 的电缆编号列；先按编号收集整行，随后排除合法镜像行。
-      (setq stage "按电缆编号分组")
-      (setq groups '())
-      (foreach row rows
-        (setq id (hddl:cell row 1))
-        (if (/= id "")
-          (if (assoc (strcase id) groups)
-            (setq groups
-              (subst (cons (strcase id) (append (cdr (assoc (strcase id) groups)) (list row)))
-                     (assoc (strcase id) groups) groups))
-            (setq groups (cons (cons (strcase id) (list row)) groups)))))
+      (setq stage "按坐标分行" rows (hddl:sort-rows (hddl:rows items)))
+      (setq stage "按电缆编号分组" groups (hddl:group-rows rows))
       (setq stage "检查编号和原理号" bad 0 made 0)
-      (foreach row rows
-        (setq id (hddl:cell row 1) issue nil highlight-type nil)
-        (if (/= id "")
-          (progn
-            (setq grp (cdr (assoc (strcase id) groups))
-                  mirror-ok (and (= (length grp) 2)
-                                 (hddl:mirror-p (car grp) (cadr grp))))
-            (cond
-              ((hddl:tail-duplicate-p row)
-               (setq issue "[原理号重复]" highlight-type 'duplicate-principle))
-              ((and mirror-ok (/= (hddl:tail-count (car grp))
-                                  (hddl:tail-count (cadr grp))))
-               (setq issue "[原理号数量不一致]" highlight-type 'core-count))
-              ((and mirror-ok
-                    (hddl:tail-different-p (car grp) (cadr grp)))
-               (setq issue "[原理号不一致]" highlight-type 'principle))
-              ((and (= (length grp) 2) (not mirror-ok))
-               (setq issue "[柜名不一致]" highlight-type 'cabinet))
-              ((not mirror-ok)
-               (setq issue "[电缆编号重复]" highlight-type 'cable-id)))))
-        (if issue
-          (progn
-            (setq bad (1+ bad))
-            (cond
-              ((= highlight-type 'duplicate-principle)
-               (hddl:color-tail-duplicates row))
-              ((= highlight-type 'core-count)
-               (hddl:color-core-count-diff (car grp) (cadr grp)))
-              ((= highlight-type 'principle)
-               (hddl:color-tail-diffs (car grp) (cadr grp)))
-              ((= highlight-type 'cabinet)
-               (hddl:color-cabinet-diffs (car grp) (cadr grp)))
-              (T (hddl:color-cell row 1)))
-            (setq marker (hddl:make-marker (car row) issue))
-            (if marker (setq made (1+ made))))))
+      (foreach group groups
+        (setq grp (cdr group) colored nil
+              mirror-ok (and (= (length grp) 2) (hddl:mirror-p (car grp) (cadr grp)))
+              group-issue
+                (cond
+                  ((and mirror-ok (/= (hddl:tail-count (car grp))
+                                      (hddl:tail-count (cadr grp)))) 'core-count)
+                  ((and mirror-ok (hddl:tail-different-p (car grp) (cadr grp))) 'principle)
+                  ((and (= (length grp) 2) (not mirror-ok)) 'cabinet)
+                  ((not mirror-ok) 'cable-id)))
+        (foreach row grp
+          (setq issue nil highlight-type nil)
+          (cond
+            ((hddl:tail-duplicate-p row)
+             (setq issue "[原理号重复]" highlight-type 'duplicate-principle))
+            ((= group-issue 'core-count)
+             (setq issue "[原理号数量不一致]" highlight-type 'core-count))
+            ((= group-issue 'principle)
+             (setq issue "[原理号不一致]" highlight-type 'principle))
+            ((= group-issue 'cabinet)
+             (setq issue "[柜名不一致]" highlight-type 'cabinet))
+            ((= group-issue 'cable-id)
+             (setq issue "[电缆编号重复]" highlight-type 'cable-id)))
+          (if issue
+            (progn
+              (setq bad (1+ bad))
+              (if (or (= highlight-type 'duplicate-principle)
+                      (= highlight-type 'cable-id)
+                      (not (member highlight-type colored)))
+                (progn
+                  (setq colored (cons highlight-type colored))
+                  (cond
+                    ((= highlight-type 'duplicate-principle)
+                     (hddl:color-tail-duplicates row))
+                    ((= highlight-type 'core-count)
+                     (hddl:color-core-count-diff (car grp) (cadr grp)))
+                    ((= highlight-type 'principle)
+                     (hddl:color-tail-diffs (car grp) (cadr grp)))
+                    ((= highlight-type 'cabinet)
+                     (hddl:color-cabinet-diffs (car grp) (cadr grp)))
+                    (T (hddl:color-cell row 1)))))
+              (setq marker (hddl:make-marker (car row) issue))
+              (if marker (setq made (1+ made)))))))
       (setq stage "绘制问题标记")
       (redraw)
       (alert (strcat "HDDL 校核完成\r\n\r\n问题行: " (itoa bad)

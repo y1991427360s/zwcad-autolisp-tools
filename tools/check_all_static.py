@@ -138,6 +138,7 @@ def run_command_checks():
         'check_hwd_static.py',
         'check_xy_static.py',
         'check_hddl_static.py',
+        'check_cable_perf_static.py',
         'check_xyg_static.py',
         'check_hb_static.py',
         'check_ys1_static.py',
