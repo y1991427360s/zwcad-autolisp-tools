@@ -18,6 +18,10 @@ def check():
     assert ['setq', 'y', ['-', 'y', '5.0']] in calls
     assert ['aa:cmd-begin', '"HWD"'] in calls
     assert ['aa:cmd-end'] in calls
+    assert not any(n[0] in ('getdist', 'getreal', 'getint') for n in calls)
+    assert ['aa:gty-get-text-width', 'ed'] in calls
+    assert ['max', '10.0', ['*', 'avg-height', '2.0']] in calls
+    assert ['setq', 'pt', ['getpoint', '"\\r\\n[HWD] 指定第一行起点柜文字的左中位置（保留原横排）: "']] in calls
     assert not any(n[0] in ('entmod', 'command', 'vl-cmdf') for n in calls)
     assert ['73', '.', '2'] in list(walk(funcs['aa:hwd-make-text']))
 

@@ -6001,7 +6001,7 @@
   (if (entmake data) (entlast)))
 
 (defun c:HWD (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
-               ss i en ed bbox items rows item row bad min-y max-y max-h
+               ss i en ed bbox items rows item row bad min-y max-y max-h total-h avg-height
                col1-w col2-w gap pt x1 x2 x3 y z made new-en ok col key)
   (aa:cmd-begin "HWD")
   (setq ss (ssget "_I" '((0 . "TEXT"))))
@@ -6014,7 +6014,7 @@
     ((or (< (sslength ss) 3) (= (rem (sslength ss) 2) 0))
       (princ "\r\n[HWD] 需要至少3个且为奇数的文字，请完整选择交替排列的柜名与编号。"))
     (T
-      (setq i 0 max-h 0.0)
+      (setq i 0 max-h 0.0 total-h 0.0)
       (repeat (sslength ss)
         (setq en (ssname ss i) ed (entget en)
               bbox (aa:safe-get-bbox aa:doc en) i (1+ i))
@@ -6031,21 +6031,24 @@
                   min-y (if min-y (min min-y y) y)
                   max-y (if max-y (max max-y y) y)
                   max-h (max max-h (cdr (assoc 40 ed)))
+                  total-h (+ total-h (cdr (assoc 40 ed)))
                   items (cons (list ed (car (car bbox))
-                              (- (car (cadr bbox)) (car (car bbox)))) items)))))
+                              (max (aa:gty-get-text-width ed)
+                                   (- (car (cadr bbox)) (car (car bbox))))) items)))))
       (if (and (null bad) (> (- max-y min-y) (* max-h 0.6)))
         (setq bad "所选文字不在同一横排，请每次只选择一条环网。"))
       (if bad
         (princ (strcat "\r\n[HWD] " bad))
         (progn
           (setq items (aa:merge-sort items '(lambda (a b) (< (cadr a) (cadr b))))
-                rows (aa:hwd-rows items) col1-w 0.0 col2-w 0.0)
+                rows (aa:hwd-rows items)
+                avg-height (/ total-h (float (length items)))
+                gap (max 10.0 (* avg-height 2.0))
+                col1-w gap col2-w gap)
           (foreach row rows
             (setq col1-w (max col1-w (caddr (car row)))
                   col2-w (max col2-w (caddr (cadr row)))))
-          (initget 6)
-          (setq gap (getdist "\r\n[HWD] 列间空隙 <5>: "))
-          (if (null gap) (setq gap 5.0))
+          ;; 与GTY一致：列宽取最长文字且不小于列间距，列间距至少10。
           (setq pt (getpoint "\r\n[HWD] 指定第一行起点柜文字的左中位置（保留原横排）: "))
           (if pt
             (progn
