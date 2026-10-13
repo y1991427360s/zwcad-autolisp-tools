@@ -61,7 +61,7 @@
 ;;;   - SYJ   : 将选中竖直直线向上延长 5 个单位，再生成上接短线。
 ;;;   - XYJ   : 将选中竖直直线向下延长 5 个单位，再生成下接短线。
 ;;;   - GTX   : 按自动容差整理单行/多行电缆文字并自然排序汇总。
-;;;   - GTY   : 汇总并按电缆编号排序整理电缆文字。
+;;;   - GTY   : 保留原文字，按电缆编号排序整理并复制到指定位置。
 ;;;   - HWD   : 横排交替柜名与电缆编号重组为起点、编号、终点三列，左中对齐、行距5，保留原横排。
 ;;;   - GTZ   : 将选中的交替柜名与电缆编号单列文字，按前后柜与编号重组为3列表格输出。
 ;;;   - BIAN  : 根据选中直线生成方向三角、至字样和电缆规格标注。
@@ -5737,17 +5737,48 @@
     (setq widths (append (reverse out) rest)))
   widths)
 
+(defun aa:gty-copy-text (ename from-pt to-pt / obj clone copied moved result)
+  ;; 使用原生 Copy 保留字高、样式、颜色、图层、对齐及扩展数据，只移动副本。
+  (setq from-pt (trans from-pt ename 0)
+        obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+  (if (not (vl-catch-all-error-p obj))
+    (progn
+      (setq clone (vl-catch-all-apply 'vla-copy (list obj)))
+      (vlax-release-object obj)
+      (if (not (vl-catch-all-error-p clone))
+        (progn
+          (setq copied (vl-catch-all-apply 'vlax-vla-object->ename (list clone)))
+          (if (not (vl-catch-all-error-p copied))
+            (setq moved (vl-catch-all-apply 'aa:gty-move-text-fast
+                          (list copied from-pt to-pt))))
+          (if (and moved (not (vl-catch-all-error-p moved)))
+            (setq result copied)
+            (vl-catch-all-apply 'vla-delete (list clone)))
+          (vlax-release-object clone)))))
+  result)
+
+(defun aa:gty-delete-copies (copies / en obj)
+  ;; 失败/取消时仅删除本次生成的副本，不触碰源文字。
+  (foreach en copies
+    (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list en)))
+    (if (not (vl-catch-all-error-p obj))
+      (progn
+        (vl-catch-all-apply 'vla-delete (list obj))
+        (vlax-release-object obj)))))
+
 (defun c:GTY (/ *error* ss i ent ent-data text-string insertion-point text-height text-width
                text-data total-height avg-height row-tol split-gap col-gap line-height
                rows current-item current-y found split-rows current-row last-item-x current-item-x
                anchor-x anchor-y col-widths col-index row row-index sort-keys row-map token sorted-rows
-               doc undo-started fast-rows width-rest)
+               doc undo-started fast-rows width-rest target-pt copied copies)
 
   (vl-load-com)
   (setq doc          (vla-get-ActiveDocument (vlax-get-acad-object))
         undo-started nil)
 
   (defun *error* (msg)
+    (aa:gty-delete-copies copies)
+    (setq copies nil)
     (if undo-started
       (vla-EndUndoMark doc)
     )
@@ -5768,9 +5799,7 @@
 
   (if ss
     (progn
-      (vla-StartUndoMark doc)
-      (setq undo-started T
-            text-data     '()
+      (setq text-data     '()
             total-height  0.0
             i             0)
 
@@ -5832,17 +5861,6 @@
 
       (setq rows (aa:gty-order-rows rows row-tol fast-rows))
 
-      (setq anchor-x (aa:gty-get-item-x (car text-data))
-            anchor-y (aa:gty-get-item-y (car text-data)))
-      (foreach current-item text-data
-        (if (< (aa:gty-get-item-x current-item) anchor-x)
-          (setq anchor-x (aa:gty-get-item-x current-item))
-        )
-        (if (> (aa:gty-get-item-y current-item) anchor-y)
-          (setq anchor-y (aa:gty-get-item-y current-item))
-        )
-      )
-
       (setq col-widths (aa:gty-column-widths rows col-gap))
 
       (setq sort-keys '()
@@ -5860,27 +5878,36 @@
                (atoi (substr key (+ 2 (vl-string-position 124 key nil T))))))
           (acad_strlsort sort-keys)))
 
-      (setq row-index 0)
-      (foreach row sorted-rows
-        (setq current-item-x anchor-x
-              width-rest     col-widths)
-        (foreach current-item row
-          (aa:gty-move-text-fast
-            (aa:gty-get-item-ename current-item)
-            (aa:gty-get-item-pt current-item)
-            (list current-item-x
-                  (- anchor-y (* row-index line-height))
-                  (aa:gty-get-item-z current-item)))
-          (setq current-item-x (+ current-item-x (car width-rest) col-gap)
-                width-rest     (cdr width-rest))
-        )
-        (setq row-index (1+ row-index))
-      )
-
-      (redraw)
-      (vla-EndUndoMark doc)
-      (setq undo-started nil)
-      (princ "\r\n[GTY] 电缆文字整理完成。")
+      (if (setq target-pt (getpoint "\r\n[GTY] 指定整理副本的第一行第一列位置: "))
+        (progn
+          (setq target-pt (trans target-pt 1 0)
+                anchor-x (car target-pt) anchor-y (cadr target-pt)
+                row-index 0 copies nil)
+          (vla-StartUndoMark doc)
+          (setq undo-started T)
+          (foreach row sorted-rows
+            (setq current-item-x anchor-x width-rest col-widths)
+            (foreach current-item row
+              (setq copied
+                (aa:gty-copy-text
+                  (aa:gty-get-item-ename current-item)
+                  (aa:gty-get-item-pt current-item)
+                  (list current-item-x
+                        (- anchor-y (* row-index line-height))
+                        (caddr target-pt))))
+              (if copied
+                (setq copies (cons copied copies))
+                (progn
+                  (princ "\r\n[GTY] 复制失败，正在清理本次副本，原文字保留。")
+                  (quit)))
+              (setq current-item-x (+ current-item-x (car width-rest) col-gap)
+                    width-rest (cdr width-rest)))
+            (setq row-index (1+ row-index)))
+          (redraw)
+          (vla-EndUndoMark doc)
+          (setq undo-started nil copies nil)
+          (princ "\r\n[GTY] 整理副本已生成，原文字保持不变。"))
+        (princ "\r\n[GTY] 已取消放置，原文字保持不变。"))
     )
     (princ "\r\n[GTY] 未选择文字。")
   )
