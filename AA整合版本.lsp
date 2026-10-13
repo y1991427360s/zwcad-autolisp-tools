@@ -16860,13 +16860,49 @@
                (70 . 0) (62 . 1))))
   "HDDL_MARK")
 
-(defun hddl:clear-markers (/ ss i)
-  (if (setq ss (ssget "_X" '((0 . "TEXT") (8 . "HDDL_MARK"))))
+(defun hddl:marker-selected-p (ed source-ss / data owner pt h rot dist anchor nearby i e hit)
+  ;; 新标记以对象句柄关联源行，不按电缆编号匹配，避免不同表格互相清理。
+  (setq data (assoc -3 ed))
+  (if data
     (progn
-      (setq i 0)
-      (repeat (sslength ss)
-        (entdel (ssname ss i))
-        (setq i (1+ i))))))
+      (setq owner (cdr (assoc 1005 (cdr (cadr data)))))
+      (and owner (setq e (handent owner)) (ssmemb e source-ss)))
+    (progn
+      ;; 兼容旧标记：反算生成时的源文字插入点，再检查它是否在本次选择中。
+      (setq pt (cdr (assoc 10 ed)) h (cdr (assoc 40 ed))
+            rot (if (assoc 50 ed) (cdr (assoc 50 ed)) 0.0))
+      (if (and pt h (> h 0.0) (assoc 1 ed))
+        (progn
+          (setq dist (* h (+ 2.0 (strlen (cdr (assoc 1 ed)))))
+                anchor (list (+ (car pt) (* dist (cos rot)))
+                             (+ (cadr pt) (* dist (sin rot)))
+                             (if (caddr pt) (caddr pt) 0.0))
+                nearby (ssget "_C"
+                         (trans (mapcar '- anchor '(0.001 0.001 0.0)) 0 1)
+                         (trans (mapcar '+ anchor '(0.001 0.001 0.0)) 0 1)
+                         '((0 . "TEXT,MTEXT") (8 . "~HDDL_MARK")))
+                i 0 hit nil)
+          (if nearby
+            (repeat (sslength nearby)
+              (setq e (ssname nearby i))
+              (if (and (ssmemb e source-ss)
+                       (setq owner (entget e))
+                       (equal (cdr (assoc 410 ed)) (cdr (assoc 410 owner)))
+                       (equal anchor (cdr (assoc 10 owner)) 0.001))
+                (setq hit T))
+              (setq i (1+ i))))
+          hit)))))
+
+(defun hddl:clear-markers (source-ss / markers i e ed stale)
+  ;; 只收集本次选中源文字的旧标记，再统一删除，保留其他堆的校核结果。
+  (if (setq markers (ssget "_X" '((0 . "TEXT") (8 . "HDDL_MARK"))))
+    (progn
+      (setq i 0 stale nil)
+      (repeat (sslength markers)
+        (setq e (ssname markers i) ed (entget e '("HDDL_ROW")))
+        (if (hddl:marker-selected-p ed source-ss) (setq stale (cons e stale)))
+        (setq i (1+ i)))
+      (foreach e stale (entdel e)))))
 
 (defun hddl:text (ed)
   (aa:ysdl-get-plain-text ed))
@@ -16983,8 +17019,10 @@
         p (list (- (car pt) (* dist (cos rot)))
                 (- (cadr pt) (* dist (sin rot)))
                 (if (caddr pt) (caddr pt) 0.0)))
+  (regapp "HDDL_ROW")
   (entmakex (list '(0 . "TEXT") (cons 8 layer) (cons 10 p) (cons 40 h)
-                  (cons 1 txt) (cons 7 style) (cons 50 rot) '(62 . 1))))
+                  (cons 1 txt) (cons 7 style) (cons 50 rot) '(62 . 1)
+                  (list -3 (list "HDDL_ROW" (cons 1005 (cdr (assoc 5 ed))))))))
 
 (defun hddl:tail-duplicate-p (row / rest seen v hit one)
   ;; 第 6 列起是原理号；芯数不参与原理号重复判断。
@@ -17105,11 +17143,11 @@
     (princ))
   (aa:undo-mark-on)
   (princ "\r\n请选择要校核的 YSDL 文字: ")
-  (if (setq ss (ssget '((0 . "TEXT,MTEXT"))))
+  (if (setq ss (ssget '((0 . "TEXT,MTEXT") (8 . "~HDDL_MARK"))))
     (progn
       (setq stage "清理旧标记")
       (hddl:ensure-layer)
-      (hddl:clear-markers)
+      (hddl:clear-markers ss)
       (setq stage "读取文字")
       (setq items '() i 0)
       (repeat (sslength ss)

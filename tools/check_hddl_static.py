@@ -202,7 +202,78 @@ def check_hddl_issue_specific_highlighting():
     print('PASS: HDDL maps principle-count and cabinet-name issues to their own text cells')
 
 
+def check_marker_selection_scope():
+    import math
+    from check_cable_perf_static import Runner
+    _, text = read_source(SOURCE)
+    funcs = {f[1]: f for f in defun_forms(parse(text))}
+    runner = Runner(funcs)
+    entities, markers, deleted, queries = {}, [], [], []
+    for pile in range(3):
+        source = f'source{pile}'
+        anchor = [1000.0 + pile * 1000, 200.0, 0.0]
+        entities[source] = [(5, source), (10, anchor), (40, 3.0), (7, 'HZ'), (50, 0.0), (410, 'Model')]
+    runner.mocks.update({
+        'entget': lambda e, *args: entities[e],
+        'handent': lambda handle: handle if handle in entities else None,
+        'ssmemb': lambda e, ss: e if e in ss else None,
+        'sslength': len,
+        'ssname': lambda ss, i: ss[i],
+        'entdel': lambda e: deleted.append(e),
+        'cos': math.cos, 'sin': math.sin,
+        'trans': lambda p, *args: p,
+        'regapp': lambda name: True,
+        'equal': lambda a, b, *tol: all(abs(x-y) <= tol[0] for x, y in zip(a,b)) if tol else a == b,
+    })
+    def make(ed):
+        key = f'marker{len(markers)}'
+        entities[key] = ed + [(410, 'Model')]
+        markers.append(key)
+        return key
+    runner.mocks['entmakex'] = make
+    def ssget(mode, *args):
+        queries.append(mode)
+        if mode == '_X':
+            return markers[:]
+        assert mode == '_C'
+        lower, upper, _ = args
+        return [e for e, ed in entities.items() if e.startswith('source') and
+                all(lower[i] <= dict(ed)[10][i] <= upper[i] for i in (0, 1))]
+    runner.mocks['ssget'] = ssget
+    for pile in range(3):
+        source = f'source{pile}'
+        runner.call('hddl:make-marker', [[source, 'same cable', dict(entities[source])[10]], '[电缆规格不一致]'])
+    # Rerun the second pile: first and third markers must survive, despite identical IDs/messages.
+    runner.call('hddl:clear-markers', [['source1']])
+    assert deleted == ['marker1'], deleted
+    assert queries == ['_X'], queries
+    # Old unlinked markers use their original row position; rotated labels are supported.
+    for i in range(3):
+        entities[f'marker{i}'] = [pair for pair in entities[f'marker{i}'] if pair[0] != -3]
+    source = 'source1'
+    entities[source] = [(5, source), (10, [2000., 200., 0.]), (40, 3.), (7, 'HZ'), (50, math.pi/2), (410, 'Model')]
+    rotated = runner.call('hddl:make-marker', [[source, '', [2000., 200., 0.]], '[原理号重复]'])
+    entities[rotated] = [pair for pair in entities[rotated] if pair[0] != -3]
+    deleted.clear()
+    runner.call('hddl:clear-markers', [['source1']])
+    assert set(deleted) == {'marker1', rotated}, deleted
+    # Same coordinates on a different layout must not associate with this selection.
+    entities['marker1'] = [pair for pair in entities['marker1'] if pair[0] != 410] + [(410, 'Layout1')]
+    deleted.clear()
+    runner.call('hddl:clear-markers', [['source1']])
+    assert deleted == [rotated], deleted
+    # Stale linked owner does not fall back to an unrelated coincident source.
+    entities['marker1'].append([-3, ['HDDL_ROW', (1005, 'missing')]])
+    assert not runner.call('hddl:marker-selected-p', [entities['marker1'], ['source1']])
+    command = funcs['c:hddl']
+    nodes = list(walk(command))
+    assert ['hddl:clear-markers', 'ss'] in nodes
+    assert any(isinstance(n, list) and n == ['8', '.', '"~HDDL_MARK"'] for n in nodes)
+    print('PASS: HDDL three-pile marker isolation, legacy/rotated labels, layout isolation, stale owner and marker selection exclusion')
+
+
 def main():
+    check_marker_selection_scope()
     check_hddl_ast()
     check_hddl_cabinet_normalization()
     check_hddl_principle_value_comparison()

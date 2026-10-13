@@ -124,6 +124,10 @@ class Runner:
                 env[args[0]] = item
                 value = self.seq(args[2:], env)
             return None
+        if head == 'repeat':
+            for _ in range(self.eval(args[0], env)):
+                self.seq(args[1:], env)
+            return None
         if head == 'while':
             guard = 0
             while truth(self.eval(args[0], env)):

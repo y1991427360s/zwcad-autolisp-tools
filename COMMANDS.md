@@ -35,11 +35,11 @@
 | C2 | 复制文字并递减减号右侧编号，使用原生拖动预览和捕捉连续放置。 | 无函数形参; 交互: getpoint, ssget; 提示: 指定基点: | c1c2:run | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:14972 |
 | C3 | 复制文字并每次将减号右侧编号加 2，使用原生拖动预览和捕捉连续放置。 | 无函数形参; 交互: getpoint, ssget; 提示: 指定基点: | c1c2:run | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:14976 |
 | CC | 读取 Windows 剪贴板，连续复制并替换副本文字，使用原生拖动预览和对象捕捉。 | 无函数形参; 交互: getpoint, ssget; 提示: 指定第一个点（基点）: | aa:cmd-begin, aa:cmd-end, qe:get-clip-text | ATTDEF, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:13135 |
-| CD | 将选中对象按 5 个单位的递增间距向下复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17265 |
+| CD | 将选中对象按 5 个单位的递增间距向下复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17303 |
 | CE | 测量点序列形成的多段线总长度。 | 无函数形参; 交互: getpoint; 提示: 请点击下一个点 (回车/空格结束): / 请点击第一个点 (回车/空格结束): | aa:cmd-begin, aa:cmd-end, ce-redraw | LWPOLYLINE；存在修改调用 | AA整合版本.lsp:13733 |
-| CU | 将选中对象按 5 个单位的递增间距向上复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17261 |
-| CY | 将选中对象按 5 个单位的递增间距向右复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17273 |
-| CZ | 将选中对象按 5 个单位的递增间距向左复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17269 |
+| CU | 将选中对象按 5 个单位的递增间距向上复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17299 |
+| CY | 将选中对象按 5 个单位的递增间距向右复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17311 |
+| CZ | 将选中对象按 5 个单位的递增间距向左复制指定份数。 | 无函数形参; 交互: getint, ssget; 提示: 请输入复制份数（每份间距为 5）: | cu:copy-direction | 未静态确定；存在修改调用 | AA整合版本.lsp:17307 |
 | DAO | 将选中文字按垂直位置上下颠倒排列（最下面的文字放到最上面）。 | 无函数形参; 交互: ssget | dao:insert-sorted, dao:move-text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:16538 |
 | DB | 删除每个选中文字末尾的 N 个字符。 | 无函数形参; 交互: getint, ssget; 提示: 请输入要删除的字符个数: | aa:cmd-begin, aa:cmd-end, db:del | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:12986 |
 | DE | 删除选中文字的最右侧括号及括号内容。 | 无函数形参; 交互: ssget | de:run | ATTRIB, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:15134 |
@@ -69,12 +69,12 @@
 | HAO2 | 指定基准块参照与图号矩形范围，批量居中填充或更新递增图号文字。 | 无函数形参; 交互: entsel, getcorner, getint, getpoint, getstring, ssget; 提示: [HAO2] 请点击选择基准图框块参照: / [HAO2] 请输入图号前缀 (例如 D260020S-D0205-): / [HAO2] 请输入编号位数 (不足补零，例如 2 位为 01) &lt;2>:（另 1 项见 JSON） | aa:cmd-begin, aa:cmd-end, blk-insertpt, hao2:block-name, hao2:find-existing-text-fast, hao2:format-num, hao2:sort-blocks, tktj:current-space, tktj:ensure-text-style, zdml2:collect-all-texts | INSERT, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:9749 |
 | HBBG | 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。 | 无函数形参; 交互: getpoint, ssget; 提示: [HBBG] 指定长表的左上角: | aa:merge-sort, aa:tbhb-abort, aa:tbhb-boxes, aa:tbhb-collect, aa:tbhb-group-problem, aa:tbhb-groups, aa:tbhb-item-inside-p, aa:tbhb-next-top, aa:tbhb-offset, aa:tbhb-seen-line-p, aa:tbhb-shift-point, aa:undo-mark-off, aa:undo-mark-on | LINE, TEXT；存在修改调用 | AA整合版本.lsp:12373 |
 | HBDL | 框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并在末尾追加原理号，其他行保持原位。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:ysdl-get-plain-text, hb:apply-merge-in-place, hb:cluster-rows, hb:parse-row | MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:8212 |
-| HDDL | 直接校核选中文字中的电缆编号、规格和原理号，问题行标红并在行首标注。 | 无函数形参; 交互: ssget | aa:undo-mark-off, aa:undo-mark-on, hddl:cell, hddl:clear-markers, hddl:color-cabinet-diffs, hddl:color-cell, hddl:color-core-count-diff, hddl:color-tail-diffs, hddl:color-tail-duplicates, hddl:ensure-layer, hddl:group-rows, hddl:make-marker, hddl:mirror-p, hddl:point, hddl:rows, hddl:sort-rows, hddl:tail-count, hddl:tail-different-p, hddl:tail-duplicate-p, hddl:text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:17097 |
+| HDDL | 直接校核选中文字中的电缆编号、规格和原理号，问题行标红并在行首标注。 | 无函数形参; 交互: ssget | aa:undo-mark-off, aa:undo-mark-on, hddl:cell, hddl:clear-markers, hddl:color-cabinet-diffs, hddl:color-cell, hddl:color-core-count-diff, hddl:color-tail-diffs, hddl:color-tail-duplicates, hddl:ensure-layer, hddl:group-rows, hddl:make-marker, hddl:mirror-p, hddl:point, hddl:rows, hddl:sort-rows, hddl:tail-count, hddl:tail-different-p, hddl:tail-duplicate-p, hddl:text | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:17135 |
 | HE | 将同一行的两个或以上文字合并。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:insert-sort | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:4159 |
 | HH | 将选中对象快速改为洋红色。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:color-cmd | 未静态确定；存在修改调用 | AA整合版本.lsp:2922 |
 | HP | 将选中文字按从左到右排列，使相邻文字首尾间距为指定值，并按最左文字上边对齐。 | 无函数形参; 交互: getdist, ssget; 提示: 请输入相邻文字首尾间距 &lt;5>: | aa:bbox-left-x, aa:bbox-right-x, aa:bbox-top-y, aa:cmd-begin, aa:cmd-end, aa:merge-sort, aa:safe-get-bbox, aa:safe-move-entity | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:3477 |
 | HP2 | 将选中文字改为正中对齐，按中心点指定间距从左到右横向排列。 | 无函数形参; 交互: getdist, ssget; 提示: 请输入相邻文字中心间距 &lt;50>: | aa:bbox-bottom-y, aa:bbox-center-x, aa:bbox-top-y, aa:cmd-begin, aa:cmd-end, aa:merge-sort, aa:normalize-text-horizontal-align, aa:safe-get-bbox, aa:safe-move-entity | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:3620 |
-| HS | 选中物体单向横向缩放，左右宽度改变，高度保持不变。 | 无函数形参; 交互: getdist, getpoint, ssget; 提示: :L / 指定新长度: | aa:cmd-begin, aa:cmd-end, aa:hs-filter-unlocked, aa:hs-get-ss-bbox | 未静态确定；存在修改调用 | AA整合版本.lsp:17327 |
+| HS | 选中物体单向横向缩放，左右宽度改变，高度保持不变。 | 无函数形参; 交互: getdist, getpoint, ssget; 提示: :L / 指定新长度: | aa:cmd-begin, aa:cmd-end, aa:hs-filter-unlocked, aa:hs-get-ss-bbox | 未静态确定；存在修改调用 | AA整合版本.lsp:17365 |
 | HUI | 将选中对象快速改为颜色 8；遇到引线先分解再改色，遇到块参照连块内实体一起改。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:deep-color-cmd | DIMENSION, INSERT, LEADER, MTEXT；存在修改调用 | AA整合版本.lsp:3198 |
 | HWD | 横排交替柜名与电缆编号重组为起点、编号、终点三列，左中对齐、行距5，保留原横排。 | 无函数形参; 交互: getpoint, ssget; 提示: [HWD] 指定第一行起点柜文字的左中位置（保留原横排）: | aa:cmd-begin, aa:cmd-end, aa:gty-get-text-width, aa:hwd-make-text, aa:hwd-rows, aa:merge-sort, aa:safe-get-bbox | TEXT；存在修改调用 | AA整合版本.lsp:6106 |
 | HZBG | 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:hzbg-line, aa:hzbg-move, aa:hzbg-plan, aa:safe-get-bbox | LINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:12529 |
@@ -102,7 +102,7 @@
 | QZ | 取消当前图纸中的全部分组，组内图元保持不变。 | 无函数形参; 交互: 未发现 / 委托外部界面 | CAD 内置 API | 未静态确定；存在修改调用 | AA整合版本.lsp:15669 |
 | REP | 将选中的柜名文字按内置映射表替换为标准柜名。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, rep-trim | MTEXT, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:15786 |
 | RR | 将选中对象快速改为红色。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:color-cmd | 未静态确定；存在修改调用 | AA整合版本.lsp:2811 |
-| SC3 | 将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:sc3-entity-bbox, aa:sc3-layer-locked-p | 未静态确定；存在修改调用 | AA整合版本.lsp:17712 |
+| SC3 | 将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:sc3-entity-bbox, aa:sc3-layer-locked-p | 未静态确定；存在修改调用 | AA整合版本.lsp:17750 |
 | SHANG | 将选中文字统一为中上对正，并以最上方文字为基准上对齐。 | 无函数形参; 交互: ssget | aa:align-text-cmd | MTEXT, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:3897 |
 | SJ | 在选中直线顶端生成上接短线。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end | LINE；存在修改调用 | AA整合版本.lsp:5118 |
 | SS | 拉伸对象并记忆方向与距离，支持动态拉伸实时预览，后续可直接回车重复。 | 无函数形参; 交互: getpoint, ssget; 提示: 请指定拉伸基点: | aa:cmd-begin, aa:cmd-end, aa:ss-do-interactive-stretch, aa:ss-format-vec | 未静态确定；存在修改调用 | AA整合版本.lsp:4792 |
@@ -112,15 +112,15 @@
 | SYJ | 将选中竖直直线向上延长 5 个单位，再生成上接短线。 | 无函数形参; 交互: ssget | aa:extend-join-cmd | LINE；存在修改调用 | AA整合版本.lsp:5215 |
 | T | 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, txt:run | ATTDEF, MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:1907 |
 | T2 | 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, txt2:process-selection | ARC, CIRCLE, DIMENSION, INSERT, LEADER, LINE, LWPOLYLINE, MTEXT, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:2405 |
-| TONG | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | 无函数形参; 交互: getpoint, ssget; 提示: 请指定放置起点 (从上到下排列): | aa:cmd-begin, aa:cmd-end, aa:merge-sort | MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:17914 |
+| TONG | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | 无函数形参; 交互: getpoint, ssget; 提示: 请指定放置起点 (从上到下排列): | aa:cmd-begin, aa:cmd-end, aa:merge-sort | MTEXT, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:17952 |
 | UNLOAD_AA | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1949 |
 | UNLOAD_AICAD | 卸载 AICAD 扩展插件及注册环境 | 无函数形参; 交互: 未发现 / 委托外部界面 | aicad:unload | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1944 |
 | UNLOAD_XXX | 卸载 AICAD 扩展插件（别名） | 无函数形参; 交互: 未发现 / 委托外部界面 | c:unload_aicad | 未静态确定；未发现直接/可达修改调用 | V6/aicad_extension.lsp:1953 |
 | UPSY | 选中两条水平线后向右生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:16203 |
 | UPSZ | 选中两条水平线后向左生成短线、矩形并居中标注L、N及UPS电源柜（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:16197 |
 | UT | 先将文字统一为左中对正，再按最上方一对的位置整理文字；支持直线及按首尾端点计算的未闭合多段线，保留宽度。 | 无函数形参; 交互: ssget | aa:normalize-text-horizontal-align, aa:undo-mark-off, aa:undo-mark-on, ut:bbox-bottom, ut:bbox-left, ut:get-bbox, ut:horizontal-line-p, ut:line-y, ut:move, ut:sort-desc | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:15435 |
-| VPO1 | 切换到“单个”标准视口。 | 无函数形参; 交互: 未发现 / 委托外部界面 | aa:cmd-begin, aa:cmd-end | 未静态确定；存在修改调用 | AA整合版本.lsp:17895 |
-| VPO2 | 切换到“两个：垂直”标准视口。 | 无函数形参; 交互: 未发现 / 委托外部界面 | aa:cmd-begin, aa:cmd-end | 未静态确定；存在修改调用 | AA整合版本.lsp:17903 |
+| VPO1 | 切换到“单个”标准视口。 | 无函数形参; 交互: 未发现 / 委托外部界面 | aa:cmd-begin, aa:cmd-end | 未静态确定；存在修改调用 | AA整合版本.lsp:17933 |
+| VPO2 | 切换到“两个：垂直”标准视口。 | 无函数形参; 交互: 未发现 / 委托外部界面 | aa:cmd-begin, aa:cmd-end | 未静态确定；存在修改调用 | AA整合版本.lsp:17941 |
 | WI | 修改选中文字的宽度比例。 | 无函数形参; 交互: getreal, ssget; 提示: 请输入新的文字宽度比例 (例如 0.8 或 1.0): | aa:cmd-begin, aa:cmd-end | MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:4386 |
 | WW | 将选中对象快速改为白色；支持尺寸标注（转角标注等全要素变白）、引线及块内实体。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:deep-color-cmd | DIMENSION, INSERT, LEADER, MTEXT；存在修改调用 | AA整合版本.lsp:2821 |
 | XB | 将选中的文字或尺寸标注整体缩小为原来的十分之一，并保留选择状态。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end | DIMENSION, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:4523 |
@@ -145,7 +145,7 @@
 | YSDL | 提取选中文字到CSV文件，并改变文字颜色。 | 无函数形参; 交互: ssget | aa:merge-sort, aa:set-entity-aci-color, aa:undo-mark-off, aa:undo-mark-on, aa:ysdl-build-csv-field, aa:ysdl-clean-text, aa:ysdl-format-categorized-row, aa:ysdl-get-lwpoly-rect, aa:ysdl-get-plain-text, aa:ysdl-parse-rows-from-text-data, aa:ysdl-reorder-row, aa:ysdl-sort-boxes | LWPOLYLINE, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:1507 |
 | YSTEMP | 删除所选对象中竖直共线、首尾相接且长度分别为 21 和 7 的直线对。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:merge-sort, ystemp:pair-p | LINE；存在修改调用 | AA整合版本.lsp:612 |
 | YY | 将选中对象快速改为黄色。 | 无函数形参; 交互: ssget | aa:cmd-begin, aa:cmd-end, aa:color-cmd | 未静态确定；存在修改调用 | AA整合版本.lsp:2801 |
-| Z0 | 将选中对象的 Z 坐标全部归零（压平到 XY 平面）。 | 无函数形参; 交互: ssget; 提示: :L | aa:cmd-begin, aa:cmd-end, aa:z0-data-flat-p, aa:z0-layer-locked-p, aa:z0-one, aa:z0-polyline-flat-p, aa:z0-polyline-verts | POLYLINE；存在修改调用 | AA整合版本.lsp:17846 |
+| Z0 | 将选中对象的 Z 坐标全部归零（压平到 XY 平面）。 | 无函数形参; 交互: ssget; 提示: :L | aa:cmd-begin, aa:cmd-end, aa:z0-data-flat-p, aa:z0-layer-locked-p, aa:z0-one, aa:z0-polyline-flat-p, aa:z0-polyline-verts | POLYLINE；存在修改调用 | AA整合版本.lsp:17884 |
 | ZDML | 选择多个图框块，生成目录文字。 | 无函数形参; 交互: getpoint, ssget; 提示: 指定第 1 页目录表左上角: | aa:cmd-begin, aa:cmd-end, tktj:collect-one-block, tktj:draw-table, tktj:drop, tktj:safe-vla-object, tktj:sort-by-page, tktj:sort-by-position, tktj:take | INSERT；存在修改调用 | AA整合版本.lsp:14360 |
 | ZDML2 | 指定基准块参照与图名、图号矩形范围，批量提取图名图号并生成目录。 | 无函数形参; 交互: entsel, getcorner, getpoint, ssget; 提示: [ZDML2] 指定第 1 页目录表左上角: / [ZDML2] 请点击选择基准图框块参照: | aa:cmd-begin, aa:cmd-end, blk-insertpt, hao2:block-name, hao2:sort-blocks, tktj:draw-table, tktj:drop, tktj:take, zdml2:build-spatial-index, zdml2:collect-all-texts, zdml2:extract-rect-text-fast, zdml2:query-rect-index | INSERT, MTEXT, TEXT；存在修改调用 | AA整合版本.lsp:14502 |
 | ZDMLDEBUG | 选择一个图框块，打印所有增强属性。 | 无函数形参; 交互: entsel; 提示: 请选择一个图框块: | aa:cmd-begin, aa:cmd-end, tktj:get-attributes | INSERT；未发现直接/可达修改调用 | AA整合版本.lsp:14676 |
@@ -153,7 +153,7 @@
 | ZHENG | 以水平直线或矩形中心为基准整理文字的水平位置。 | 无函数形参; 交互: ssget | aa:safe-get-bbox, aa:zheng-add-texts-after-explode, aa:zheng-align-text-center-x, aa:zheng-align-text-to-rect-center, aa:zheng-horizontal-line-p, aa:zheng-line-mid-x | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:8857 |
 | ZHONG | 文字居中对齐；选择直线/矩形时按中心 X 居中。 | 无函数形参; 交互: ssget | aa:align-text-cmd | MTEXT, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:3257 |
 | ZJ | 选中多条水平线后向左生成短线、矩形并居中标注原理号及终点柜名（青色虚线）。 | 无函数形参; 交互: ssget | aa:km-ln-cmd | LINE, LWPOLYLINE, POLYLINE, STYLE, TEXT；存在修改调用 | AA整合版本.lsp:16221 |
-| ZS | 选中物体单向纵向缩放，上下高度改变，宽度保持不变。 | 无函数形参; 交互: getdist, getpoint, ssget; 提示: :L / 指定新长度: | aa:cmd-begin, aa:cmd-end, aa:hs-filter-unlocked, aa:hs-get-ss-bbox | 未静态确定；存在修改调用 | AA整合版本.lsp:17508 |
+| ZS | 选中物体单向纵向缩放，上下高度改变，宽度保持不变。 | 无函数形参; 交互: getdist, getpoint, ssget; 提示: :L / 指定新长度: | aa:cmd-begin, aa:cmd-end, aa:hs-filter-unlocked, aa:hs-get-ss-bbox | 未静态确定；存在修改调用 | AA整合版本.lsp:17546 |
 | ZTF | 搜索系统字体并将选定字体写入指定文字样式。 | 无函数形参; 交互: entsel; 提示: 选择一段文字以读取其文字样式： | aa:cmd-begin, aa:cmd-end, ztf:collect-font-records, ztf:run-dialog, ZTF.DCL, \\ZTF.DCL | MTEXT, STYLE, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:1016 |
 | ZUO | 将选中文字统一为左中对正，并以最上方文字为基准左对齐。 | 无函数形参; 交互: ssget | aa:align-text-cmd | MTEXT, TEXT；未发现直接/可达修改调用 | AA整合版本.lsp:3342 |
 | ZZ | 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。 | 无函数形参; 交互: ssget | aa:zz-run | LINE, LWPOLYLINE, MTEXT, POLYLINE, TEXT；存在修改调用 | AA整合版本.lsp:11766 |
