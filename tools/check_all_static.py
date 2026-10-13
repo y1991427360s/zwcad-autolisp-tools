@@ -135,6 +135,7 @@ def run_command_checks():
         'check_c1c2_static.py',
         'check_des_static.py',
         'check_gtx_static.py',
+        'check_hwd_static.py',
         'check_xy_static.py',
         'check_hddl_static.py',
         'check_xyg_static.py',

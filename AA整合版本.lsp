@@ -62,6 +62,7 @@
 ;;;   - XYJ   : 将选中竖直直线向下延长 5 个单位，再生成下接短线。
 ;;;   - GTX   : 按自动容差整理单行/多行电缆文字并自然排序汇总。
 ;;;   - GTY   : 汇总并按电缆编号排序整理电缆文字。
+;;;   - HWD   : 横排交替柜名与电缆编号重组为起点、编号、终点三列，左中对齐、行距5，保留原横排。
 ;;;   - GTZ   : 将选中的交替柜名与电缆编号单列文字，按前后柜与编号重组为3列表格输出。
 ;;;   - BIAN  : 根据选中直线生成方向三角、至字样和电缆规格标注。
 ;;;   - LAN   : 竖直线/斜线/水平线联动复制+移动插件。
@@ -5973,6 +5974,103 @@
   (sssetfirst nil nil)
   (princ)
 )
+
+;;; =======================================================================================
+;;; 命令: HWD
+;;; 功能: 将横排交替柜名与电缆编号通用重组为起点、编号、终点三列，左中对齐、行距5；保留原横排。
+;;; =======================================================================================
+(defun aa:hwd-rows (items / rows)
+  ;; 相邻电缆共享柜名，每次前进两项；不依赖内容、颜色、图层或编号格式。
+  (while (cddr items)
+    (setq rows (cons (list (car items) (cadr items) (caddr items)) rows)
+          items (cddr items)))
+  (reverse rows))
+
+(defun aa:hwd-make-text (ed pt / data pair key)
+  ;; 仅复制显示属性；不复制句柄、所有者、扩展字典及原来的对齐/法向量。
+  ;; 新文字在WCS水平面左中对齐，消除源文字中意外的不同Z坐标。
+  (setq data (list '(0 . "TEXT") '(100 . "AcDbEntity")))
+  (foreach key '(67 410 8 6 62 420 430 440 370)
+    (if (setq pair (assoc key ed)) (setq data (append data (list pair)))))
+  (setq data (append data (list '(100 . "AcDbText") (cons 10 pt)
+                (assoc 40 ed) (assoc 1 ed))))
+  (foreach key '(7 41 51 71)
+    (if (setq pair (assoc key ed)) (setq data (append data (list pair)))))
+  (setq data (append data (list '(50 . 0.0) '(72 . 0) (cons 11 pt)
+                '(100 . "AcDbText") '(73 . 2) '(210 0.0 0.0 1.0))))
+  (if (entmake data) (entlast)))
+
+(defun c:HWD (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               ss i en ed bbox items rows item row bad min-y max-y max-h
+               col1-w col2-w gap pt x1 x2 x3 y z made new-en ok col key)
+  (aa:cmd-begin "HWD")
+  (setq ss (ssget "_I" '((0 . "TEXT"))))
+  (if (null ss)
+    (progn
+      (prompt "\r\n[HWD] 请选择一整横排单行文字（柜名、编号、柜名……，含两端柜名）: ")
+      (setq ss (ssget '((0 . "TEXT"))))))
+  (cond
+    ((null ss) (princ "\r\n[HWD] 未选择文字。"))
+    ((or (< (sslength ss) 3) (= (rem (sslength ss) 2) 0))
+      (princ "\r\n[HWD] 需要至少3个且为奇数的文字，请完整选择交替排列的柜名与编号。"))
+    (T
+      (setq i 0 max-h 0.0)
+      (repeat (sslength ss)
+        (setq en (ssname ss i) ed (entget en)
+              bbox (aa:safe-get-bbox aa:doc en) i (1+ i))
+        (cond
+          ((/= 0 (logand 4 (cdr (assoc 70 (tblsearch "LAYER" (cdr (assoc 8 ed)))))))
+            (setq bad "所选文字位于锁定图层，请先解锁。"))
+          ((or (null bbox) (<= (cdr (assoc 40 ed)) 0.0)
+               (not (equal (cond ((cdr (assoc 210 ed))) ('(0.0 0.0 1.0))) '(0.0 0.0 1.0) 1e-8))
+               (not (equal (sin (cond ((cdr (assoc 50 ed))) (0.0))) 0.0 1e-8))
+               (< (cos (cond ((cdr (assoc 50 ed))) (0.0))) 0.0))
+            (setq bad "仅支持WCS平面内水平的单行文字，或存在无法读取范围的文字。"))
+          (T
+            (setq y (/ (+ (cadr (car bbox)) (cadr (cadr bbox))) 2.0)
+                  min-y (if min-y (min min-y y) y)
+                  max-y (if max-y (max max-y y) y)
+                  max-h (max max-h (cdr (assoc 40 ed)))
+                  items (cons (list ed (car (car bbox))
+                              (- (car (cadr bbox)) (car (car bbox)))) items)))))
+      (if (and (null bad) (> (- max-y min-y) (* max-h 0.6)))
+        (setq bad "所选文字不在同一横排，请每次只选择一条环网。"))
+      (if bad
+        (princ (strcat "\r\n[HWD] " bad))
+        (progn
+          (setq items (aa:merge-sort items '(lambda (a b) (< (cadr a) (cadr b))))
+                rows (aa:hwd-rows items) col1-w 0.0 col2-w 0.0)
+          (foreach row rows
+            (setq col1-w (max col1-w (caddr (car row)))
+                  col2-w (max col2-w (caddr (cadr row)))))
+          (initget 6)
+          (setq gap (getdist "\r\n[HWD] 列间空隙 <5>: "))
+          (if (null gap) (setq gap 5.0))
+          (setq pt (getpoint "\r\n[HWD] 指定第一行起点柜文字的左中位置（保留原横排）: "))
+          (if pt
+            (progn
+              (setq pt (trans pt 1 0) x1 (car pt) x2 (+ x1 col1-w gap)
+                    x3 (+ x2 col2-w gap) y (cadr pt) z (caddr pt) ok T)
+              (foreach row rows
+                (setq col 0)
+                (foreach item row
+                  (if ok
+                    (progn
+                      (setq new-en (aa:hwd-make-text (car item)
+                                      (list (nth col (list x1 x2 x3)) y z)))
+                      (if new-en (setq made (cons new-en made)) (setq ok nil))))
+                  (setq col (1+ col)))
+                (setq y (- y 5.0)))
+              (if ok
+                (princ (strcat "\r\n[HWD] 已整理 " (itoa (length rows))
+                         " 根电缆：起点、编号、终点三列，左中对齐、行距5；原横排保留。"))
+                (progn
+                  (foreach en made (entdel en))
+                  (princ "\r\n[HWD] 生成失败，已清理本次结果，原横排保留。")))
+              (redraw))
+            (princ "\r\n[HWD] 已取消放置。"))))))
+  (aa:cmd-end)
+  (princ))
 
 (defun bian-make-text (pt txt sty / data)
   (setq data
