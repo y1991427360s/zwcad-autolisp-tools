@@ -250,11 +250,19 @@ def check():
               for a, b in extents]
     selected = expand(funcs, grid + labels, [frame])
     assert selected == grid + labels, 'Overflowing QW3 identifier was lost'
-    mapped, moved, undo = [], [], []
+    mapped, moved, undo, centered = [], [], [], []
+
+    def center_table(doc, texts, lines):
+        assert undo == ['begin'], 'Centering must share the open ZDWI undo group'
+        assert len(mapped) == len(grid) and len(moved) == len(labels)
+        centered.append((texts, lines))
+        return [len(texts), 0]
+
     command_env = {
         '__functions': {name: form for name, form in affected.items()
                         if name not in ('aa:zdwi-vertices', 'aa:zdwi-map-entity',
                                         'aa:zdwi-expand-selection')},
+        'aa:doc': 'doc',
         '__ssget': lambda *args: selected,
         '__builtins': {
             'vl-load-com': lambda: None, 'princ': lambda *args: None,
@@ -264,6 +272,7 @@ def check():
             'aa:cmd-end': lambda: undo.append('end'),
             'aa:zdwi-map-entity': lambda en, old, new:
                 mapped.append((old, new)) or True,
+            'aa:zz-center-texts': center_table,
             'aa:zz-move-text': lambda en, x, y, target, target_y:
                 moved.append((en, x, target)) or True,
             'redraw': lambda: None, 'sssetfirst': lambda *args: None,
@@ -272,6 +281,7 @@ def check():
     evaluate(['c:zdwi'], command_env)
     assert len(mapped) == len(grid) and len(moved) == len(labels)
     assert undo == ['begin', 'end'], undo
+    assert centered == [(labels, grid)], 'All table texts must be centered against updated table lines'
     old, new = mapped[0]
     widths = [b - a for a, b in zip(new, new[1:])]
     assert abs(widths[1] - 71.8) < 1e-7, widths
@@ -285,6 +295,34 @@ def check():
         half = (en['bbox'][1][0] - en['bbox'][0][0]) / 2
         assert target - half >= new[col] + 3 - 1e-7
         assert target + half <= new[col + 1] - 3 + 1e-7
+    # Execute the shared helper to verify normalization, collection, skipping
+    # and grouping. ZZ and ZDWI must both delegate to this same function.
+    helper = funcs['aa:zz-center-texts']
+    calls = []
+    helper_env = {
+        '__functions': {'aa:zz-center-texts': helper},
+        'doc': 'doc', 'texts': ['a', 'outside', 'b'], 'lines': ['new-grid'],
+        '__builtins': {
+            'aa:zz-build-spatial-index': lambda lines, tol:
+                calls.append(('index', lines)) or 'index',
+            'aa:normalize-text-vertical-align': lambda doc, en, mode:
+                calls.append(('normalize', en, mode)) or True,
+            'aa:zz-text-info': lambda doc, en, tol, index:
+                calls.append(('info', en)) or (None if en == 'outside' else [en]),
+            'aa:zz-group-by-rect': lambda infos, tol:
+                calls.append(('group', infos)) or [infos],
+            'aa:zz-apply-group': lambda group: len(group),
+        },
+    }
+    assert evaluate(['aa:zz-center-texts', 'doc', 'texts', 'lines'], helper_env) == [2, 1]
+    assert calls == [('index', ['new-grid']), ('normalize', 'a', 3), ('info', 'a'),
+                     ('normalize', 'outside', 3), ('info', 'outside'),
+                     ('normalize', 'b', 3), ('info', 'b'), ('group', [['a'], ['b']])]
+    for name in ('c:zdwi', 'aa:zz-run'):
+        assert any(node[0] == 'aa:zz-center-texts' for node in walk(funcs[name][3:]))
+    assert not any(node[0] in ('ssget', 'vla-startundomark', 'vla-endundomark',
+                             'aa:cmd-begin', 'aa:cmd-end') for node in walk(helper[3:]))
+    print('PASS ZDWI/ZZ: shared centering, all table texts, updated lines, one undo group')
     print('PASS ZDWI: command structure, closed/open row borders, reversed vertices, '
           'LINE chains, disconnected frames, mixed-layer selection, overflow '
           'retention and simultaneous column expansion/contraction with margins '

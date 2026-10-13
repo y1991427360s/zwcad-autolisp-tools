@@ -92,7 +92,7 @@
 ;;;   - FIVE2   : 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
 ;;;   - HBBG  : 将完整直线表格按图纸位置从上到下复制拼接，保留原表及各段标题和列顺序。
 ;;;   - HZBG  : 选中文字生成表格，行高 5，按最宽文字自动列宽，左右各留 3。
-;;;   - ZDWI  : 按各列最宽文字自动放宽或缩窄表格列宽，文字左右各留 3 个图纸单位。
+;;;   - ZDWI  : 按各列最宽文字自动放宽或缩窄表格列宽，文字左右各留 3 个图纸单位，并按 ZZ 居中。
 ;;;   - JACC  : ZZ 的同功能入口。
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
 ;;;   - DF    : 删除每个选中文字开头的 N 个字符。
@@ -11696,16 +11696,32 @@
      cnt))
 )
 
-(defun aa:zz-run (/ *error* doc undo-open ss text-ss i en changed skipped tol rect-tol infos groups info alignment-ok line-ss spatial-index g)
+(defun aa:zz-center-texts (doc text-ss line-ss / i en changed skipped tol rect-tol infos groups info alignment-ok spatial-index g)
+  ;; Reuse ZZ centering without interactive selection or an extra undo mark.
+  (setq i 0 changed 0 skipped 0 tol 1e-8 rect-tol 0.1 infos nil
+        spatial-index (aa:zz-build-spatial-index line-ss tol))
+  (repeat (sslength text-ss)
+    (setq en (ssname text-ss i)
+          ;; 先统一为中下对正，再以新的包围盒执行后续居中计算。
+          alignment-ok (aa:normalize-text-vertical-align doc en 3)
+          info (aa:zz-text-info doc en tol spatial-index))
+    (if info
+      (setq infos (cons info infos))
+      (setq skipped (1+ skipped)))
+    (setq i (1+ i)))
+  (setq groups (aa:zz-group-by-rect (reverse infos) rect-tol))
+  (foreach g groups
+    (setq changed (+ changed (aa:zz-apply-group g))))
+  (list changed skipped)
+)
+
+(defun aa:zz-run (/ *error* doc undo-open ss text-ss changed skipped line-ss result)
   (vl-load-com)
   (setq doc           (vla-get-activedocument (vlax-get-acad-object))
         undo-open     nil
         changed       0
         skipped       0
-        tol           1e-8
-        rect-tol      0.1
-        line-ss       nil
-        spatial-index nil)
+        line-ss       nil)
 
   (defun *error* (msg)
     (if undo-open
@@ -11730,23 +11746,11 @@
         (progn
           (sssetfirst nil text-ss)
           (vla-startundomark doc)
-          (setq undo-open     T
-                i             0
-                infos         '()
-                line-ss       (aa:zz-harvest-lines doc text-ss ss)
-                spatial-index (aa:zz-build-spatial-index line-ss tol))
-          (repeat (sslength text-ss)
-            (setq en (ssname text-ss i)
-                  ;; 先统一为中下对正，再以新的包围盒执行后续居中计算。
-                  alignment-ok (aa:normalize-text-vertical-align doc en 3)
-                  info (aa:zz-text-info doc en tol spatial-index))
-            (if info
-              (setq infos (cons info infos))
-              (setq skipped (1+ skipped)))
-            (setq i (1+ i)))
-          (setq groups (aa:zz-group-by-rect (reverse infos) rect-tol))
-          (foreach g groups
-            (setq changed (+ changed (aa:zz-apply-group g))))
+          (setq undo-open T
+                line-ss (aa:zz-harvest-lines doc text-ss ss))
+          (setq result (aa:zz-center-texts doc text-ss line-ss)
+                changed (car result)
+                skipped (cadr result))
           (vla-endundomark doc)
           (setq undo-open nil)
           (redraw)
@@ -12783,7 +12787,7 @@
 (defun c:ZDWI (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho aa:zdwi-tol
                  ss lines texts i en typ pts p q xs spans record min-y max-y old widths items bbox
                  left right center col new width item target moved failed valid
-                 tol x1 x2)
+                 tol x1 x2 centered)
   (vl-load-com)
   ;; Half a drawing unit absorbs small endpoint gaps without merging the
   ;; 10-unit columns in the supplied sample drawing.
@@ -12871,11 +12875,14 @@
                     (if (aa:zz-move-text (car item) (caddr item) 0.0 target 0.0)
                       (setq moved (1+ moved))
                       (setq failed (1+ failed))))
+                  (setq centered (aa:zz-center-texts aa:doc texts lines))
                   (redraw)
                   (aa:cmd-end)
                   (princ (strcat "\r\n[ZDWI] 已调整 "
                                  (itoa (length widths)) " 列，移动 "
-                                 (itoa moved) " 个文字。"
+                                 (itoa moved) " 个文字；已按 ZZ 居中 "
+                                 (itoa (car centered)) " 个文字，跳过 "
+                                 (itoa (cadr centered)) " 个文字。"
                                  (if (> failed 0)
                                    (strcat " 修改失败 " (itoa failed) " 个对象。") ""))))))))
         (princ "\r\n[ZDWI] 请选择表格线及 TEXT/MTEXT 文字。")))
