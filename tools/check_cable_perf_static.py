@@ -190,6 +190,9 @@ class Runner:
             'type': lambda x: 'list' if isinstance(x, list) else 'str' if isinstance(x, str) else 'real',
             'member': lambda x, xs: (xs[xs.index(x):] if x in (xs or []) else None),
             'strcase': lambda x: x.upper(), 'vl-string-trim': lambda chars, x: x.strip(chars),
+            'chr': chr, 'vl-list->string': lambda xs: ''.join(map(chr, xs)),
+            'vl-string-search': lambda sub, x: x.find(sub) if sub in x else None,
+            'vl-string-subst': lambda new, old, x: x.replace(old, new, 1),
             'strlen': len, 'substr': lambda x, i, *n: x[i - 1:i - 1 + n[0]] if n else x[i - 1:],
             'strcat': lambda *xs: ''.join(xs), 'itoa': str, 'atoi': int,
             'wcmatch': lambda x, pat: x.isdigit() if pat == '#' else False,
@@ -302,6 +305,7 @@ def check():
     check_principle_order(new)
     check_moves(new)
     check_issue_loop(new, funcs)
+    check_spec_fixture(new, funcs)
     check_work(new, old)
     print(f'PASS: GTY/HDDL actual source AST; {trials} safe-row randomized cases, 100 fallback cases; '
           'tolerance boundaries, sort stability, row tree, long suffix, grouping, DXF/COM fallback and issue priorities.')
@@ -398,6 +402,46 @@ def check_issue_loop(runner, funcs):
     for name in list(runner.mocks):
         if name.startswith('hddl:'):
             del runner.mocks[name]
+
+
+def check_spec_fixture(runner, funcs):
+    import json
+    from pathlib import Path
+    from copy import deepcopy
+    data = json.loads((Path(__file__).resolve().parents[1] /
+                       'tests/fixtures/hddl_spec_qw3.json').read_text(encoding='utf-8'))
+    loop = next(node for node in walk(funcs['c:hddl']) if node[:3] == ['foreach', 'group', 'groups'])
+    colors, marks = [], []
+    runner.mocks['hddl:color'] = lambda entity, color: colors.append((entity, color)) or True
+    runner.mocks['hddl:make-marker'] = lambda rec, text: marks.append((rec[0], text)) or True
+    def run(records):
+        colors.clear()
+        marks.clear()
+        rows = runner.call('hddl:sort-rows', [runner.call('hddl:rows', [records])])
+        groups = runner.call('hddl:group-rows', [rows])
+        env = {'groups': groups, 'bad': 0, 'made': 0}
+        runner.eval(loop, env)
+        return env
+    env = run(data)
+    assert set(colors) == {(handle, 1) for handle in ('3038C', '30391', '30398', '3039D')}, colors
+    assert len(colors) == 4 and env['bad'] == env['made'] == 4
+    assert len(marks) == 4 and all(text == '[电缆规格不一致]' for _, text in marks), marks
+    equal = deepcopy(data)
+    for rec in equal:
+        if rec[1] == '2×16':
+            rec[1] = ' 2×10 '
+    env = run(equal)
+    assert not colors and not marks and env['bad'] == env['made'] == 0
+    combined = deepcopy(data)
+    next(rec for rec in combined if rec[0] == '30393')[1] = '+XX'
+    env = run(combined)
+    assert set(colors) == {(handle, 1) for handle in
+                           ('3038C', '30391', '30398', '3039D', '303A4', '30393')}, colors
+    assert env['bad'] == env['made'] == 4
+    assert sum(text == '[原理号不一致][电缆规格不一致]' for _, text in marks) == 2
+    for name in ('hddl:color', 'hddl:make-marker'):
+        del runner.mocks[name]
+    print('PASS: QW3 28-text fixture: four spec cells red, equal specs clean, concurrent principle differences preserved')
 
 
 def check_gty_layout(runner, funcs):

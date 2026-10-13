@@ -12,7 +12,7 @@
 ;;; 包含以下命令:
 ;;;
 ;;;   - YSDL  : 提取选中文字到CSV文件，并改变文字颜色。
-;;;   - HDDL  : 直接校核选中文字中的电缆编号和原理号，问题行标红并在行首标注。
+;;;   - HDDL  : 直接校核选中文字中的电缆编号、规格和原理号，问题行标红并在行首标注。
 ;;;   - QSTXT : 快速从当前选择中仅选中所有文字对象。
 ;;;   - FKX   : 单击框内空白处选择正文对象，自动排除图框和右下角标题栏；支持手动指定范围。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
@@ -17095,7 +17095,7 @@
           (strcase (hddl:cabinet (hddl:cell b 0))))))
 
 (defun c:HDDL (/ aa:doc aa:undo-open ss i e d items sorted rows cur lasty rec row id groups grp
-                 issue bad marker made mirror-ok olderr stage highlight-type group group-issue colored)
+                 issue bad marker made mirror-ok olderr stage highlight-type group group-issue colored spec-diff)
   (setq olderr *error*)
   (defun *error* (msg)
     (aa:undo-mark-off)
@@ -17119,10 +17119,13 @@
       ;; 逐条按 Y 坐标归行，再只对每一行的小列表按 X 排序，避免大列表递归。
       (setq stage "按坐标分行" rows (hddl:sort-rows (hddl:rows items)))
       (setq stage "按电缆编号分组" groups (hddl:group-rows rows))
-      (setq stage "检查编号和原理号" bad 0 made 0)
+      (setq stage "检查编号、规格和原理号" bad 0 made 0)
       (foreach group groups
         (setq grp (cdr group) colored nil
               mirror-ok (and (= (length grp) 2) (hddl:mirror-p (car grp) (cadr grp)))
+              spec-diff (and (= (length grp) 2)
+                             (/= (strcase (hddl:cell (car grp) 3))
+                                 (strcase (hddl:cell (cadr grp) 3))))
               group-issue
                 (cond
                   ((and mirror-ok (/= (hddl:tail-count (car grp))
@@ -17143,12 +17146,22 @@
              (setq issue "[柜名不一致]" highlight-type 'cabinet))
             ((= group-issue 'cable-id)
              (setq issue "[电缆编号重复]" highlight-type 'cable-id)))
+          ;; 规格单独检查，避免原理号或柜名问题遮蔽规格差异。
+          (if spec-diff
+            (progn
+              (setq issue (strcat (if issue issue "") "[电缆规格不一致]"))
+              (if (not (member 'spec colored))
+                (progn
+                  (hddl:color-cell (car grp) 3)
+                  (hddl:color-cell (cadr grp) 3)
+                  (setq colored (cons 'spec colored))))))
           (if issue
             (progn
               (setq bad (1+ bad))
-              (if (or (= highlight-type 'duplicate-principle)
-                      (= highlight-type 'cable-id)
-                      (not (member highlight-type colored)))
+              (if (and highlight-type
+                       (or (= highlight-type 'duplicate-principle)
+                           (= highlight-type 'cable-id)
+                           (not (member highlight-type colored))))
                 (progn
                   (setq colored (cons highlight-type colored))
                   (cond
@@ -17167,7 +17180,7 @@
       (redraw)
       (alert (strcat "HDDL 校核完成\r\n\r\n问题行: " (itoa bad)
                      "\r\n已生成红色标记: " (itoa made)
-                     "\r\n\r\n规则：合法的起终点互换镜像行不标红，原理号排列顺序不影响校核；同向重复、原理号数量不一致会标红芯数，柜名不一致会标红柜名，原理号内容不一致或重复会标红对应原理号。")))
+                     "\r\n\r\n规则：合法的起终点互换镜像行不标红，原理号排列顺序不影响校核；规格不一致会标红两端规格；同向重复、原理号数量不一致会标红芯数，柜名不一致会标红柜名，原理号内容不一致或重复会标红对应原理号。")))
       (princ "\r\n未选择文字。"))
   (aa:undo-mark-off)
   (setq *error* olderr)
