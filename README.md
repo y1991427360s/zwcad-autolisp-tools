@@ -2,6 +2,10 @@
 
 面向中望 CAD 2026 的 AutoLISP 常用命令集合，主程序为 `AA整合版本.lsp`。
 
+## 双平台联动开发
+
+本项目与同级的 `AutoCAD2018_lisp`（AutoCAD 2018） 联动维护。公共功能默认同步更新，编码、SDK、加载路径及平台实现分别保留；开发流程和差异记录见 [双平台开发说明](docs/DUAL_PLATFORM.md)。
+
 ## 使用
 
 1. 在 CAD 中运行 `APPLOAD`。

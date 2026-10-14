@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+## 双平台开发入口
+
+修改本目录前必须读取两边根目录规范及 `../docs/DUAL_PLATFORM.md`，公共功能默认双边同步；本目录保留各自平台 SDK、编码和安装路径。未经用户明确要求，不连接、加载或操作 CAD。
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -50,7 +54,7 @@ User input (ribbon/floating panel/command line)
 The ribbon DLL is built using the .NET Framework 4.0 C# compiler directly (no MSBuild/Visual Studio required):
 
 ```powershell
-# Default: targets ZWCAD at D:\ZWCAD, outputs AICADRibbonHostV6.dll
+# Default: targets ZWCAD at D:\ZWCAD2026, outputs AICADRibbonHostV6.dll
 .\build_zwcad_ribbon.ps1
 
 # Custom ZWCAD path
@@ -70,7 +74,7 @@ Multiple DLL versions exist for compatibility: `AICADRibbonHostV6.dll` (latest),
 - **API URL**: `AICAD_API_URL` env var (defaults to `https://api.openai.com/v1/chat/completions`)
 - **Model**: `AICAD_MODEL` env var, or set in LISP via `*AICAD_Model*` (defaults to `gpt-4.1-mini`)
 - **Install directory**: `AICADAA_BASEDIR` env var, or hardcoded default in `*AICAD_DefaultInstallDirectory*`
-- **Current fixed install directory**: `E:\366256\ZW-auto_lisp\V6`; do not restore the former Desktop path
+- **Current fixed install directory**: `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp\V6`; do not restore the former Desktop path
 - **Confirmation mode**: `*AICAD_RequireConfirmation*` in LISP (nil = auto-execute, T = prompt user)
 
 ## Key Conventions
