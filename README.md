@@ -4,7 +4,7 @@
 
 ## 双平台联动开发
 
-本项目与同级的 `AutoCAD2018_lisp`（AutoCAD 2018） 联动维护。公共功能默认同步更新，编码、SDK、加载路径及平台实现分别保留；开发流程和差异记录见 [双平台开发说明](docs/DUAL_PLATFORM.md)。
+本项目与同级的 `AutoCAD2018_lisp`（AutoCAD 2018） 联动维护。中望 CAD 2026 优先交付，AutoCAD 2018 可延后，待用户要求时补齐。编码、SDK、加载路径及平台实现分别保留；开发流程和差异见 [双平台开发说明](docs/DUAL_PLATFORM.md)，更新时间及待同步项见 [同步台账](docs/PLATFORM_SYNC_LOG.md)。
 
 ## 使用
 

@@ -2,7 +2,7 @@
 
 ## 双平台开发入口
 
-修改本目录前必须读取两边根目录规范及 `../docs/DUAL_PLATFORM.md`，公共功能默认双边同步；本目录保留各自平台 SDK、编码和安装路径。未经用户明确要求，不连接、加载或操作 CAD。
+修改本目录前必须读取两边根目录规范及 `../docs/DUAL_PLATFORM.md`，默认中望优先交付，AutoCAD 可延后，更新及待同步项记入 `../docs/PLATFORM_SYNC_LOG.md`；本目录保留各自平台 SDK、编码和安装路径。未经用户明确要求，不连接、加载或操作 CAD。
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
