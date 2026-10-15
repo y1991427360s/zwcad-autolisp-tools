@@ -2,6 +2,8 @@
 
 面向中望 CAD 2026 的 AutoLISP 常用命令集合，主程序为 `AA整合版本.lsp`。
 
+**默认开发目标：** 在本文件夹中提出需求，未指定平台时，一律修改中望 CAD 2026 插件；只有明确要求 AutoCAD 或两版同步时才修改 AutoCAD 代码。
+
 ## 双平台联动开发
 
 本项目与同级的 `AutoCAD2018_lisp`（AutoCAD 2018） 联动维护。中望 CAD 2026 优先交付，AutoCAD 2018 可延后，待用户要求时补齐。编码、SDK、加载路径及平台实现分别保留；开发流程和差异见 [双平台开发说明](docs/DUAL_PLATFORM.md)，更新时间及待同步项见 [同步台账](docs/PLATFORM_SYNC_LOG.md)。

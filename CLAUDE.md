@@ -2,6 +2,12 @@
 
 本项目是 ZWCAD 2026 AutoLISP 插件集合。以下是必须遵守的项目级约束。
 
+## 默认修改目标（最高优先级）
+
+- 用户在 `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp` 文件夹内发起需求时，未明确指定平台，一律默认修改当前项目的中望 CAD 2026 插件。说“插件”“CAD”“整合版本”“修改/新增/优化某命令”均按中望版理解，不必询问要改哪个平台。
+- 只有用户明确要求修改 AutoCAD 2018、同步到 AutoCAD 或同时更新两版时，才修改 AutoCAD 插件代码。读取另一版规范、评估兼容差异或同步文档/台账，不构成修改其插件代码的授权。
+- 用户只说 `AA整合版本.lsp` 或其他同名文件时，目标为当前中望项目内的文件；不得因另一目录存在同名文件而改错平台。用户明确的平台或完整目标路径优先于本默认规则。
+
 ## 双平台联动开发（强制）
 
 - 本项目与同级的另一版本共同维护：`D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp`（ZWCAD 2026）和 `D:\Syncthing\Oracle-Sync\LISP\AutoCAD2018_lisp`（AutoCAD 2018）。进入任一项目，开发前必须读取两边根目录规范及 `docs/DUAL_PLATFORM.md`；修改 V6 还须读取两边 V6 规范。
