@@ -29,3 +29,12 @@
 新增一行至上表：`编号 | 中望实际完成时间 | 命令/模块及摘要 | 来源提交或文件摘要、检查结果 | 待同步/已同步/不适用 | AutoCAD 实际完成时间或 — | 适配注意事项/后续条目`。
 
 本次只调整优先级规则并建立台账，未更新插件功能或移植 AutoCAD 代码。
+
+## 2026-10-15 中望文字替换面板 Tab 自动全选
+
+- 完成时间：2026-10-15 20:12:20 +08:00。
+- 修改：V6/AICADRibbon/AiRibbonPlugin.cs 的 ReplacePanelForm 覆盖 ProcessDialogKey，在原生 Tab/Shift+Tab 焦点切换完成后全选获得焦点的 TextBox 内容；保持按钮与输入框原有 Tab 顺序，支持规则增删复制后生成的输入框及下方查找框。Ctrl/Alt 组合键、鼠标定位、已有 Enter 跳格/Ctrl+Enter 执行逻辑保持原样。
+- 来源：C# SHA-256 `1097f7b242b9156b3ad4bcc6df29f73972e7c72aac75157c5852716e488f8512`；DLL SHA-256 `71a9ab64537bf05b36ece6842cc266f1dfb921b1be258fb3c1ee285ec69182f8`。字节备份、精确源码差异和离线检查位于 `backups/replace-tab-20261015-201100/`。主整合 LISP 未改，命令索引无需重新生成。
+- 构建：2026-10-15 20:11:01.3665329 +08:00 开始执行 V6/build_zwcad_ribbon.ps1，正式 DLL `D:/Syncthing/Oracle-Sync/LISP/ZW-auto_lisp/V6/AICADRibbonHostV6.dll` 58368 字节、修改时间 20:11:02，脚本核实其不早于构建开始时间。窗口管理器由脚本附带生成，本次恢复为备份原字节，不交付无关 EXE 变化。
+- 验证：提取实际交付 ProcessDialogKey 方法，在独立 WinForms 进程中执行12项离线检查通过，覆盖正反 Tab、全选后输入覆盖、按钮顺序、嵌套容器、空值/中文、手动光标及 Ctrl/Alt 边界，退出码0；源码严格UTF-8无BOM、CRLF通过。接口依据：https://learn.microsoft.com/dotnet/api/system.windows.forms.control.processdialogkey 。此验证未启动或连接CAD，不能视为DLL已在CAD加载或实机交互通过。
+- 平台/路径：仅修改中望V6源码与DLL；AutoCAD插件代码及产物未改、本功能待用户要求同步，两边仅同步本台账。现有加载器指向当前中望V6并优先选择AICADRibbonHostV6.dll；实际CAD会话加载路径未查询。构建时既有DLL被占用，脚本将其重命名为.dll.old后写入新DLL；未结束任何进程或操作CAD。当前会话若已加载旧DLL，需用户保存图纸并自行重启CAD后使用新版本，仅重载LISP不足以替换程序集。

@@ -1784,6 +1784,30 @@ namespace AICADRibbon
                 Controls.Add(rootLayout);
             }
 
+            protected override bool ProcessDialogKey(WinForms.Keys keyData)
+            {
+                // Tab 在对话键预处理阶段切换焦点，不会进入 TextBox.KeyDown。
+                bool handled = base.ProcessDialogKey(keyData);
+                if (handled && (keyData & WinForms.Keys.KeyCode) == WinForms.Keys.Tab &&
+                    (keyData & (WinForms.Keys.Control | WinForms.Keys.Alt)) == WinForms.Keys.None)
+                {
+                    WinForms.Control focused = ActiveControl;
+                    WinForms.ContainerControl container = focused as WinForms.ContainerControl;
+                    while (container != null && container.ActiveControl != null)
+                    {
+                        focused = container.ActiveControl;
+                        container = focused as WinForms.ContainerControl;
+                    }
+
+                    WinForms.TextBox textBox = focused as WinForms.TextBox;
+                    if (textBox != null && textBox.Focused)
+                    {
+                        textBox.SelectAll();
+                    }
+                }
+                return handled;
+            }
+
             protected override WinForms.CreateParams CreateParams
             {
                 get
