@@ -14483,6 +14483,17 @@
   (if (vl-catch-all-error-p result) nil result)
 )
 
+;; 返回文字中第一个“至”及其之前的部分；没有“至”返回 nil。
+;; 中望 LISPSYS=1 下 strlen/substr 均按字符计数，逐字比较不受中文影响。
+(defun qe:zhi-prefix (s / i n found)
+  (setq i 0 n (strlen s))
+  (while (and (not found) (< i n))
+    (setq i (1+ i))
+    (if (= (substr s i 1) "至")
+      (setq found (substr s 1 i))))
+  found
+)
+
 ;; 用 Windows 剪贴板中的文字批量替换选中文字；文字含“至”字时只替换“至”后面的部分（entmod 优化版：QE 命令）
 (defun c:QE (/ *error* doc undo-open clip-text ss i ent ed old-text new-text pos changed failed)
   (vl-load-com)
@@ -14500,6 +14511,9 @@
   )
 
   (setq clip-text (qe:get-clip-text))
+  ;; Excel 等复制的单元格末尾自带换行，去掉以免写入文字
+  (if (= (type clip-text) 'STR)
+    (setq clip-text (vl-string-right-trim "\r\n" clip-text)))
   (cond
     ((not (= (type clip-text) 'STR))
      (princ "\r\n[QE] 无法获取 Windows 剪贴板中的文字。"))
@@ -14516,7 +14530,14 @@
      (repeat (sslength ss)
        (setq ent (ssname ss (setq i (1+ i)))
              ed (entget ent)
-             old-text (cdr (assoc 1 ed)))
+             ;; 长多行文字：组码 3 依次存放前段，组码 1 为末段，拼成完整内容
+             old-text (if (assoc 1 ed)
+                        (strcat
+                          (apply 'strcat
+                            (mapcar 'cdr
+                              (vl-remove-if-not
+                                '(lambda (x) (= (car x) 3)) ed)))
+                          (cdr (assoc 1 ed)))))
        (cond
          ((not old-text)
           (setq failed (1+ failed)))
@@ -14525,17 +14546,21 @@
          (t
           ;; 文字含“至”字时只替换“至”后面的文字，
           ;; 例如“至10kV 1(2)#站用变”+剪贴板“变压器超温报警”→“至变压器超温报警”
-          (setq pos      (vl-string-search "至" old-text)
-                new-text (if pos
-                          (strcat (substr old-text 1 (1+ pos)) clip-text)
-                          clip-text))
-          (if (= old-text new-text)
-            (setq changed (1+ changed))
-            (progn
-              (setq ed (subst (cons 1 new-text) (assoc 1 ed) ed))
-              (if (entmod ed)
-                (setq changed (1+ changed))
-                (setq failed (1+ failed)))))))
+          ;; 逐字查找“至”，不混用 vl-string-search 位置与 substr，避免中文按字节/字符计数不一致导致截错
+          (setq pos      (qe:zhi-prefix old-text)
+                new-text (if pos (strcat pos clip-text) clip-text))
+          (cond
+            ((= old-text new-text)
+             (setq changed (1+ changed)))
+            ;; 长多行文字的前段存在组码 3，只改组码 1 会残留前段，改用 COM 整体写入
+            ((if (assoc 3 ed)
+               (not (vl-catch-all-error-p
+                      (vl-catch-all-apply 'vla-put-TextString
+                        (list (vlax-ename->vla-object ent) new-text))))
+               (entmod (subst (cons 1 new-text) (assoc 1 ed) ed)))
+             (setq changed (1+ changed)))
+            (t
+             (setq failed (1+ failed))))))
      )
      (vla-EndUndoMark doc)
      (setq undo-open nil)

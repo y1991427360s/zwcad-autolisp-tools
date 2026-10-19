@@ -643,3 +643,95 @@
 - 检查：新增 `tests/test_db_gbk.py`，以“GBK 字节按 latin-1 表示”模拟经典引擎的字节字符串，执行实际 AST：中文、中英混排、U+ 转义、删空均正确；同一测试对修改前源码复现半个汉字乱码。`check_all_static.py` ALL PASS，`check_project.py` 76 项回归 OK，索引与审计产物已更新。
 - 中望状态：不适用（中望按字符计数）。其他按 `strlen`/`substr` 计字符数的 AutoCAD 命令可能有同类问题，本次未逐一排查。
 - 验证状态：未连接 AutoCAD，待用户重载后验收。
+
+## 2026-10-19 09:36:23 AutoCAD 2018 AW 改为精确几何判定（修复移动过远、速度慢）
+
+- AutoCAD 完成时间：2026-10-19 09:36:23 +08:00。用户反馈 AutoCAD 的 AW 处理慢、移动距离明显比中望大（约 3mm）。
+- 说明：两版 AW 参数相同，0.3mm 是避让余量（`aw:min-gap`），不是每步移动量；每步移动 0.15×字高（`aw:step-factor`），8 个方向逐圈外扩，最多 28 圈。
+- 判断的根因（推测，未实机验证）：原实现每个候选位置都用 `ssget "_C"` 判断是否碰到对象，单个文字最多约 224 次框选；AutoCAD 的窗口选择受屏幕像素精度影响，缩小视图时 0.3mm 间隙不足一个像素，附近对象被误判为重叠，需要多圈外扩（移得远）且大量框选（慢）。
+- 修复：每个文字只框选一次覆盖全部候选位置的范围，读取邻近对象几何：LINE、LWPOLYLINE 直线段用线段与矩形精确相交，CIRCLE 用圆周与矩形精确相交，多段线圆弧段用含拱高的外框，其他对象用包围盒；候选位置全部用坐标计算判断。新增 `aw:box-hit-p`、`aw:seg-hit-p`、`aw:circle-hit-p`、`aw:pts-box`、`aw:lwpoly-shapes`、`aw:ent-shapes`、`aw:neighbors`、`aw:hit-p`，修改 `aw:try-offset`、`aw:process-one`，删除 `aw:blocked-p`、`aw:ss-has-other-p`。参数（0.3 余量、0.15×字高步长、28 圈、方向顺序）不变。
+- 来源与备份：修改前字节备份 `AutoCAD2018_lisp/backups/aw-geom-20261019-093016/`。
+- 检查：新增 `tests/test_aw_geom.py` 执行实际 AST：外框重叠但几何不相交的斜线、包住文字的大圆不触发移动；0.2mm 外的横线向下移 0.45；上下夹住时第 8 圈向上 3.6；每个文字只框选一次；线段/圆判定边界。`check_project.py` 77 项回归 OK；`check_all_static.py` 仅 ZZ 计时基准 4.73x<5.0x 偶发失败（ZZ 未改）。
+- 已知限制：大面积填充（HATCH）按包围盒判断，文字位于大填充区内会被视为重叠；窗口选择仍只找当前视图内的对象（与原实现相同）。
+- 中望状态：未改。中望版同样逐候选框选，若中望也出现类似现象可按本条移植。
+- 验证状态：未连接 AutoCAD，待用户重载后验收。
+- 同时发现：本次修改期间 `AA整合版本.lsp` 中 `c:QE` 与新增 `qe:zhi-prefix` 被其他来源修改（不属本次 AW 工作），未纳入本条。
+
+## 2026-10-19 09:40:00 中望 + AutoCAD 修复 QE 含中文文字替换错位
+
+- 完成时间：2026-10-19 09:40:00 +08:00。用户反馈中望和 AutoCAD 中 QE 替换数字、英文正常，被替换文字含中文时结果异常（如只替换一部分），并明确要求两版都修。
+- 根因：`c:QE` 用 `vl-string-search` 找“至”的位置，再交给 `substr` 截前缀。两个函数对中文的计数单位不保证一致（中望 LISPSYS=1 的 `substr` 按字符，AutoCAD 2018 按 GBK 字节），“至”前有汉字时截出的前缀长度错位，表现为多保留原文一段或把汉字截成半个；AutoCAD 的字节搜索还可能跨两个汉字误命中（如“爸立”的字节 `B0 D6 C1 A2` 含“至”的 `D6 C1`）。该判断基于源码与字节模型推断，`vl-string-search` 返回值单位未实机测定。
+- 修复：两版新增 `qe:zhi-prefix`，返回第一个“至”及其之前的部分，不再混用两类下标。中望用 `strlen`/`substr` 逐字比较；AutoCAD 用已有 `aa:gbk-chars` 按字符切分后比较，`\U+81F3` 转义同样视为“至”。另在 QE 内去掉剪贴板末尾的回车换行（Excel 复制单元格自带），不影响 CC。“至”前缀保留规则本身不变。
+- 来源与备份：中望主文件 SHA-256 `928e687b62059a4415002ec896d7a7b39ae747680968578da927cfd226c11bcb`；AutoCAD 主文件 SHA-256 `9f970ad3c2760327e854920f0472ed4d7c329c572b2e38803879d5cb90de3c1b`（含另一会话同期 AW 改动）；两版修改前字节备份均在各自 `backups/qe-cjk-20261019-093506/`。中望 UTF-8 无 BOM、AutoCAD 严格 CP936，均纯 CRLF。
+- 检查：两版 `tools/check_all_static.py` 均 ALL PASS；中望索引与审计产物已更新。Python 模拟两种字符串模型：“电缆至10kV 1#站用变”→前缀“电缆至”，“爸立XX”不再误命中。
+- AutoCAD 状态：已同步（同一时间完成）。修改期间另一会话在改 AutoCAD 的 AW，已核对两处改动并存。
+- 验证状态：未连接、加载或操作任何 CAD，待用户重载后验收。
+
+## 2026-10-19 09:42:55 AutoCAD 2018 补齐 VLAX-VLA-OBJECT->ENAME 兜底（CC / C1 / C2 / C3）
+
+- AutoCAD 完成时间：2026-10-19 09:42:55 +08:00。用户反馈 CC、C1、C2、C3 报 `no function definition: VLAX-VLA-OBJECT->ENAME`。
+- 根因：与 10-17 的 `VLAX-ENAME->VLA-OBJECT` 同类，用户 AutoCAD 会话中 vl-load-com 后该转换函数仍未定义；四个命令复制后都要把对象转回图元名交给 MOVE。
+- 修复：`aa:ensure-vlax` 增加 `vlax-vla-object->ename` 兜底（`(handent (vla-get-Handle obj))`），仅在函数缺失时定义，不覆盖正常会话的原生函数；文件加载、`aa:cmd-begin`、`aa:undo-mark-on` 时都会执行，一次覆盖全部调用点。仅改 `aa:ensure-vlax`。
+- 来源与备份：修改前字节备份 `AutoCAD2018_lisp/backups/vlax-ename-20261019-093847/`。
+- 检查：新增 `tests/test_vlax_fallback.py`（两个转换都有缺失时兜底、只在缺失时定义、顶层执行）；`check_project.py` 78 项回归 OK；`check_all_static.py` 仅 ZZ 计时基准偶发失败（ZW 本次也未改 ZZ）。
+- 中望状态：不适用（中望未出现该缺失）。
+- 验证状态：未连接 AutoCAD，待用户重载后验收。
+
+## 2026-10-19 09:47:13 中望 + AutoCAD QE 改为整段替换（取消“至”前缀规则）
+
+- 完成时间：2026-10-19 09:47:13 +08:00。用户实机反馈：原文字“…文字含“至”字时只替换“至”后的部分。”用 QE 替换为剪贴板“1(2)SVG-N431”后得到“…文字含“至1(2)SVG-N431”，要求把文字全部内容替换为剪贴板文字。
+- 结论：用户所说“只替换了一部分”实际由 QE 的“至”前缀保留规则造成（原文含“至”即保留其前面的内容），与中文计数无关；上一条 09:40:00 的字节/字符错位推断不是用户遇到的问题，相应 `qe:zhi-prefix` 已删除。
+- 修改：两版 `c:QE` 取消“至”前缀规则，整段替换为剪贴板文字；保留去掉剪贴板末尾回车换行。多行文字超长时前段在组码 3，只改组码 1 会残留前段，此时改用 `vla-put-TextString` 整体写入，其余仍用 `entmod`。文件头命令清单、`docs/CC.md` 说明同步更新。
+- 来源与备份：中望 SHA-256 `f5749fb911bb93e048f82e12e468655fefb5be0adb1b4319a788a58f956075db`；AutoCAD SHA-256 `6f13d7552f6d18185afe6f246a360c894d4500487314e7f5ee12f43b4178b0f8`；修改前字节备份在各自 `backups/qe-full-20261019-094415/`。中望 UTF-8 无 BOM、AutoCAD 严格 CP936，均纯 CRLF。
+- 检查：两版 tools/check_all_static.py 均 ALL PASS；两版命令索引与审计产物已重新生成。
+- AutoCAD 状态：已同步（同一时间完成）。
+- 验证状态：未连接、加载或操作任何 CAD，待用户重载后验收。
+
+## 2026-10-19 09:51:04 AutoCAD 2018 恢复 CC / C1 / C2 / C3 拖动实时预览
+
+- AutoCAD 完成时间：2026-10-19 09:51:04 +08:00。用户反馈补齐 VLAX-VLA-OBJECT->ENAME 后四个命令能用，但拖动时没有中望那样的实时预览。
+- 修复：AutoCAD 版 `c:CC`、`c1c2:place-one` 删除拖动前 `(redraw 副本 2)` 与放置后 `(redraw 副本 1)`，副本保持可见交给原生 MOVE（DRAGMODE=2 不变）；拖动期间副本在原位与原文字重叠显示。其余流程（先替换文字、`_non` 基点、连续放置、空回车/Esc 删除未放置副本、一次 U）不变。
+- 来源与备份：修改前字节备份 `AutoCAD2018_lisp/backups/cc-preview-20261019-094721/`（含两个检查脚本）。逐函数 AST 仅这两个函数为本次改动。
+- 检查：`check_cc_static.py`、`check_c1c2_static.py` 改为断言不隐藏副本并通过；`check_all_static.py` ALL PASS；`check_project.py` 78 项单元回归 OK，汇总仅 ZZ 计时基准 4.27x<5.0x 偶发失败（ZZ 未改，另一会话同时在跑，机器负载较高）。
+- 中望状态：不适用，中望保留隐藏写法。
+- 验证状态：未连接 AutoCAD；预览恢复是基于现象的推断，待用户重载验收。
+
+## 2026-10-19 09:55:19 中望 + AutoCAD QE 恢复“至”前缀规则（撤回上一条整段替换）
+
+- 完成时间：2026-10-19 09:55:19 +08:00。用户确认保留 QE 的“至”前缀规则：原文字含“至”时只替换“至”后面的部分，不含“至”时整段替换。上一条“取消前缀规则”撤回。
+- 实现：两版恢复 `qe:zhi-prefix` 逐字查找第一个“至”（中望 `strlen`/`substr` 逐字；AutoCAD `aa:gbk-chars` 按字符切分，`\U+81F3` 转义同样视为“至”），不再混用 `vl-string-search` 位置与 `substr`。保留：剪贴板末尾回车换行去除；长多行文字先把组码 3 前段与组码 1 末段拼成完整内容再查找“至”，有组码 3 时用 `vla-put-TextString` 整体写入，其余用 `entmod`。文件头命令清单、`docs/CC.md` 恢复前缀规则说明。
+- 来源与备份：中望 SHA-256 `e451ab3bb6a997ac93fc7aa1bf35f9bd965c41b64af1dd0c39030b4508c381da`；AutoCAD SHA-256 `83fec79a4b8b6d0d84c59c4b563854d1baf49c93ee1e55fde4ba38e48236ec65`；修改前字节备份在各自 `backups/qe-zhi-20261019-095004/`。中望 UTF-8 无 BOM、AutoCAD 严格 CP936，均纯 CRLF。
+- 检查：两版 `tools/check_all_static.py` 均 ALL PASS（AutoCAD 首次与中望并行运行时 ZZ 计时基准 4.95x 略低于 5.0x，ZZ 未改动，单独重跑通过）；两版命令索引与审计产物已重新生成。
+- AutoCAD 状态：已同步（同一时间完成）。
+- 验证状态：未连接、加载或操作任何 CAD，待用户重载后验收。
+
+## 2026-10-19 10:09:02 AutoCAD 2018 AW 单行文字改用 textbox 外框（移动距离仍过大）
+
+- AutoCAD 完成时间：2026-10-19 10:09:02 +08:00。用户截图对比：同一端子编号文字与下方圆形符号，中望 AW 后间距很小，AutoCAD 被推开约一个字高；上一版精确几何判定后速度变快但距离仍大。
+- 判断的根因（推测，未实机验证）：AutoCAD 的 `GetBoundingBox` 对单行文字常在基线下方预留下伸部分，文字外框底边远低于实际字形，导致按外框判断时要多推几圈。中望的外框贴合字形。
+- 修复：新增 `aw:text-bbox`，TEXT 用 `(textbox ed)` 求字形外框，按插入点与旋转角（OCS→WCS）换算；`aw:process-one` 的自身外框与 `aw:ent-shapes` 中的邻近单行文字都优先用它，取不到时退回 `GetBoundingBox`。MTEXT 及其他对象不变。
+- 来源与备份：修改前字节备份 `AutoCAD2018_lisp/backups/aw-textbox-20261019-100529/`。逐函数 AST 仅 `aw:text-bbox`（新增）、`aw:ent-shapes`、`aw:process-one`。
+- 检查：`tests/test_aw_geom.py` 新增：外框下伸 1.5 而字形底为 0 时，0.5 外的圆不触发移动、0.2 外的圆只上移 1 步 0.45（同场景旧代码上移 1.8）；旋转 90° 文字的外框换算。`check_all_static.py` ALL PASS，`check_project.py` ALL PROJECT STATIC CHECKS PASS（78 项回归 OK）。
+- 中望状态：不适用。
+- 验证状态：未连接 AutoCAD，待用户重载对比验收。若仍偏大，下一步需要实机读出该文字的 GetBoundingBox 与 textbox 数值确认。
+
+## 2026-10-19 10:29:37 AutoCAD 2018 AW 修复未排除自身导致移动过大（实机定位）
+
+- AutoCAD 完成时间：2026-10-19 10:29:37 +08:00。用户重载 10:09 版本后 AW 移动距离仍偏大，并授权连接 AutoCAD 排查。
+- 实机排查（只读，未执行 AW、未移动或修改图形）：通过 COM 发送 LISP，读取上一次 AW 处理的两个文字（`1-21QD:10`、`1-21QD:8`，字高 3、TXT.shx/@@hztxt.shx、正中对齐）及附近对象。结果：两文字的 GetBoundingBox 与 textbox 完全一致，10:09 条目推测的“基线下预留下伸部分”并非原因，该条根因作废（`aw:text-bbox` 保留，结果不变且无害）。逐步下移外框调用 `aw:hit-p` 发现邻近形状中包含文字自身外框；进一步实测 AutoCAD 中两个指向同一对象的图元名 `=` 为 nil、`/=` 为 T（见 DUAL_PLATFORM 新增一节）。`aw:neighbors` 用 `(/= en self)` 排除自身失效，文字必须躲开“自己原来的位置”，须移出一个字高加余量：8 步 × 0.45 = 3.6mm，与截图一致。旧版逐候选 `ssget` 的 `aw:ss-has-other-p` 同样用 `/=`，因此 AutoCAD 中 AW 一直偏大。
+- 修复：`aw:neighbors` 改用 `(not (eq en self))`；`c:XYG` 邻线查找排除自身同样改用 eq（原写法因附加“在本线右侧”条件未造成实际错误）。仅这两个函数改动。
+- 实机验证：在会话中只重定义 `aw:neighbors` 后复测，邻近形状不再含自身；按实际几何，从原位置上移 3 步（1.35mm）即满足 0.3 余量，文字底边距圆顶约 0.375mm，与中望效果一致。会话中临时定义的诊断函数与 USERS1 已清理/恢复；未保存图纸。
+- 来源与备份：修改前字节备份 `AutoCAD2018_lisp/backups/aw-eq-20261019-102530/`。
+- 检查：`tests/test_aw_geom.py` 新增按 AutoCAD 图元名语义（= 恒不等、eq 按同一性）的用例，新代码上移 0.45、旧代码复现 3.6；`check_xyg_static.py` 解释器补 `not`。`check_all_static.py` ALL PASS，`check_project.py` ALL PROJECT STATIC CHECKS PASS（78 项回归 OK）。
+- 中望状态：不需修改（中望图元名比较正常）。
+- 待用户验收：重载插件后对新的文字执行 AW。
+
+## 2026-10-19 10:57:43 AutoCAD 2018 修复 HAO2 排序报“函数错误 -lambda-”
+
+- AutoCAD 完成时间：2026-10-19 10:57:43 +08:00。用户反馈 AutoCAD 中 HAO2 框选 258 个对象后报 `函数错误: #<SUBR @... -lambda->`，中望正常。
+- 根因（据报错与源码判断）：`hao2:sort-blocks` 用 `(mapcar (lambda (b / p) ...) blkList)` 预取插入点，这是 AutoCAD 主文件中唯一未加引号的 lambda，报错发生在排序前（未输出“成功识别并排序”）。
+- 修复：改为 foreach 逐个取插入点再 reverse，结果与原 mapcar 顺序一致；排序、分行、填号逻辑不变。仅改 `hao2:sort-blocks`。
+- 来源与备份：修改前字节备份 `AutoCAD2018_lisp/backups/hao2-20261019-105250/`。
+- 检查：新增 `tests/test_autocad_compat.py`（全文件无未加引号 lambda；修改前源码可检出 `hao2:sort-blocks`）。`check_all_static.py` ALL PASS；`check_project.py` 80 项单元回归 OK，汇总仅 ZZ 计时基准 4.68x<5.0x 偶发失败（ZZ 未改）。
+- 中望状态：不需修改。
+- 验证状态：未连接 AutoCAD，待用户重载后重跑 HAO2。

@@ -151,3 +151,33 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 差异：AutoCAD 2018 经典 AutoLISP 的 `strlen` / `substr` 按 GBK 字节计数（同 ZDDL2 字符单位一节）；中望 LISPSYS=1 按 Unicode 字符计数。
 - 处理：AutoCAD 版新增 `aa:gbk-chars` 先按字符切分再删除；中望保持原实现。
 - 证据与验证：用户实机反馈 DB 结果错误；离线字节模型测试 `tests/test_db_gbk.py` 复现旧问题并验证修复，修复后未实机验证。
+
+## 2026-10-19 字符串位置函数单位不一致（QE）
+
+- 适用范围：用 `vl-string-search` 返回的位置再交给 `substr` 截取的代码，本次为 `c:QE` 的“至”前缀。
+- 差异：中望 LISPSYS=1 的 `strlen`/`substr` 按 Unicode 字符计数；AutoCAD 2018 按 GBK 字节计数且字节搜索可能跨字符误命中。`vl-string-search` 返回值的单位两版均未实机测定，不应与 `substr` 混用。
+- 处理：两版改为同一套函数逐字符扫描（中望 `substr` 逐字，AutoCAD `aa:gbk-chars`）。
+- 证据与验证：用户实机反馈两版含中文时替换异常；离线字节模型推演，修复后未实机验证。
+- 2026-10-19 补充：QE 随后改为整段替换，不再截取“至”前缀，`qe:zhi-prefix` 已删除；上述单位差异仍适用于其他混用 `vl-string-search` 与 `substr` 的代码。
+- 2026-10-19 再补充：用户确认保留“至”前缀规则，QE 已恢复 `qe:zhi-prefix` 逐字查找实现，上一行“已删除”作废。
+
+## 2026-10-19 CC / C1 / C2 / C3 拖动前隐藏副本（redraw 模式 2）
+
+- 适用范围：CC（`c:CC`）与 C1/C2/C3（`c1c2:place-one`）把副本交给原生 MOVE 前的显示处理。
+- 差异：中望版用 `(redraw 副本 2)` 隐藏原位静态显示，原生拖动影像正常；AutoCAD 2018 用户反馈同样写法下没有实时预览，判断为拖动影像依赖屏幕显示、随隐藏一起消失（推测，未实机确认）。
+- 处理：AutoCAD 版删除隐藏与恢复的两处 `redraw`，副本拖动期间在原位保持可见；中望版保持原实现。AutoCAD 的 `check_cc_static.py`、`check_c1c2_static.py` 改为断言不得隐藏副本。
+- 验证状态：仅离线结构检查；AutoCAD 实时预览待用户重载验收。
+
+## 2026-10-19 AutoCAD 2018 用 = / /= 比较图元名恒为“不相等”（已实机验证）
+
+- 适用范围：所有用 `=` 或 `/=` 判断两个图元名是否同一对象的代码，例如从选择集中排除自身。
+- 差异：AutoCAD 2018 实测，同一对象分别由 `handent` 或两次 `ssname` 取得的图元名，`(= a b)` 为 nil、`(/= a b)` 为 T，只有 `eq` / `equal` 返回 T；即使同一变量两次求值 `(= e e)` 为 T，也不能依赖。中望中相同写法可正确比较（AW 在中望表现正常为旁证）。
+- 处理：AutoCAD 版图元名比较一律用 `eq`（`member`、`assoc` 基于 equal，不受影响）。本次改了 `aw:neighbors`（导致 AW 不排除自身）与 `c:XYG` 邻线查找；中望源码不改，但后续两版新代码比较图元名都应使用 `eq`。
+- 证据：2026-10-19 经用户授权连接 AutoCAD 2018，对图纸中文字 4DC356 实测上述四种比较的返回值；修复前 AW 邻近对象列表含自身外框，修复后不含。
+
+## 2026-10-19 AutoCAD 2018 未加引号的 lambda（HAO2）
+
+- 适用范围：直接写 `(mapcar (lambda ...) lst)` 等未加引号的 lambda，本次所见为带局部变量的 `(lambda (b / p) ...)`。
+- 差异：AutoCAD 2018 用户实机执行 HAO2 报“函数错误: #<SUBR @... -lambda->”；同一代码在中望正常。全文件仅此一处未加引号的 lambda，其余写成 `'(lambda ...)` 的比较器在 AutoCAD 中正常（XYG、GTY 等）。是“未加引号”还是“带局部变量”触发，未单独实测区分。
+- 处理：AutoCAD 版 `hao2:sort-blocks` 改为 foreach；新增 `tests/test_autocad_compat.py` 禁止 AutoCAD 主文件出现未加引号的 lambda。中望不改。
+- 验证状态：报错为用户实机现象；修复仅离线检查，待用户重载验收。
