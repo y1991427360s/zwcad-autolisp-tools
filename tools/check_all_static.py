@@ -129,6 +129,7 @@ def run_command_checks():
     tools = Path(__file__).resolve().parent
     checks = [
         'check_t_static.py',
+        'check_color_cmds_static.py',
         'check_fdx_static.py',
         'check_fkx_static.py',
         'check_cc_static.py',
@@ -136,6 +137,7 @@ def run_command_checks():
         'check_des_static.py',
         'check_gtx_static.py',
         'check_hwd_static.py',
+        'check_link_static.py',
         'check_xy_static.py',
         'check_hddl_static.py',
         'check_cable_perf_static.py',
@@ -154,6 +156,10 @@ def run_command_checks():
         'check_zj_static.py',
         'check_ysdl_static.py',
         'check_zz_static.py',
+        'check_zz2_static.py',
+        'check_zddl_static.py',
+        'check_lbz_lby_static.py',
+        'check_cabinet_panel_static.py',
     ]
     for name in checks:
         path = tools / name

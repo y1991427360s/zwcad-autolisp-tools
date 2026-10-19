@@ -15,6 +15,16 @@ functions = {f[1]: f for f in forms if isinstance(f, list) and f[:1] == ['defun'
 assert 'c:zj' in functions, 'c:zj command not found'
 assert 'c:yj' in functions, 'c:yj command not found'
 assert 'aa:km-ln-cmd' in functions, 'aa:km-ln-cmd helper not found'
+assert 'aa:zj-cmd' in functions and 'aa:zj-clean-text' in functions
+for name, left in [('zj', 't'), ('yj', 'nil')]:
+    body = functions['c:' + name][3:]
+    assert len(body) == 1 and len(body[0]) == 6
+    assert body[0][:3] == ['aa:zj-cmd', '"' + name.upper() + '"', left]
+    assert all(isinstance(value, str) and value.startswith('"') for value in body[0][3:])
+zj_calls = list(walk(functions['aa:zj-cmd'][3:]))
+assert ['initget', '"Clipboard Manual"'] in zj_calls
+assert ['aa:km-ln-cmd', 'tag-name', 'is-left', 'txt-up', 'txt-low', 'cabinet-text'] in zj_calls
+assert not any(n[0] in ('command', 'entmakex', 'entmod', 'aa:undo-mark-on') for n in zj_calls)
 
 # 2. 检查局部变量
 km_form = functions['aa:km-ln-cmd']

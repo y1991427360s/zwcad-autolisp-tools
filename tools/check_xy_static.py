@@ -1,5 +1,6 @@
 """Parse XY and evaluate its actual search functions with mocked CAD queries."""
 import math
+from functools import cmp_to_key
 from pathlib import Path
 from check_fdx_static import parse, walk, ARITY
 
@@ -32,8 +33,14 @@ for name, form in targets.items():
             assert node[1] in form[2], (name, node[1])
 
 
+def lisp_true(value):
+    return value is not None and value is not False and value != []
+
+
 def evaluate(node, env):
     if not isinstance(node, list):
+        if node == 't':
+            return True
         if node.startswith('"'):
             return node[1:-1]
         try:
@@ -51,26 +58,26 @@ def evaluate(node, env):
             env[key] = evaluate(val, env)
         return env[key]
     if op == 'if':
-        branch = 1 if evaluate(args[0], env) else 2
+        branch = 1 if lisp_true(evaluate(args[0], env)) else 2
         return evaluate(args[branch], env) if branch < len(args) else None
     if op == 'cond':
         for branch in args:
             test = evaluate(branch[0], env)
-            if test or branch[0] == 't':
+            if lisp_true(test) or branch[0] == 't':
                 result = test
                 for expr in branch[1:]:
                     result = evaluate(expr, env)
                 return result
         return None
     if op == 'while':
-        while evaluate(args[0], env):
+        while lisp_true(evaluate(args[0], env)):
             for body in args[1:]:
                 evaluate(body, env)
         return None
     if op in ('and', 'or'):
         for arg in args:
             result = evaluate(arg, env)
-            if (op == 'and' and not result) or (op == 'or' and result):
+            if (op == 'and' and not lisp_true(result)) or (op == 'or' and lisp_true(result)):
                 return result
         return result
     if op == 'foreach':
@@ -106,6 +113,7 @@ def invoke(name, args, env):
     local.update(zip(signature[:boundary], args))
     for body in form[3:]:
         result = evaluate(body, local)
+    env.update({k: v for k, v in local.items() if k.startswith('*xy-')})
     return result
 
 
@@ -148,7 +156,7 @@ native = {
     'assoc': lambda key, data: next((v for v in (data or []) if v[0] == key), None),
     'entget': entities.get, 'ssadd': add, 'ssget': query, 'min': min, 'max': max,
     'trans': lambda p, a, b: p,
-    'not': lambda x: not bool(x), 'null': lambda x: not bool(x),
+    'not': lambda x: not lisp_true(x), 'null': lambda x: not lisp_true(x),
     '1+': lambda x: x + 1,
     'sslength': lambda s: len(s) if s is not None else 0,
     'ssname': lambda s, i: s[i] if s is not None and 0 <= i < len(s) else None,
@@ -158,7 +166,7 @@ native = {
     'length': lambda x: len(x) if x is not None else 0,
     'xy:get-vrecs-for-hline-ed': lambda ed, data: records,
 }
-env = {'*xy-geom-tol*': 0.0001, '*xy-hit-half-width*': 1, '*xy-ray-len*': 20, 'pi': math.pi}
+env = {'*xy-geom-tol*': 0.0001, '*xy-conn-tol*': 0.05, '*xy-hit-half-width*': 1, '*xy-ray-len*': 20, 'pi': math.pi}
 for selected in [['h1'], ['h1', 'h2']]:
     queries.clear()
     invoke('xy:collect-vlines', [selected], env)
@@ -179,7 +187,7 @@ invoke('xy:window-wcs', [0, 0, 10, 10, []], env)
 assert queries[0][0][0] < -7 and queries[0][1][0] > 7
 modified = []
 native.update({
-    'cons': lambda a, b: [a] + b if isinstance(b, list) else (a, b),
+    'cons': lambda a, b: [a] + (b or []) if isinstance(b, list) or b is None else (a, b),
     'subst': lambda new, old, data: [new if v == old else v for v in data],
     'append': lambda a, b: a + b,
     'xy:remove-dxf-codes': lambda data, codes: [v for v in data if str(v[0]) not in codes],
@@ -219,3 +227,116 @@ assert filtered == ['line_green_h', 'line_bylayer_green_h']
 
 print(f'PASS: whole-file parse; {len(targets)} XY functions; green horizontal line filter; single/multiple horizontal lines; '
       'remote UP/DOWN labels; deduplication; rotated UCS; red warning extends right endpoint by 200')
+
+# 执行实际交付 AST：近竖直芯线、端点分桶、计数及真实远端文字搜索。
+native.pop('xy:filter-vertical-lines')
+native.pop('xy:get-vrecs-for-hline-ed')
+native.update({
+    'atan': lambda x, y: math.atan2(x, y),
+    'nth': lambda i, xs: xs[i] if xs and i < len(xs) else None,
+    'reverse': lambda xs: list(reversed(xs or [])),
+    'fix': math.trunc,
+    'cadddr': lambda xs: xs[3] if xs and len(xs) > 3 else None,
+    'aa:merge-sort': lambda xs, fn: sorted(xs or [], key=cmp_to_key(
+        lambda a, b: -1 if invoke(fn, [a, b], env) else (1 if invoke(fn, [b, a], env) else 0))),
+    'itoa': str, 'princ': lambda *args: None, 'strcat': lambda *xs: ''.join(xs),
+})
+env.update({'*xy-vline-ang-tol*': math.pi / 180, '*xy-vline-bucket-size*': 100,
+            '*xy-last-vrec-map*': None, '*xy-vline-buckets*': None})
+
+def line(key, p1, p2):
+    entities[key] = [(0, 'LINE'), (5, key), (10, p1), (11, p2)]
+
+line('35D3', [1280.4882, 151.0389, 0], [1782.8264, 151.0389, 0])
+line('35DD', [1280.4882, 151.0389, 0], [1280.4882, 231.0008, 0])
+line('35D9', [1640.008, 231.0008, 0], [1639.8797, 151.0389, 0])
+line('35DB', [1645.1413, 231.0008, 0], [1645.013, 151.0389, 0])
+line('slash', [1639.8797, 152.8139, 0], [1641.573, 151.0389, 0])
+line('zero', [10, 0, 0], [10, 0, 0])
+line('horizontal', [0, 0, 0], [80, 0, 0])
+for key in ['slash', 'zero', 'horizontal']:
+    assert not invoke('xy:is-vertical-line-ed-p', [entities[key], 0.0001], env), key
+for degrees, accepted in [(0, True), (0.99, True), (1.01, False), (45, False)]:
+    line('angle', [0, 0, 0], [80 * math.tan(math.radians(degrees)), 80, 0])
+    assert bool(invoke('xy:is-vertical-line-ed-p', [entities['angle'], 0.0001], env)) == accepted
+
+selection = ['35DD', '35D9', '35DB', 'slash', 'zero', 'horizontal']
+data = invoke('xy:filter-vertical-lines', [selection], env)
+assert len(data) == 6  # 每根线的两个端点独立候选，匹配一端后只计一芯。
+invoke('xy:build-vline-buckets', [data], env)
+recs = invoke('xy:get-vrecs-for-hline-ed', [entities['35D3'], data], env)
+assert len(recs) == 3, recs
+assert [r[3] for r in recs] == ['35DD', '35D9', '35DB']
+assert recs[1][0] == 1639.8797 and recs[1][2] == [1640.008, 231.0008, 0]
+assert recs[2][0] == 1645.013 and recs[2][2] == [1645.1413, 231.0008, 0]
+# 真实文字外包框，三条原理号都应与各自远端相交。
+labels = [
+    ['HZ-701', 1278.5094, 1281.5094, 231.8866, 242.7366, math.pi / 2],
+    ['HZ-901', 1638.0294, 1641.0294, 232.0169, 242.8669, math.pi / 2],
+    ['HZ-903', 1643.0294, 1646.0294, 232.0169, 243.5669, math.pi / 2],
+]
+assert [invoke('xy:find-text-for-vrec', [labels, r], env) for r in recs] == [x[0] for x in labels]
+# 全链路 XIN：实际收集、过滤、分桶、去重及输出，空间查询模拟 CAD 交叉选择。
+native['ssget'] = lambda *args: selection
+native['trans'] = lambda p, a, b: p
+made = []
+native['entmake'] = lambda ed: made.append(ed) or ed
+assert invoke('xy:run-xin', [['35D3']], env)
+assert next(v[1] for v in made[-1] if v[0] == 1) == '3'
+assert env['*xy-last-xin-counts*'] == [('35D3', 3)]
+# 正反向端点、UP/DOWN、连接端在桶边界内而远端越界；穿越、端点未接、区间外不计。
+for near, far, side in [([99.9, 0, 0], [100.5, 80, 0], 'up'),
+                        ([100.1, 0, 0], [99.5, -80, 0], 'down')]:
+    for reverse in [False, True]:
+        line('edge', far if reverse else near, near if reverse else far)
+        edge_data = invoke('xy:filter-vertical-lines', [['edge']], env)
+        env['*xy-last-vrec-map*'] = None
+        invoke('xy:build-vline-buckets', [edge_data], env)
+        hd = [(0, 'LINE'), (10, [near[0] - 0.01, 0, 0]), (11, [near[0] + 0.01, 0, 0])]
+        edge_recs = invoke('xy:get-vrecs-for-hline-ed', [hd, edge_data], env)
+        assert edge_recs == [[near[0], side, far, 'edge']], edge_recs
+# 端点连接容差 *xy-conn-tol* = 0.05：允许竖线端点与横线有微小间隙、或略超出横线端点。
+for near, far in [([50, 0.001, 0], [50.1, 80, 0]),
+                  ([50, -0.049, 0], [50.1, 80, 0]),
+                  ([100.01, 0, 0], [99.9, 80, 0]),
+                  ([-0.049, 0, 0], [0.05, -80, 0])]:
+    line('gap', near, far)
+    gap_data = invoke('xy:filter-vertical-lines', [['gap']], env)
+    invoke('xy:build-vline-buckets', [gap_data], env)
+    actual = invoke('xy:get-vrecs-for-hline-ed', [entities['h1'], gap_data], env)
+    side = 'up' if far[1] > 0 else 'down'
+    assert actual == [[near[0], side, far, 'gap']], (near, far, actual)
+# 穿越横线、间隙或区间外超过 0.05 时不计。
+for near, far in [([50, -40, 0], [50.1, 40, 0]),
+                  ([50, 0.06, 0], [50.1, 80, 0]),
+                  ([100.06, 0, 0], [99.9, 80, 0]),
+                  ([-0.06, 0, 0], [0.05, -80, 0])]:
+    line('disconnected', near, far)
+    bad_data = invoke('xy:filter-vertical-lines', [['disconnected']], env)
+    invoke('xy:build-vline-buckets', [bad_data], env)
+    actual = invoke('xy:get-vrecs-for-hline-ed', [entities['h1'], bad_data], env)
+    assert not actual, (near, far, actual)
+# 连接点重合仍去重，但横线两侧的芯线保持独立。
+line('dup', [0, 0, 0], [0.1, 80, 0])
+line('dup2', [0, 0, 0], [0, 80, 0])
+line('down', [0, 0, 0], [-0.1, -80, 0])
+dedup_data = invoke('xy:filter-vertical-lines', [['dup', 'dup2', 'down']], env)
+invoke('xy:build-vline-buckets', [dedup_data], env)
+assert len(invoke('xy:get-vrecs-for-hline-ed', [entities['h1'], dedup_data], env)) == 2
+print('PASS: QW3 sample outputs 3 cores; real far-end labels; angle boundaries; reversed endpoints; '
+      'UP/DOWN bucket crossing; disconnected/crossing/short-slash rejection; duplicate cores')
+
+# 远端次序与连接端次序相反时，滑动窗口仍找齐，输出仍按连接点排序。
+line('left_cross', [10, 0, 0], [11.3, 100, 0])
+line('right_cross', [11, 0, 0], [9.7, 100, 0])
+cross_data = invoke('xy:filter-vertical-lines', [['left_cross', 'right_cross']], env)
+invoke('xy:build-vline-buckets', [cross_data], env)
+cross_labels = [['right_label', 9.6, 9.8, 101, 104, math.pi / 2],
+                ['left_label', 11.2, 11.4, 101, 104, math.pi / 2]]
+copied = []
+native['xy:copy-text-horizontal'] = lambda en, pt: copied.append((en, pt)) or True
+env.update({'*xy-out-offx*': 10, '*xy-out-offy*': 0.5, '*xy-step-x*': 30,
+            '*xy-hit-half-width*': 0.1})
+assert invoke('xy:process-one-hline', [entities['h1'], cross_data, cross_labels], env) == [2, 0, 2]
+assert [x[0] for x in copied] == ['left_label', 'right_label']
+print('PASS: crossing far-end search order; output preserves connection-end order')

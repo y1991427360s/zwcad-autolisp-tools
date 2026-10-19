@@ -1,4 +1,7 @@
 """Offline SSS input and target-height regression; never connects to CAD."""
+import json
+from pathlib import Path
+
 from check_zdwi_static import evaluate
 from lsp_common import ARITY, defun_forms, parse, read_source, walk
 
@@ -86,8 +89,73 @@ def check():
     pair = call('aa:sss-find-pair', call('aa:sss-horizontal-segments', exact),
                 9.9, 0, 50)
     assert pair and pair[0][0] - pair[1][0] == 0.25
-    print('PASS SSS: input/default, preselection before prompt, undo, '
-          'six target-height cases, QW3 geometry, duplicate/sloped edges and no ZSSS command')
+    # Actual 74-object QW3 table: SQ top, LWK bottom, segmented borders.
+    table = json.loads((Path(__file__).resolve().parents[1] /
+                        'tests/fixtures/sss_header_74.json').read_text(encoding='utf-8'))
+    assert 'aa:sss-header-box' not in funcs, 'Never force a header fallback'
+    # Execute actual SSNAMEX decoding, then the actual command with either a
+    # crossing polygon or PICKFIRST's method-0 records (polygon unavailable).
+    executed = 0
+    for border in (2270.0, 2262.0, 2250.0, 2245.0, 2239.0, 2234.0):
+        box = [38060.0, border, 38125.0, 2280.0]
+        selected = [en for en in table
+                    if max(p[1] for p in en.get('pts', en.get('bbox', [[0, 0]]))) > border]
+        scan = call('aa:sss-horizontal-segments', table)
+        pair = call('aa:sss-find-pair', scan, border, box[0], box[2])
+        assert pair, border
+        expected_height = pair[0][0] - pair[1][0]
+        for keep_polygon in (True, False):
+            data = [[3, 'entity', 0, -1], [-1,
+                    [0, [box[0], box[1], 0]], [0, [box[2], box[1], 0]],
+                    [0, [box[2], box[3], 0]], [0, [box[0], box[3], 0]]]] if keep_polygon else [[0, 'entity', 0]]
+            for target in (10.0, 12.5):
+                commands, messages, prompts = [], [], []
+                env = {'__functions': affected | {'c:sss': form},
+                       '__ssget': lambda mode, *args: selected if mode == '_I' else table,
+                       '__builtins': {
+                           'vl-load-com': lambda: None, 'cadddr': lambda xs: xs[3],
+                           'equal': lambda a, b, tol: all(abs(float(x) - float(y)) <= tol for x, y in zip(a, b)) if isinstance(a, list) else abs(a - b) <= tol,
+                           'numberp': lambda x: isinstance(x, (int, float)),
+                           'listp': lambda x: isinstance(x, list),
+                           'vl-catch-all-apply': lambda *args: data,
+                           'vl-catch-all-error-p': lambda _: False,
+                           'getvar': lambda name: [1.0, 0.0, 0.0] if name == 'UCSXDIR' else [0.0, 1.0, 0.0],
+                           'initget': lambda _: None,
+                           'getreal': lambda prompt: prompts.append(prompt) or target,
+                           'aa:cmd-begin': lambda _: None, 'aa:cmd-end': lambda: None,
+                           'command': lambda *args: commands.append(args),
+                           'rtos': lambda value, *args: str(value),
+                           'sssetfirst': lambda *args: None,
+                           'princ': lambda *args: messages.extend(args)}}
+                env['selected'] = selected
+                recovered = evaluate(['aa:sss-pickfirst-box', 'selected'], env)
+                assert recovered == (box if keep_polygon else None), recovered
+                evaluate(['c:sss'], env)
+                assert len(commands) == 1 and len(prompts) == 1, (commands, messages)
+                cmd = commands[0]
+                if keep_polygon:
+                    assert cmd[:2] == ('_.STRETCH', '_C'), cmd
+                    assert cmd[2] == [box[0], border, 0.0], cmd
+                    assert cmd[3] == [box[2], box[3], 0.0], cmd
+                else:
+                    assert cmd[0] == '_.STRETCH' and cmd[1] == selected, cmd
+                assert abs(cmd[-1][1] - (target - expected_height)) < 1e-6, cmd
+                executed += 1
+    # An enclosing window has no crossed row: never silently change the header.
+    env['__ssget'] = lambda *args: table
+    env['__builtins']['vl-catch-all-apply'] = lambda *args: [[0, 'entity', 0]]
+    commands.clear()
+    prompts.clear()
+    evaluate(['c:sss'], env)
+    assert not commands and not prompts, (commands, messages)
+    env['__builtins']['vl-catch-all-apply'] = lambda *args: [
+        [3, 'entity', 0, -1], [-1, [0, [38060, 2220, 0]],
+         [0, [38125, 2220, 0]], [0, [38125, 2280, 0]], [0, [38060, 2280, 0]]]]
+    evaluate(['c:sss'], env)
+    assert not commands and not prompts
+    print('PASS SSS: syntax, undo, decimal/default height, QW3 geometry; '
+          f'{executed} actual command paths across six rows with/without polygon; '
+          'actual SSNAMEX decoding; whole-table selection never forces header')
 
 
 if __name__ == '__main__':

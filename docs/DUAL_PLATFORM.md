@@ -56,7 +56,7 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 
 ## 当前边界
 
-- 2026-10-14 文档检查时，中望目录是 Git 工作区且存在既有未提交改动；AutoCAD 2018 目录执行 `git status` 提示不是 Git 仓库。此状态需在后续任务中重新检查；不自动初始化仓库或推送到中望远端。
+- 2026-10-14 文档检查时，中望目录是 Git 工作区且存在既有未提交改动；AutoCAD 2018 目录执行 `git status` 提示不是 Git 仓库。2026-10-19 起 AutoCAD 2018 目录已是独立 Git 仓库，远端 `origin` 为私有仓库 https://github.com/y1991427360s/autocad2018-autolisp-tools ，默认分支 `main`；两版仓库各自提交推送，不互推远端。
 - 当前 AutoCAD 2018 的部分文档来自中望版，不能将历史中望实测记录视为 AutoCAD 2018 实测。根目录与 V6 规范、构建脚本及实际源码是核对入口。
 - 本次仅建立联动规则并纠正规范中的直接冲突，未全量比对或同步历史功能，未运行两版 LISP 检查或 CAD 实机验证。
 
@@ -67,3 +67,80 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 ## 给后续智能体的任务开头
 
 > 本次维护 ZWCAD 2026 与 AutoCAD 2018 两版插件。请先读取两边项目规范及 docs/DUAL_PLATFORM.md，默认优先交付中望版，把完成时间和 AutoCAD 待同步项写入 docs/PLATFORM_SYNC_LOG.md，待我要求时再补齐 AutoCAD。保留各平台编码、SDK 和实现差异，对实际修改的平台完成离线检查并汇报。未经我明确要求，不连接或操作任何 CAD。
+
+## 2026-10-15 补齐后的静态差异记录
+
+- 核对时间：2026-10-15 08:19:17 +08:00，证据见同步台账本次补齐记录及 AutoCAD `backups/platform-sync-20261015-081638/sync-verification.json`。
+- 主整合文件业务函数已对齐，保留 `ztf:run-dialog` 平台提示及 `*ztf-project-dir*` 路径；CP936 与 UTF-8 的编码约定分别保持，实际中文显示未做 CAD 验证。
+- V6 无待移植业务差异：加载路径、AutoCAD 专用 `LOADAICADACAD` 别名、Autodesk/ZwSoft 命名空间和 Application 别名均保留；AutoCAD 窗口管理器现有实现发现 acad 与 ZWCAD 两类进程，中望仅发现 ZWCAD。上述为源码静态确认，不代表窗口交互实机确认。
+- ZDDL 独立模块与整合模块业务 AST 一致；两版均保留独立/整合同名定义，当前严格审计产生 23 项重复定义告警，全仓单元测试 24/25 通过。27 项命令专项与整文件解析通过；不将专项通过表述为严格全仓通过。
+
+## 2026-10-15 AutoLISP 实数字面量兼容检查
+
+- 范围：AutoCAD 主文件 YS1 几何代码及入口，加载时报“输入中的点位置不正确”。
+- 静态证据：原文件第 378 行起含 247 个省略前导零的小数；AutoCAD 分支离线解析器原把 `.86` 当普通符号，未能阻止加载错误。
+- 处理：仅 AutoCAD 源码补齐前导零，保持 GBK/CP936、CRLF；其解析器和回归同步加强。中望源码本次未改；不推断中望是否接受原写法，运行差异待验证。
+- 依据：[Autodesk 实数语法](https://help.autodesk.com/cloudhelp/2020/ENU/AutoCAD-AutoLISP/files/GUID-F2BFD097-295B-4499-BBD9-0A785C377070.htm) 明确 -1 到 1 之间的小数必须包含前导零。修复已静态确认，未做 CAD 实机验证。
+
+## 2026-10-15 AutoCAD 9 / 99 的 COM 对象转换
+
+- 用户运行报 `VLAX-ENAME->VLA-OBJECT` 未定义；静态确认入口已有 `vl-load-com`，会话函数缺失原因尚未确定，不能写成 AutoCAD 2018 不支持该函数。
+- AutoCAD 共用旋转函数改用当前 Document 的 HandleToObject，以 DXF 5 句柄取得对象并捕获错误；失败时整批不旋转。该方法有 AutoCAD 2018 官方文档依据。
+- 中望版保留既有实现；只确认源码差异，未做任一 CAD 实机验证。
+
+## 2026-10-15 AutoCAD 9 / 99 直接对象旋转与 ZDDL 单一实现
+
+- 用户日志显示原 ROTATE 交互未收齐参数且旧代码提前报告成功；精确的输入拒绝原因未做 CAD 查询。AutoCAD 旋转实现改用 Rotate3D，显式 WCS 三维轴点和弧度，沿当前 UCS 的 Z 轴旋转。静态与模拟验证通过，运行效果待用户实机验收；不得把该日志推断为中望同样失败。
+- AutoCAD ZDDL 旧独立文件改为兼容加载入口，主整合文件保留唯一业务定义；中望暂保留原独立/整合双份实现，本次不修改其代码。AutoCAD 严格审计的 23 项重复定义已消除。
+- 官方接口依据：[AutoCAD 2018 Rotate3D](https://help.autodesk.com/cloudhelp/2018/ENU/AutoCAD-ActiveX-Reference/files/GUID-1057C914-CB4F-43C9-841F-F80207D9398E.htm)。采用标准 ActiveX 对象方法，当前仅做离线验证。
+
+## 2026-10-15 AutoCAD XY / XYG 文字包围盒对象转换
+
+- 用户反馈：XYG 识别 8 条绿色直线并完成 XIN 后，报告 `VLAX-ENAME->VLA-OBJECT` 未定义。静态调用链定位到 `xy:get-text-bbox`；文件顶层已有 COM 初始化，当前会话函数缺失的具体原因未确定，不推断为 AutoCAD 2018 不支持该接口。
+- AutoCAD 处理：共用文字包围盒函数在受保护路径中初始化 COM，通过当前 Document 的 `HandleToObject` 取得对象；对象转换、精确包围盒及数组读取统一捕获，已取得对象统一释放。失败时沿用 TEXT 的 textbox 与其余文字的估算回退。
+- 影响范围：所有复用 `xy:get-text-bbox` 的 XY / XYG 文字查询。中望插件代码保留既有实现；只同步兼容记录与台账。新增离线回归执行实际交付函数 AST，覆盖无需 ename 转换函数的精确包围盒及各阶段失败路径，未进行 CAD 实机验证。
+
+## 2026-10-15 AutoCAD XYG 批量文字空间索引
+
+- 依据：用户确认前次 XYG 修复能够完成目的，但反馈执行较慢。源码确认旧矩形文字查询逐横线扫描整个选区，对每个小字重复读取 COM 包围盒，命中后再次读取。
+- AutoCAD 处理：一次命令采集原选区文字精确包围盒、纯文本及原序号，构建带子树范围的平衡包围盒树；新生成文字按原插入点规则建立独立索引。索引均为 `c:XYG` 局部变量，查询后恢复原序号，保留等 X 候选顺序、选区优先、少于 3 字才窗口补查、右侧连续间距与芯数截断。共用文字包围盒优先借用 `aa:doc`，独立调用仍初始化 COM；不保留跨命令缓存或新增持久 COM 引用。
+- 另外缓存横线排序/邻线几何；竖线桶改成唯一键，保留桶内原逆序优先级。空间窗口与视口外补查逻辑不改。中望插件代码本次未改，仅同步本说明与台账。
+- 验证：离线执行实际新旧 LISP AST，995 对象/8 行构造场景的矩形提取包围盒请求从 6816 次降到 800 次，输出相同；此为请求量对比，不是 CAD 运行时间或实机倍速。随机几何、边界接触、长文字、缺选补查、同 X 顺序、同排多列、异常横线延伸、取消插入点均做回归；实图性能待用户重载验收。
+
+## 2026-10-15 AutoCAD QW3 共用包围盒转换
+
+- 用户反馈 QW3 报 `VLAX-ENAME->VLA-OBJECT` 未定义；静态调用链为 `aa:qw3-record` → `aa:safe-get-bbox`，命令入口已有 COM 初始化，会话缺失原因仍待确认。
+- AutoCAD 共用包围盒改用 Document.HandleToObject，捕获转换及读取异常、统一释放对象，保留更新与重生成重试；QW3 传入当前命令文档，失败时继续导出 DXF 信息。此共用函数的其他调用方一并采用句柄转换。中望源码未改，未进行任一 CAD 实机验证。
+
+## 2026-10-17 AutoCAD 2018 的 open 无编码参数（ZDDL2）
+
+- 适用范围：ZDDL2 的临时输入/输出文件。中望版用 `(open path mode "utf8")`；AutoCAD 2018 的 AutoLISP `open` 官方签名只有文件名与模式，未确认支持编码参数，故按保守处理，不使用。
+- 处理：AutoCAD 版读写系统 ANSI（中文 Windows 为 GBK/CP936），`tools/zddl2_bridge.py` 按 gbk 严格读写，GBK 无法表示的字符明确报错而非替换；面板写回同样 CP936 严格编码。
+- 验证状态：仅离线测试（含 GBK 往返）；未在 AutoCAD 2018 实机验证，不得写成已验证事实。
+
+## 2026-10-17 ZDDL2 字符单位差异（两版）
+
+- 中望版（ZWCAD 2026，Unicode）：字符串以字符为单位，`strlen`/`substr` 直接按字符计算；汉字宽度判断用码位 ≥ 0x2E80；端子排名称汉字范围 U+4E00–U+9FA5。
+- AutoCAD 2018 版（GBK 字节）：字符串按字节计算，汉字占 2 字节，需先按双字节切分再逐字处理。
+- 两版 ZDDL2 的解析与布局规则相同，均与 `tools/zddl2_engine.py` 一致；离线对照已分别通过。依据：两版 LISP 运行时的字符串语义不同（LISPSYS 与经典引擎）。
+- 状态：静态与离线对照已验证；实机未验证。
+
+## 2026-10-18 09:22:03 XY 连接容差修复后的待同步差异
+
+- 范围：`xy:make-vrec-if-valid-fast` 的端点连接及横线区间判断。中望恢复使用传入的 `tol`（当前 0.0001），与 2026-10-15 台账要求一致；AutoCAD 当前仍使用 `*xy-conn-tol*`（0.05）。
+- 证据：任务前中望实际 AST 把 Y 间隙 0.001 和 X 越界 0.01 的候选计入；修复后 XY 专项全部通过。AutoCAD 源码静态读取确认仍有上述宽容差，本次授权仅移植 QR/QR2，未修改其 XY。
+- 处理与状态：中望已修复、AutoCAD XY 待另行授权同步；仅源码及离线证据，未连接 CAD，不推断两版实机表现。QR/QR2 共用相同函数逻辑，保留 UTF-8/CP936 编码及各自 `aa:cmd-begin` 平台适配。
+
+## 2026-10-18 10:28:43 XY 连接容差恢复 0.05（上一条差异已消除）
+
+- 范围：`xy:make-vrec-if-valid-fast` 的端点连接及横线区间判断。用户决定恢复 2026-10-17 新增的 `*xy-conn-tol*`（0.05），撤销 09:22:03 那次改回 `tol`（0.0001）的修复。
+- 现状：中望与 AutoCAD 都使用 `*xy-conn-tol*` = 0.05，两版行为一致，上一条“XY 连接容差修复后的待同步差异”不再需要同步。去重与芯线倾斜判断仍用 `*xy-geom-tol*`（0.0001）。
+- 证据与状态：仅为源码及离线检查（`check_xy_static.py`），未连接 CAD，实机效果未验证。
+
+## 2026-10-19 文字联动值文件编码（SX1 / SX2）
+
+- 适用范围：文字联动 `aa:link-open`（SX1 导出、SX2 读取 `<图名>.aalink.txt`）。
+- 差异：中望版 `(open path mode "utf8")`，值文件为 UTF-8；AutoCAD 2018 的 `open` 无编码参数（同 ZDDL2 一节），AutoCAD 版改为两参数 `open`，按系统 ANSI（GBK/CP936）读写。其余联动函数两版 AST 一致。
+- 影响：同一平台内导出与读取一致；跨平台混用值文件（AutoCAD 总图读中望卷册图的文件或反之）时中文会乱码，文档已提示勿混用。
+- 证据与验证：源码比对与离线 `tools/check_link_static.py`（AutoCAD 版断言两参数 open）；均未实机验证。
+- XYG 接入方式：AutoCAD 保留自有 XYG 索引（2026-10-15），仅在 `xyg:find-rect-texts` / `xyg:find-right-new-texts` 返回前写入 `*xyg-rect-src*` / `*xyg-right-src*`，`c:XYG` 按中望方式组装 (文字 . AA_LINK)；中望 10-17 的 XYG 索引重写未移植。

@@ -76,4 +76,6 @@
 
 ## 工程化检查
 
+- 屏柜命令及其处理函数新增或修改后，必须运行 `python tools/check_cabinet_panel_static.py` 和面板回归，确认设置面板完整覆盖；独立实现不复用已有屏柜绘图函数时，增加 `;;; Cabinet-Panel: 命令名` 声明，并同步面板适配，禁止静默漏项。详见 `docs/屏柜命令设置.md`。
+
 - 全仓离线入口：`python scripts/check_project.py`。LSP 修改后运行 `python scripts/audit_lsp.py --write` 更新 `COMMANDS.md`、`PROJECT_AUDIT.md` 与 JSON；公共纯函数修改先编辑 `common/aicad_pure.lsp`，再运行 `python scripts/sync_common.py --write` 展开。禁止仅修改标有 Generated 的副本；`common/` 不加入 CAD 启动加载。候选告警须核对动态作用域和间接恢复，不批量重写；流程见 `docs/ENGINEERING.md`。

@@ -41,7 +41,8 @@ def form_texts(text):
 class CabinetPanelTests(unittest.TestCase):
     def test_real_source_discovers_entire_family(self):
         entries = discover(read_source(ROOT / 'AA整合版本.lsp'))
-        expected = {'KMZ', 'KMY', 'LNZ', 'LNY', 'UPSZ', 'UPSY', 'BZ', 'BY', 'ZJ', 'YJ'}
+        expected = {'KMZ', 'KMY', 'LNZ', 'LNY', 'UPSZ', 'UPSY', 'BZ', 'BY', 'ZJ', 'YJ',
+                    'LBZ', 'LBY', 'YDZ', 'YDY', '485Z', '485Y'}
         self.assertTrue(expected.issubset({entry.name for entry in entries}))
         self.assertEqual(len(entries), len({entry.name for entry in entries}))
         by_name = {entry.name: entry for entry in entries}
@@ -49,15 +50,72 @@ class CabinetPanelTests(unittest.TestCase):
         self.assertEqual({entry.name for entry in discover(render(read_source(ROOT / 'AA整合版本.lsp'), entries))},
                          {entry.name for entry in entries})
 
+    def test_numbered_edit_and_copy_preserve_handler_and_unrelated_forms(self):
+        source = read_source(ROOT / 'AA整合版本.lsp')
+        entries = discover(source)
+        by_name = {e.name: e for e in entries}
+        self.assertEqual(by_name['LBZ'], Entry('LBZ', True, '500', '-5', '故障录波柜', 'aa:yd-cmd'))
+        self.assertFalse(by_name['LBY'].left)
+        self.assertEqual(render(source, entries), source)
+        updated = [replace(e, upper='600', lower='-6', cabinet='新录波柜', left=False)
+                   if e.name == 'LBZ' else e for e in entries]
+        updated.append(replace(by_name['LBY'], name='NEWLB'))
+        output = render(source, updated)
+        self.assertEqual(discover(output), updated)
+        before, after = form_texts(source), form_texts(output)
+        for name in before.keys() - {'c:lbz'}:
+            self.assertEqual(before[name], after[name], name)
+        self.assertIn('(aa:yd-cmd "LBZ" nil "600" "-6" "新录波柜")', output)
+        self.assertIn('600、-601、-603...', output)
+        with self.assertRaises(ValueError):
+            render(source, [replace(e, handler='aa:km-ln-cmd') if e.name == 'LBZ' else e for e in entries])
+
+    def test_clipboard_cabinet_edit_and_copy_keep_runtime_behavior(self):
+        source = read_source(ROOT / 'AA整合版本.lsp')
+        entries = discover(source)
+        by_name = {e.name: e for e in entries}
+        self.assertEqual(by_name['ZJ'].handler, 'aa:zj-cmd')
+        self.assertEqual(by_name['YJ'].handler, 'aa:zj-cmd')
+        updated = [replace(e, cabinet='新手动默认柜名') if e.name == 'ZJ' else e for e in entries]
+        updated.append(replace(by_name['YJ'], name='NEWYJ'))
+        output = render(source, updated)
+        self.assertEqual(discover(output), updated)
+        self.assertIn('(aa:zj-cmd "ZJ" T "原理号" "原理号" "新手动默认柜名")', output)
+        before, after = form_texts(source), form_texts(output)
+        for name in before.keys() - {'c:zj'}:
+            self.assertEqual(before[name], after[name], name)
+
     def test_discovery_requires_top_level_exact_wrapper(self):
         text = SOURCE + '''
 ; (defun c:COMMENT () (aa:km-ln-cmd "COMMENT" T "a" "b" "c"))
 '(defun c:QUOTED () (aa:km-ln-cmd "QUOTED" T "a" "b" "c"))
 (defun outer () (defun c:NESTED () (aa:km-ln-cmd "NESTED" T "a" "b" "c")))
-(defun c:WITHARGS (x) (aa:km-ln-cmd "WITHARGS" T "a" "b" "c"))
-(defun c:EXTRA () (aa:km-ln-cmd "EXTRA" T "a" "b" "c") (princ))
 '''.replace('\n', '\r\n')
         self.assertEqual([entry.name for entry in discover(text)], ['KMZ'])
+
+    def test_new_wrappers_are_discovered_without_name_registration(self):
+        for handler in cabinet_panel.HANDLERS:
+            text = SOURCE + f'\r\n(defun c:FUTURE () ({handler} "FUTURE" T "600" "-6" "新柜"))\r\n'
+            self.assertIn('FUTURE', {e.name for e in discover(text)})
+
+    def test_unsupported_cabinet_commands_cannot_be_silently_skipped(self):
+        additions = (
+            '(defun c:FUTURE (x) (aa:yd-cmd "FUTURE" T "600" "-6" "柜"))',
+            '(defun c:FUTURE () (aa:km-ln-cmd "FUTURE" T "L" "N" "柜") (princ))',
+            '(defun c:FUTURE () (aa:yd-cmd "FUTURE" T "600" "-6"))',
+            '(defun bridge () (aa:yd-cmd "FUTURE" T "600" "-6" "柜")) (defun c:FUTURE () (bridge))',
+            '(defun new-handler () (aa:km-create-centered-text doc "柜" pt)) (defun c:FUTURE () (new-handler))',
+            ';;;   - FUTURE : 生成短线、矩形及新屏柜。\r\n(defun c:FUTURE () (custom-handler))',
+            ';;; Cabinet-Panel: FUTURE\r\n(defun c:FUTURE () (custom-handler))',
+        )
+        for addition in additions:
+            with self.subTest(addition=addition), self.assertRaisesRegex(ValueError, 'FUTURE'):
+                discover(SOURCE + '\r\n' + addition + '\r\n')
+
+    def test_real_source_coverage_rejects_simulated_missing_adapter(self):
+        with patch.object(cabinet_panel, 'HANDLERS', frozenset(('aa:km-ln-cmd',))):
+            with self.assertRaisesRegex(ValueError, 'LBY.*LBZ.*YDY.*YDZ'):
+                discover(read_source(ROOT / 'AA整合版本.lsp'))
 
     def test_edit_text_direction_and_escape_roundtrip(self):
         original = discover(SOURCE)[0]
@@ -103,9 +161,24 @@ class CabinetPanelTests(unittest.TestCase):
 
     def test_reject_invalid_names(self):
         entries = discover(SOURCE)
-        for name in ('', 'abc', '1ABC', 'A-B', 'A B', '中文', 'A' * 33, 'OTHER'):
+        for name in ('', 'abc', '485', '_485Z', 'A-B', 'A B', '中文', 'A' * 33, 'OTHER'):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 render(SOURCE, entries + [Entry(name, True, 'L', 'N', '柜')])
+
+    def test_numeric_prefix_commands_match_bz_by_and_remain_editable(self):
+        source = read_source(ROOT / 'AA整合版本.lsp')
+        entries = discover(source)
+        by_name = {e.name: e for e in entries}
+        for name, base in (('485Z', 'BZ'), ('485Y', 'BY')):
+            self.assertEqual(by_name[name], replace(by_name[base], name=name,
+                                                   upper='485+', lower='485-', cabinet='网络通信柜'))
+        self.assertEqual(render(source, entries), source)
+        changed = [replace(e, cabinet='测试通信柜') if e.name == '485Z' else e for e in entries]
+        output = render(source, changed)
+        self.assertEqual(discover(output), changed)
+        before, after = form_texts(source), form_texts(output)
+        for name in before.keys() - {'c:485z'}:
+            self.assertEqual(before[name], after[name], name)
 
     def test_reject_control_characters_in_all_text_fields(self):
         original = discover(SOURCE)[0]

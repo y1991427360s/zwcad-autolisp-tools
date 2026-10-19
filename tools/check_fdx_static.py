@@ -28,6 +28,7 @@ def check():
                 assert node[1] in declared, (form[1], 'undeclared loop', node[1])
     assert '(defun c:FDX ' in source
     preview = next(f for f in targets if f[1] == 'fdx:show-frame')
+    check_horizontal_batch(next(f for f in targets if f[1] == 'fdx:place'))
     check_preview(preview)
     check_frame_order(next(f for f in targets if f[1] == 'fdx:sort-frames'))
     check_pair_rows(next(f for f in forms if isinstance(f, list)
@@ -217,6 +218,81 @@ def check_preview(form):
         corners = [[x1, y1, z], [x2, y1, z], [x2, y2, z], [x1, y2, z]]
         assert lines == [[corners[i - 1], corners[i]] for i in range(4)], lines
     print('PASS: preview regression, negative coordinates and nonzero elevation')
+
+
+def check_horizontal_batch(form):
+    """Execute delivered placement AST with simulated DXF/COM failure paths; no CAD."""
+    from copy import deepcopy
+    from check_cable_perf_static import Runner
+    class BatchRunner(Runner):
+        def eval(self, expr, env):
+            if isinstance(expr, (int, float)):
+                return expr
+            return super().eval(expr, env)
+    for scenario in ('success', 'locked', 'normalize-fail', 'bbox-fail', 'overflow', 'arrange-error'):
+        original = {
+            'a': [(-1, 'a'), (0, 'TEXT'), (8, 'L'), (50, 1.570796)],
+            'b': [(-1, 'b'), (0, 'MTEXT'), (8, 'L'), (50, 1.570796), (11, [0., 1., 0.])],
+            'c': [(-1, 'c'), (0, 'TEXT'), (8, 'L'), (50, 0.)],
+        }
+        state = deepcopy(original)
+        events = []
+        runner = BatchRunner({'fdx:place': form})
+        assoc = lambda key, ed: next((pair for pair in ed if pair[0] == key), None)
+        def entmod(ed):
+            en = assoc(-1, ed)[1]
+            events.append(('write', en))
+            if scenario == 'normalize-fail' and en == 'b':
+                return None
+            state[en] = deepcopy(ed)
+            return ed
+        def bbox(en):
+            angle = assoc(50, state[en])[1]
+            events.append(('bbox', en, angle))
+            if scenario == 'bbox-fail' and angle == 0. and en == 'b':
+                return None
+            return [[0., 0., 0.], [10., 2. if angle == 0. else 100., 0.]]
+        def shift(ed, delta):
+            assert assoc(50, ed)[1] == 0., 'Movement must use normalized data'
+            events.append(('move', assoc(-1, ed)[1]))
+            return ed
+        def arrange(doc, ss, rect):
+            assert all(assoc(50, ed)[1] == 0. for ed in state.values())
+            # MTEXT angle must follow its old direction vector in the entmod input.
+            assert state['b'][-1] == (50, 0.)
+            events.append(('arrange',))
+            if scenario == 'arrange-error':
+                raise RuntimeError('simulated arrange failure')
+            return [3, 0, 0, 1 if scenario == 'overflow' else 0]
+        def restore(records):
+            for ed in records:
+                state[assoc(-1, ed)[1]] = deepcopy(ed)
+            events.append(('restore',))
+            return True
+        runner.mocks.update({
+            'sslength': len, 'ssname': lambda ss, i: ss[i],
+            'entget': lambda en: deepcopy(state[en]), 'entmod': entmod,
+            'tblsearch': lambda *args: [(70, 4 if scenario == 'locked' else 0)],
+            'logand': lambda a, b: a & b, 'vlax-ename->vla-object': lambda en: en,
+            'aa:try-get-bbox': bbox, 'vlax-release-object': lambda obj: True,
+            'vl-remove': lambda value, items: [x for x in items if x != value],
+            'entupd': lambda en: events.append(('update', en)),
+            'trans': lambda p, *args: p, 'fdx:shift-data': shift,
+            'fdx:arrange': arrange, 'fdx:restore': restore,
+            'princ': lambda *args: None, 'redraw': lambda: None,
+            'vl-catch-all-error-message': str,
+        })
+        result = runner.call('fdx:place', [['a', 'b', 'c'], [0., 0., 100., 100., 0.]],
+                             {'pending': None, 'aa:doc': 'doc'})
+        assert bool(result) == (scenario == 'success'), (scenario, result)
+        if scenario != 'success':
+            assert state == original, (scenario, 'Original position/direction must be restored')
+        else:
+            first_move = next(i for i, event in enumerate(events) if event[0] == 'move')
+            assert sum(event[0] == 'update' for event in events[:first_move]) == 3
+            assert sum(event[0] == 'bbox' and event[2] == 0.
+                       for event in events[:first_move]) >= 3
+    print('PASS: FDX horizontal TEXT/MTEXT before movement; lock, write/bbox failure, overflow/error rollback')
 
 
 if __name__ == '__main__':

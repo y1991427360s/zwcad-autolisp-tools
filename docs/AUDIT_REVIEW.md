@@ -35,7 +35,7 @@ V6 的路径规范化、非空判断和错误消息三个完全相同的纯函�
 | c1c2:run、de:run、c:GE、c:BK 的关闭候选 | 分别通过 c1c2:safe-end-undo、de:end-undo、ge:end-undo、de:end-undo 间接关闭；正常路径与专属错误处理均有调用 | 不重复加 EndUndoMark，以免破坏现有撤销。 |
 | c:QH 错误恢复候选 | 只计算文字行并更新选择状态，不打开 UNDO 或修改系统变量；局部 *error* 只需打印消息 | 属于宽规则候选，不需要新增恢复函数。 |
 | VPO1/VPO2 等 CMDECHO 候选 | aa:cmd-begin 保存值，aa:cmd-end / aa:cmd-error 恢复；因此不在单函数中 getvar/setvar 成对出现 | 保留报告证据，标记为框架恢复。其余变量候选继续逐条追踪。 |
-| SS 的 DRAGMODE / CMDECHO | 使用捕获式恢复和命令局部旧值，直接 setvar 规则看不全 | 不因规则漏识别而改写动态预览。 |
+| SW（原 SS）的 DRAGMODE / CMDECHO | 使用捕获式恢复和命令局部旧值，直接 setvar 规则看不全 | 不因规则漏识别而改写动态预览。 |
 | AICAD 基目录跨文件写入 | loader 将已解析目录传给 extension；属于初始化协议 | 不是两个无关模块抢占同一变量。 |
 | ge:make-line 的 created、aa:zz-add-seg 的 hlist/vlist 等 | 辅助函数修改调用方动态局部状态，局部化会切断数据流 | 不批量修复所有 implicit-global。 |
 
