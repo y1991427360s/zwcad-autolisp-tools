@@ -633,3 +633,13 @@
 ## 2026-10-19 08:55 AutoCAD 2018 仓库推送到 GitHub
 
 - 用户要求为 AutoCAD2018_lisp 新建私有仓库并推送。已用 gh 创建私有仓库 `y1991427360s/autocad2018-autolisp-tools`，设为 `origin`，推送 `main`（远端提交 `073459c` 与本地一致，main 跟踪 origin/main）。仅涉及仓库托管，无插件代码改动；中望仓库及其远端未改动。
+
+## 2026-10-19 09:23:22 AutoCAD 2018 修复 DB / DF 删除汉字字符数错误
+
+- AutoCAD 完成时间：2026-10-19 09:23:22 +08:00。用户反馈 AutoCAD 的 DB 结果不对。
+- 根因：AutoCAD 2018 经典 AutoLISP 的 `strlen` / `substr` 按 GBK 字节计数，汉字占 2 字节；`db:del` 按字节删，“删 2 个字符”实际只删 1 个汉字，或把汉字截成半个字节（乱码）。中望 LISPSYS=1 按 Unicode 字符计数，不受影响，中望代码不改。
+- 修复：AutoCAD 版新增 `aa:gbk-chars`（首字节 ≥129 取 2 字节；反斜杠 U+XXXX 转义整体算 1 个字符），`db:del` 先切成字符列表再删末尾（DB）或开头（DF）N 个。仅改 AutoCAD `db:del`，新增 1 个函数。
+- 来源与备份：AutoCAD 主文件 SHA-256 `358f9b619d86df184447b71f232ed8ee1a81aeea62746087d2d1b738a89922a5`；修改前字节备份 `AutoCAD2018_lisp/backups/db-gbk-20261019-091739/`。严格 CP936、纯 CRLF。
+- 检查：新增 `tests/test_db_gbk.py`，以“GBK 字节按 latin-1 表示”模拟经典引擎的字节字符串，执行实际 AST：中文、中英混排、U+ 转义、删空均正确；同一测试对修改前源码复现半个汉字乱码。`check_all_static.py` ALL PASS，`check_project.py` 76 项回归 OK，索引与审计产物已更新。
+- 中望状态：不适用（中望按字符计数）。其他按 `strlen`/`substr` 计字符数的 AutoCAD 命令可能有同类问题，本次未逐一排查。
+- 验证状态：未连接 AutoCAD，待用户重载后验收。

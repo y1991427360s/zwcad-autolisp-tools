@@ -144,3 +144,10 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 影响：同一平台内导出与读取一致；跨平台混用值文件（AutoCAD 总图读中望卷册图的文件或反之）时中文会乱码，文档已提示勿混用。
 - 证据与验证：源码比对与离线 `tools/check_link_static.py`（AutoCAD 版断言两参数 open）；均未实机验证。
 - XYG 接入方式：AutoCAD 保留自有 XYG 索引（2026-10-15），仅在 `xyg:find-rect-texts` / `xyg:find-right-new-texts` 返回前写入 `*xyg-rect-src*` / `*xyg-right-src*`，`c:XYG` 按中望方式组装 (文字 . AA_LINK)；中望 10-17 的 XYG 索引重写未移植。
+
+## 2026-10-19 AutoCAD 2018 字符串按 GBK 字节计数（DB / DF）
+
+- 适用范围：AutoCAD 版按“字符个数”截取文字的命令，本次为 DB / DF（`db:del`）。
+- 差异：AutoCAD 2018 经典 AutoLISP 的 `strlen` / `substr` 按 GBK 字节计数（同 ZDDL2 字符单位一节）；中望 LISPSYS=1 按 Unicode 字符计数。
+- 处理：AutoCAD 版新增 `aa:gbk-chars` 先按字符切分再删除；中望保持原实现。
+- 证据与验证：用户实机反馈 DB 结果错误；离线字节模型测试 `tests/test_db_gbk.py` 复现旧问题并验证修复，修复后未实机验证。
