@@ -482,7 +482,7 @@
 - 改动：删除 `xyg:text-in-rect-p`；新增 `xyg:box-hit-p`、`xyg:text-record`、`xyg:build-text-index`、`xyg:index-tree`、`xyg:index-hits`、`xyg:query-text-index`、`xyg:sort-lines-desc`、`xyg:line-geo-list`、`xyg:next-line-min-x`。`xyg:find-rect-texts` 的第二个参数改为选区文字索引，`xyg:find-right-new-texts` 的第二个参数改为 XY 新文字索引；`c:XYG` 在 XY 完成后一次建立两棵索引和直线几何缓存。思路与 AutoCAD 版 2026-10-15 的 XYG 索引相同，但按中望源码独立实现，并把邻线查找改为读缓存后提前结束。保留全部规则（最靠右 3 个、不足 3 个窗口补查、字高 ≥ 80 排除、包围盒相交、邻线边界、芯数与间距截断、AA_LINK 来源一一对应），命中结果按原序号恢复顺序，排序只用 `aa:merge-sort`。共用 `xy:get-text-bbox` 原本已释放 VLA 对象，未改；XY（XIN/YUAN）未改。
 - 来源：`AA整合版本.lsp` SHA-256 前缀由 `283172dc9287a451`（备份）变为 `ce882a9f219f717c`。备份：`backups/AA整合版本.lsp.bak-xyg-perf-20261017-195427`、`backups/check_xyg_static.py.bak-xyg-perf-20261017-195427`。
 - 检查：`tools/check_xyg_static.py` 通过。原有用例改为调用新函数；新增“缓存版与旧版一致”用例：内嵌优化前的 LISP 原文，在 60 个随机场景中对比 462 次矩形查询、2772 次右侧查询以及直线排序和邻线边界，结果与 `*xyg-rect-src*` / `*xyg-right-src*` 全部一致；包围盒请求从 12064 次降到 1155 次（请求次数，不是 CAD 耗时）。另做 5 个变异测试（去掉原序号恢复、提前结束阈值改错、去掉窗口补查、Y 带收窄、相交改严格），均能被该用例检出。`tools/check_all_static.py` 的编码、解析、命令清单、索引、undo 配对、vl-sort 禁用通过；总控在 `check_xy_static.py` 第 304 行中断，该失败在本次备份上同样复现，属既有问题；其后的 21 项专项逐个运行全部通过。`scripts/audit_lsp.py --write` 结构问题 0。
-- AutoCAD 状态：待核对。AutoCAD 版已有同类索引（2026-10-15），但没有 AA_LINK 联动，邻线缓存的写法也不同；同步时以本条为准逐项比对，不要整文件覆盖。
+- AutoCAD 状态：已核对，无需移植（2026-10-20 14:17:00）。AutoCAD 版已有等效的包围盒索引并已接入 AA_LINK；邻线查找读取缓存记录且用 `eq` 比较图元名，保留不改。
 - 验证状态：全程未连接、加载或操作 CAD。中望实图上的耗时、内存和输出一致性待用户重载后验收。
 
 ## 2026-10-17 20:09:59 中望 XYG 汇总排序报错修复
@@ -735,3 +735,306 @@
 - 检查：新增 `tests/test_autocad_compat.py`（全文件无未加引号 lambda；修改前源码可检出 `hao2:sort-blocks`）。`check_all_static.py` ALL PASS；`check_project.py` 80 项单元回归 OK，汇总仅 ZZ 计时基准 4.68x<5.0x 偶发失败（ZZ 未改）。
 - 中望状态：不需修改。
 - 验证状态：未连接 AutoCAD，待用户重载后重跑 HAO2。
+
+## 2026-10-19 AutoCAD 2018 输入法自动切换信号插件 CadImeSwitch（AutoCAD 单边）
+
+- AutoCAD 完成时间：2026-10-19 15:56:34 +08:00。用户明确针对 AutoCAD 2018 提出需求，本条为 AutoCAD 单边新增，不是中望移植。
+- 方案变更：最初在 `AA整合版本.lsp` 末尾加 `vlr-command-reactor` 写注册表信号，实机发现本机 AutoCAD 2018（22.0s）没有任何 `vlr-*` 函数，加载在该处中断；已整段删除，主文件恢复为与 Git HEAD 一致（无 LISP 改动）。
+- 现实现：新增 `tools/CadImeSignal/`（源码 `CadImeSignal.cs`、构建脚本 `build.ps1`、产物 `CadImeSwitch.dll`、`README.md`）。.NET 插件订阅各图纸 `CommandWillStart/Ended/Cancelled/Failed`，MTEXT、TEXT、DTEXT、MTEDIT、TEXTEDIT、DDEDIT、TABLEDIT、MLEADER、MLEADEREDIT、ATTIPEDIT 开始时把 `%APPDATA%\CadImeAutoSwitch\mode.txt` 写成 `zh`，结束/取消/失败写 `en`；不修改图形、不定义命令。配套脚本 `D:\Users\ys199\Documents\AutoHotkey\cad-ime-auto-switch.ahk` 读取该文件切换微信输入法。
+- 自动加载：`HKCU\Software\Autodesk\AutoCAD\R22.0\ACAD-1001:804\Applications\CadImeSwitch`（LOADER 指向上述 DLL，LOADCTRLS=2，MANAGED=1）；DLL 位于已受信任的 `AutoCAD2018_lisp\...` 路径下。
+- 验证：经用户授权连接 AutoCAD 2018 实测，NETLOAD 后空闲为 en/英文；TEXTEDIT 编辑文字时信号 zh、输入法自动为中文；Esc 退出后信号 en、输入法自动回英文。命令输入（动态输入框）保持英文由用户实测确认。测试中启动的 LINE、TEXTEDIT 均已 Esc 取消，未修改图形。
+- 遗留：会话中曾加载过旧版 `CadImeSignal.dll` 及两份诊断 DLL（仅写日志/不可见注册表，重启 CAD 后消失）；旧 `CadImeSignal.dll` 被占用暂未删除，AutoCAD 关闭后可删。
+- 中望状态：不适用（用户未要求）。
+
+## 2026-10-20 QW / QW2 去除 MTEXT 格式码
+
+- 中望完成时间：2026-10-20 00:48:50 +08:00。
+- 命令/模块：`QW`、`QW2`。原先直接取组码 1，多行文字会把 `\T1.001;` 等格式码一起复制；改为复用 `aa:ysdl-get-plain-text`（与 QW3 的“内容”同源），去掉格式码并拼接超长 MTEXT 的组码 3。单行文字行为不变。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `466e16dd7221efd2a70353a3b2390b1fee8be238582a145d6ced04b22e8868af`；修改前备份在会话临时目录。
+- 检查：`tools/check_all_static.py` ALL PASS（编码、整文件解析、命令清单、undo 配对及 32 项专项检查）；命令名未变，无需重建索引；未做 CAD 实机验证。
+- AutoCAD 状态：已同步（2026-10-20 14:17:00，静态检查，未连接 CAD）。
+
+## 2026-10-20 11:24:30 AutoCAD 2018 修复 YSDL 报“参数类型错误: streamp nil”
+
+- AutoCAD 完成时间：2026-10-20 11:24:30 +08:00。用户朋友在 AutoCAD 2018 运行 YSDL，数据行被打印到命令行后报 `参数类型错误: streamp nil`，CSV 未生成、文字颜色未改。
+- 根因（据报错与源码判断）：`(open csv-path file-mode)` 返回 nil（桌面 `output.csv` 被 Excel/WPS 占用，或 `%USERPROFILE%\Desktop` 因桌面重定向/OneDrive 不存在），`write-line` 遇 nil 文件句柄改为输出到命令行，最后 `(close nil)` 报错。
+- 修复：新增 `aa:ysdl-desktop-dir`，优先读注册表 `HKCU\...\Explorer\Shell Folders\Desktop`（真实桌面，兼容重定向/OneDrive），不可用时回退 `%USERPROFILE%\Desktop`；`open` 失败时提示文件被占用/无权限并停止，不导出、不改颜色。导出与分类逻辑不变。仅改 AutoCAD `AA整合版本.lsp`，SHA-256 `f4980324352904097477a79e4727a5793eb221c74433c6e4a5b9d9554fdcda73`。
+- 检查：`check_all_static.py` ALL PASS，`check_ysdl_static.py` PASS；GBK 无 BOM、纯 CRLF、无替换字符。命令名未变，无需重建索引。
+- 中望状态：已同步（2026-10-20 11:31:19 +08:00），见下条。
+- 验证状态：未连接 AutoCAD，待朋友重载插件后重跑 YSDL。
+
+## 2026-10-20 11:31:19 中望同步 YSDL 桌面路径与 CSV 打开失败处理
+
+- 中望完成时间：2026-10-20 11:31:19 +08:00。按用户要求把上一条 AutoCAD YSDL 修复移植到中望：新增 `aa:ysdl-desktop-dir`（注册表真实桌面优先，回退 `%USERPROFILE%\Desktop`），`open` 失败时提示文件被占用/无权限并停止，不导出、不改颜色。
+- 来源：AutoCAD `AA整合版本.lsp` SHA-256 `f4980324352904097477a79e4727a5793eb221c74433c6e4a5b9d9554fdcda73`；中望改后 SHA-256 `2f8094ef840cb3dd625955246ac5b72266acd7b0ef9b2b57c5e2d73d46196981`。两边 YSDL 段落（辅助函数至命令结束）逐字一致；中望已有的未提交 QW 改动保留未动。
+- 检查：中望 `check_all_static.py` ALL PASS，`check_ysdl_static.py` PASS；UTF-8 无 BOM、纯 CRLF。命令名未变，无需重建索引。
+- 验证状态：未连接中望 CAD，待重载插件后验证。
+
+## 2026-10-20 12:12:00 SS / MM 撤销后极轴追踪被关闭
+
+- 中望完成时间：2026-10-20 12:12:00 +08:00。
+- 问题：开启极轴追踪后使用 SS/MM，正常结束后极轴可以保持开启，但按 Ctrl+Z 撤销后极轴会被关闭。推测原因：撤销组内的 ORTHOMODE 0→1→0 会记入撤销记录，撤销时 CAD 按逆序回放，中途会重新打开一次正交，而正交与极轴互斥，极轴（AUTOSNAP 位 8）因此被清掉。
+- 修复：`c:SS`、`c:MM` 在 `(setvar "ORTHOMODE" 1)` 前先显式写入 `(setvar "AUTOSNAP" (logand (getvar "AUTOSNAP") (~ 8)))`，让撤销记录按“关极轴 → 开正交 → 关正交 → 恢复极轴”的顺序回放。结束还原仍由 `aa:ortho-restore-vars` 负责，未改动。LL 原本就在开正交前设置 `AUTOSNAP=0`，本次未改。
+- 来源：主文件 SHA-256 `6c55aea4c5795292d4b65ec09efad6c8d936387866565ae8695976f999f79d5d`；字节备份 `backups/ss-mm-undo-polar-20261020-120838/`。说明已更新到 `docs/SS.md`、`docs/MM.md`。
+- 检查：`tools/check_all_static.py` ALL PASS；`tests/test_ss_mm_ortho_osnap.py` PASS；UTF-8 无 BOM、纯 CRLF。命令名未变，无需重建索引。2026-10-20 用户在中望重新加载后实测确认：Ctrl+Z 撤销后极轴追踪保持开启，问题已解决。这也说明中望会把 AUTOSNAP 写入撤销记录。
+- AutoCAD 状态：已同步（2026-10-20 14:17:00，静态检查，未连接 CAD）。
+
+## 2026-10-20 14:17:00 AutoCAD 2018 补齐中望全部待同步项
+
+- AutoCAD 完成时间：2026-10-20 14:17:00 +08:00。用户要求把中望已改、AutoCAD 未改的内容全部补齐。
+- 核对方法：读取台账中全部“待同步/待核对”条目，并逐个函数对比两边主文件的 AST。
+- 已移植：`c:QW`、`c:QW2` 改用 `aa:ysdl-get-plain-text`，去掉 MTEXT 格式码（10-20 00:48:50 条）。`c:SS`、`c:MM` 在开正交前显式关闭极轴，修复 Ctrl+Z 后极轴被关闭的问题（10-20 12:12:00 条）。移植后这 4 个命令与中望 AST 完全一致；QW3 未改动。
+- 已核对，不移植：XYG 大图性能优化（10-17 20:06:29 条）。AutoCAD 版已有等效索引；中望邻线查找用的是 `/=`，AutoCAD 2018 上比较图元名不可靠，因此保留 AutoCAD 写法。
+- 其余差异函数均为 AutoCAD 平台适配或 AutoCAD 单边修复，按规范保留，包括：AW、DB/DF、HAO2、QE“至”前缀、CC/C1/C2 预览、`aa:safe-get-bbox` / `xy:get-text-bbox` 的句柄兜底、`aa:ensure-vlax`、`aa:link-open` 的 GBK 读写、ZDDL2 的 GBK 字符处理、9/99 旋转、CU 复制、`xy:build-vline-buckets`、ZTF 提示文字，以及 YS1 系列的小数写法。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `6c55aea4c5795292d4b65ec09efad6c8d936387866565ae8695976f999f79d5d`。AutoCAD 改后 SHA-256 `2fa55d7ac4b4b1aa67cba3b6839663a5697787b5d60d4afb75740af87d6f8951`，字节备份 `AutoCAD2018_lisp/backups/sync-qw-ssmm-20261020-141409/`。已同时保留 AutoCAD 未提交的 YSDL 修复。
+- 检查：AutoCAD `check_all_static.py` ALL PASS；`tests/test_ss_mm_ortho_osnap.py` PASS；GBK 无 BOM、纯 CRLF。`audit_lsp.py --write` 已运行。命令名未变，无需重建索引；AutoCAD 版 `docs/SS.md`、`docs/MM.md` 已补充说明。
+- 验证状态：未连接 AutoCAD。
+- 状态更新：上述 QW/QW2、SS/MM 两条的 AutoCAD 状态改为已同步，XYG 优化一条改为已核对。目前台账中已没有待同步项。
+
+## 2026-10-20 22:01:59 MTEXT 段落格式码 \p 残留（QW/QW2 复制带垃圾字符）
+
+- 中望完成时间：2026-10-20 22:01:59 +08:00。
+- 问题：用户框选一条 MTEXT 后执行 `QW`，剪贴板得到 ` i23.89632;小电阻接地成套装置`，而图形上只显示“小电阻接地成套装置”。该对象 MTEXT 原始串为 `\pi23.89632;{\Fgbenor,gbcbig|c134;\T1.1;小电阻接地成套装置}`。
+- 原因：`\p` 是小写段落格式码（缩进/对齐，参数到分号结束，如 `\pi23.89632;`、`\pxi-2,l0,t0;`、`\pxqc;`），`aa:ysdl-strip-mtext-format` 把它和 `\P`（换行）放在同一个分支，只跳过两个字符并把参数当成正文；`\p` 转成的空格加上残留的 `i23.89632;` 正好是用户看到的结果。10-20 00:48:50 那次把 QW/QW2 改为走 `aa:ysdl-get-plain-text` 后，这个入口才暴露出该缺陷。
+- 修复：`aa:ysdl-strip-mtext-format` 拆出独立的 `\p` 分支，参数整段丢弃到分号，`\P`/`\~` 仍是空格；`aae:clean-mtext-format`（AAE 属性编辑、`keep-newline` 模式）同一处同样拆分，`\p` 不再被误写成 `\P` 换行。
+- 来源：主文件 SHA-256 `2619cb3a6bb659d53ddfaed5d497b0cda3785e9b4e7967730192005162755052`；字节备份 `backups/qw-mtext-p-20261020-215255/`（改前 MD5 `8423ea59f36ba375d62bc47259dd6374`）。说明新增 `docs/QW.md`。
+- 检查：新增 `tests/test_mtext_strip.py`，直接执行真实 LISP AST：改前输出 ` i23.89632;小电阻接地成套装置`、AAE 输出 `\Pi23.89632;A\PB`（均可复现），改后为 `小电阻接地成套装置` 与 `A\PB`；`\P`、`\~`、`\S`、`\F`/`\H`/`\T` 等既有行为不变。`tools/check_all_static.py` 通过（编码、整文件 950 个顶层表达式解析、命令清单、索引、undo 配对及全部专项；其中托管的 3.13 解释器缺 tkinter，屏柜面板检查改由系统 3.14 解释器跑同脚本 PASS）；`scripts/audit_lsp.py --write` 0 项结构告警；命令名未变，索引已重新生成、仅行号变化。
+- 验证状态：未连接或操作中望 CAD，待重载插件后在真实图中确认。
+- AutoCAD 状态：待同步。AutoCAD 版 `AA整合版本.lsp` 的 `aa:ysdl-strip-mtext-format`（第 1307 行）与 `aae:clean-mtext-format`（第 10442 行）仍是旧写法，需按 GBK/CRLF 局部移植同一分支并跑其自身检查。
+
+## 2026-10-20 22:15:08 AutoCAD 2018 补齐 MTEXT \p 段落格式码修复
+
+- AutoCAD 完成时间：2026-10-20 22:15:08 +08:00。用户要求把上一条中望修复同步到 AutoCAD。
+- 已移植：`aa:ysdl-strip-mtext-format` 与 `aae:clean-mtext-format` 各拆出独立的 `\p` 分支（参数丢弃到分号），`\P`/`\~` 仍转空格；改后两版这两个函数 AST 逐节点一致。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `2619cb3a6bb659d53ddfaed5d497b0cda3785e9b4e7967730192005162755052`；AutoCAD 改前 SHA-256 `2fa55d7ac4b4b1aa67cba3b6839663a5697787b5d60d4afb75740af87d6f8951`、改后 `2b1bd9782dbc715ea9654258511b43b9c62ba9e53c697450617d9b87c01c33eb`，字节备份 `AutoCAD2018_lisp/backups/sync-mtext-p-20261020-221400/`（改前 MD5 `2d9601dc35c166bdcacbe00bb0ee7592`）。`docs/QW.md` 与 `tests/test_mtext_strip.py` 随同复制，保持 GBK/CP936 无 BOM、纯 CRLF。
+- 检查：AutoCAD `tests/test_mtext_strip.py` PASS（真实 AST：`\p` 丢弃、`\P`/`\~`/`\S` 等行为不变）；`check_all_static.py` ALL PASS（用系统 3.14 解释器跑，托管 3.13 缺 tkinter）；`audit_lsp.py --write` 0 项结构告警；`gen_命令索引.py` 已运行，命令名未变仅行号变化。
+- 验证状态：未连接或操作 AutoCAD，待重载插件后确认。
+
+## 2026-10-21 08:44:29 命令别名设置面板（alias panel）
+
+- 中望完成时间：2026-10-21 08:44:29 +08:00。
+- 命令/模块：新增“命令别名设置”面板，集中管理 ZWCAD 命令行别名（PGP）。新增文件：`tools/alias_pgp.py`、`tools/alias_panel.py`、`tools/start-alias-panel.ps1`、`命令别名设置.cmd`、`config/aliases.csv`、`tools/check_alias_panel_static.py`、`tools/fixtures/sample_gbk.pgp`、`tools/fixtures/sample_utf8.pgp`、`tests/test_alias_panel.py`、`docs/命令别名设置.md`；修改 `tools/check_all_static.py`（接入新检查）、`README.md`（加入口说明）。
+- 主表与应用：主表 `config/aliases.csv` 随同步目录走（UTF-8 带 BOM、CRLF），面板编辑主表并事务式应用到本机 `%AppData%\ZWSOFT\ZWCAD\2026\zh-CN\Support\ZWCAD.pgp`。PGP 写回用编码自动检测（utf-8-sig/utf-8/GBK 无损往返）、末尾托管区块圈定面板管理范围、同名覆盖注释、临时文件原子替换、失败回滚并字节级备份到 `backups/alias-panel-<时间戳>/`。
+- 首次运行导入：基于真实 PGP 只读解析，自动导入用户手工添加的 8 条自定义别名（TXDC→ARCHDWGEXPORT、CI→CIRCLE、C→COPY、FIL→FILLET、G→GROUP、-G→-GROUP、Q→QSTXT、R→ROTATE），被注释掉的 `; F→FIND` 保持原样不导入。
+- 检查：`python tools/check_alias_panel_static.py` 全部通过（文件齐全、主表可解析、真实 PGP 只读解析通过、tests/test_alias_panel.py 19 个用例全过）；`python tools/check_all_static.py` 全部通过（已接入新检查）。未改动任何 .lsp，未连接 CAD。
+- AutoCAD 状态：暂不同步。面板面向 ZWCAD 2026 的 PGP 路径与编码（GBK），AutoCAD 2018 用 `acad.pgp`，路径与默认内容不同；如以后需要 AutoCAD 版另起适配条目。
+- 未验证事项：未在 CAD 里实机验证 `REINIT` 后别名生效的实际行为；未验证面板在 windows 高 DPI 下的显示效果。
+
+## 2026-10-21 13:42:35 命令别名面板真实 PGP 只读模拟问题修复
+
+- 中望完成时间：2026-10-21 13:42:35 +08:00。
+- 背景：面板在真实 PGP 上只读模拟首次保存，发现默认区别名被误删、覆盖警告误报、原生命令无法保存、PGP 行尾备注有风险等问题，逐条修复并补测试。全程未修改真实 ZWCAD.pgp，仅用 fixtures 副本与只读模拟。
+- 修复内容（tools/alias_pgp.py、tools/alias_panel.py）：
+  1. 首次保存不再删除默认区别名：只有 marker 之后的用户手工行才移入托管区块；默认区同名启用行在原行前加 `; ` 注释并标注“已由面板覆盖”，计入 report 的 commented。真实 PGP 模拟确认第 39（C→CIRCLE）、95（G→GROUPUNNAME）、174（R→REDRAW）行是原位注释而非删除。
+  2. 覆盖确认去误报：无托管区块时排除 marker 之后将迁入区块的用户行，只报默认区真正会被注释的同名行；提示区分“将覆盖中望默认别名（原指向 X）”与“将迁入托管区块”。真实 PGP 上覆盖警告恰好 C、G、R 三条。
+  3. 原生命令可保存：主表 CSV 新增可选第四列“标记”（向后兼容旧三列文件），`原生命令` 标记的条目目标未知时只警告不拦截，警告进入保存确认框；非标记条目的未知目标仍拦截。
+  4. 托管区块别名行不再写行尾备注，备注改为上一行独立 `; 备注`；解析兼容旧格式（行尾带备注的区块可读出并平滑升级）。
+  5. 保存事务修正：PGP 已替换成功但主表写入失败时，用备份把 PGP 一并恢复并如实提示；apply_to_pgp 在 os.replace 之前失败时不再做多余的非原子重写，只在确实替换后才回滚。
+  6. 失效目标提示：目标既非当前插件命令、又不在 PGP 默认区出现过的条目给黄色“目标命令可能已不存在”警告，不拦截；主表 Q→QSTXT 备注改为中性描述“保留文字对象”，目标是否改动由用户决定。
+  7. 第二台电脑场景：主表已同步、本机 PGP 无托管区块且用户区有主表没有的别名时，确认弹窗列出这些别名，用户可选“并入主表”或“保持原样留在区块外”，不再静默忽略。
+  8. 代码整理：scan_plugin_commands 改用顶部 `import re`。命令数量核对：COMMANDS.md 与 PROJECT_AUDIT.md 均为 171 个命令入口；V6 下 13 个 `defun c:` 无重复定义；但 V6/aicad_extension.lsp 第 1793 行的 `c:ASCAD` 未收录进 COMMANDS.md，恰差 1——差异源于审计/文档收录遗漏，而非重复定义或面板多算（面板按 main+V6 现扫会去重，含 ASCAD）。本次 AA整合版本.lsp 被安全策略拒绝读取，主文件内是否有重复定义未能静态复核。
+- 测试：新增 `tools/fixtures/sample_real.pgp`（默认区含 C/G/R、注释的 `;-G,*-GROUP`，用户区含 C/G/R、`-G`、`; F, *FIND`）；tests/test_alias_panel.py 扩到 30 个用例全部通过，覆盖：首次应用默认区三行原位注释且行数与内容不变、覆盖警告恰三条、原生命令标记只警告可保存、区块无行尾备注且旧格式可解析升级、主表写失败时 PGP 按约定恢复、笔记本场景多余别名可检测。
+- 检查：`python tools/check_alias_panel_static.py` 全部 PASS（文件齐全、主表 8 条可解析、真实 PGP 只读识别自定义 8 条、30 用例全过）。`tools/check_all_static.py` 与 `scripts/check_project.py` 本次因 AA整合版本.lsp 被安全中心按路径拒绝读取而无法运行（环境问题，非代码回归；上一条目 2026-10-21 08:44:29 已验证通过）。
+- 真实 PGP 只读模拟结果：317 行 → 328 行；commented 3 条（39 C、95 G、174 R，原位注释“已由面板覆盖”）；moved 8 条（309~317 用户区行迁入区块）；kept_commented 1 条（96 `;-G,*-GROUP`）；`; F, *FIND` 保持原样。
+- 验证状态：未连接或操作中望 CAD，未触碰真实 ZWCAD.pgp；待面板实机“应用到本机”后确认 REINIT 生效。
+- AutoCAD 状态：暂不同步。面板面向 ZWCAD 2026 PGP（GBK、路径不同），AutoCAD 侧无对应面板代码。
+## 2026-10-21 14:37:01 命令别名面板第二轮修复（编辑丢失、native 标记、失效目标、默认别名恢复）
+
+- 中望完成时间：2026-10-21 14:37:01 +08:00。
+- 修复 1（严重）：编辑框连续输入丢失修改。`_make_row.on_change` 现在生成同一个 `new` 对象同时更新 `self.entries` 与 `row_state`，删除逻辑抽为 `Panel._delete_row`，修改过的行可正确删除。新增 `tests/test_alias_panel_gui.py`（隐藏窗口）覆盖连续改别名、改备注、改后删除、flags 保留。
+- 修复 2：`_add_native` 改为调用 `add_native_entry`，登记条目带 `FLAG_NATIVE`；`_add_row` 与“本机导入”合并保留/沿用 flags；界面给原生条目加“原生”徽标。主表第四列 `标记` 写出 `native`，三列旧文件仍可读。测试覆盖目标 `MATCHPROPX` 时只警告、不拦截，主表回读标记仍在。
+- 修复 3：失效目标提示改为扫描 `backups/` 历史 `.lsp` 的 `defun c:XXX`（带 mtime 缓存，实测首次 0.25s、缓存 0.013s），只对“历史存在、当前不存在且未标记 native”的目标提示。真实 PGP + 当前主表仅报 `Q→QSTXT` 一条，`FILLET`/`GROUP`/`-GROUP`/`ARCHDWGEXPORT` 不再误报。
+- 修复 4：删除别名后恢复默认行。`apply_master` 对区块外带“已由面板覆盖”标记、且别名已不在主表的行，逐字节还原原行并写入 `report["restored"]`；`restore_warnings` 在保存确认弹窗列出“将恢复中望默认别名”。首次应用后删掉 C 再应用，第 39 行恢复为 `C,         *CIRCLE`（与原始文件逐字节一致）；用户自己注释的 `;-G`、`; F` 不动。
+- 修复 5：保存失败提示按阶段区分（未做修改 / PGP 已用备份恢复 / PGP 恢复也失败并给出备份路径与两个错误原因）；worker 不再吞掉恢复异常。
+- 修复 6：插件命令数差异说明。面板原来只扫 `.lsp` 得 171；命令索引额外计入 C# 的 `DWGWIN` 得 172；本轮面板补扫 `V6/` 下全部 `[CommandMethod]`（DWGWIN、AICADPANEL、AICADREPLACEPANEL、HUAN、UNLOADAICAD）后为 176，覆盖索引全部 172 条。静态检查新增“面板扫描覆盖索引命令”断言。
+- 修复 7：扫描遇到无法按 UTF-8 解码的文件时在状态栏列出文件名；新增“重新扫描命令”按钮，刷新列表同时保留未保存编辑。
+- 新增 `tools/fixtures/sample_real.pgp`（默认区含 C/G/R、被注释的 `;-G`，空行后用户区含 C/G/R/-G 与 `; F`）及 6 组回归；`check_alias_panel_static.py` 同时跑 GUI 测试。
+- 检查：`python tools/check_alias_panel_static.py` 全部通过（34 + 6 个用例）；`python tools/check_all_static.py` ALL PASS（33 项专项，耗时约 194.8 秒）；`python scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS (no CAD)。
+- 真实 PGP 只读模拟：317 行 → 328 行；moved 8 条（第 309~317 行用户区）；commented 3 条（第 39/95/174 行，保留原位仅注释）；kept_commented 1 条（第 96 行 `;-G`）；restored 空。未改动任何真实 PGP 文件。
+- 遗留（需用户决定，未擅自修改）：主表 `Q→QSTXT` 与插件命令 `Q`（快速选择）同名的硬冲突会导致保存被拦截，且 `QSTXT` 当前源码已不存在；请决定 Q 的去向。
+- 验证状态：未连接或操作中望 CAD，未验证 `REINIT` 实际效果与高 DPI 显示；未触碰真实 `%AppData%` PGP。
+- AutoCAD 状态：暂不同步。面板面向 ZWCAD 2026 的 PGP 路径与 GBK 编码；AutoCAD 2018 使用 `acad.pgp`，需要时另起适配条目。
+## 2026-10-21 15:23:43 命令别名面板说明统一与 C# 命令补全
+
+- 中望完成时间：2026-10-21 15:23:43 +08:00。
+- 说明来源统一：`tools/alias_panel.py` 的 `scan_plugin_commands` 改为通过 `importlib.util.spec_from_file_location` 加载项目根目录 `gen_命令索引.py`，调用新增的 `scan_with_skipped()`，面板与命令索引共用同一份命令名、文件、行号与说明，不再自行解析注释。
+- 索引增强：`gen_命令索引.py` 新增 `scan_with_skipped()`（返回文件、命令行、被跳过文件）与 C# 扫描 `cs_files()` / `extract_cs()`；扫描 V6 下全部 `.cs` 的 `[CommandMethod]`，说明优先取方法上方 `/// <summary>` 或 `//` 注释，否则用 `CS_DEFAULTS`。命令索引由 172 条增至 176 条、覆盖 10 个源文件，`命令索引.md` 与 `命令索引.html` 已重新生成。
+- C# 命令说明：DWGWIN 沿用原说明；本次新增 AICADPANEL“预留占位命令：已注册，但当前不执行任何操作。”、AICADREPLACEPANEL“切换 AICAD 查找替换浮动面板：已打开则关闭，未打开则显示。”、HUAN“切换 AICAD 查找替换浮动面板的别名，与 AICADREPLACEPANEL 行为相同。”、UNLOADAICAD“卸载 AICAD .NET 扩展插件，并调用 LISP 卸载入口清理注册环境。”，均写在 `gen_命令索引.py` 的 `CS_DEFAULTS`（第 38~42 行）。其中 AICADPANEL 已注册但方法体只有 `return;`，属占位命令，已在说明中注明。
+- 说明质量：统一来源后，176 条命令说明全部有效（为空 0 条、纯分隔线 0 条、等于命令名 0 条、少于 6 字 0 条），因此本次**未修改** `AA整合版本.lsp` 任何内容，无需补写源码注释。
+- 防回归：`gen_命令索引.py --check` 新增说明非空/非分隔线/非命令名/至少 6 字校验，不合格时列出 `命令名 (文件:行号)`；`tools/check_alias_panel_static.py` 新增“面板与索引命令集合、文件、行号、说明逐条一致”及说明质量断言。三份项目规范（`AGENTS.md`、`CLAUDE.md`、`ANTIGRAVITY.md`，内容一致）与 `docs/命令别名设置.md` 均补充“新增命令必须写 `;;; 功能:` 注释头”的要求。
+- 面板搜索：确认搜索框按命令名、别名和功能说明匹配。隐藏窗口实测：搜索“旋转”命中 `0、9、99`；搜索“文字”命中 81 条。
+- 检查：`python gen_命令索引.py` 成功（176 条、10 个文件）；`python gen_命令索引.py --check` 通过；`python tools/check_alias_panel_static.py` 全部通过（34 + 6 个用例）；`python tools/check_all_static.py` ALL PASS（33 项专项，耗时约 186.0 秒）；`python scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS (no CAD)，耗时约 188.2 秒。
+- 验证状态：未连接或操作中望 CAD，未验证面板界面实际显示与高 DPI 效果；未修改真实 `%AppData%\ZWSOFT\ZWCAD\2026\zh-CN\Support\ZWCAD.pgp`。
+- AutoCAD 状态：暂不同步。本次改动为 ZWCAD 2026 命令索引与面板共用逻辑；AutoCAD 2018 如需同样能力需另起适配。
+
+## 2026-10-21 16:38:52 中望 ZDDL / ZDDL2 命令入口互换
+
+- 中望完成时间：2026-10-21 16:38:52 +08:00。
+- 用户要求：调换 ZDDL 和 ZDDL2 两个命令的快捷键（命令入口）。现 ZDDL = 原 ZDDL2 的两次选字生成端子排与电缆，ZDDL2 = 原 ZDDL 的自动识别端子排与接线方格出线；ZDC 仍为 ZDDL 的简写别名，随之指向两次选字实现。
+- 改动范围：只交换顶层入口、命令标签、用户可见提示和头部清单。`c:ZDDL` 与 `c:ZDDL2` 定义体互换后，原有 `zddl:*` / `zddl2:*` 辅助函数名、实现与撤销结构均未改动；自动识别提示改为 `[ZDDL2]`，两次选字提示改为 `[ZDDL]`。`ZDDL_端子电缆自动出线.lsp` 兼容加载入口不变。
+- 文档：`docs/ZDDL2.md` 按新入口重命名两节（ZDDL2 对齐修正、ZDDL 操作），并注明 ZDC 仍为 ZDDL 别名；重新生成 `命令索引.md/html`、`COMMANDS.md`、`PROJECT_AUDIT.md`、`docs/lsp-audit.json`。
+- 来源：中望主文件 SHA-256 `0dbc02f8b4f1612a3548adc3f8ae2dd4df0105b2665d6e8b2d3cd5619bba3fd2`；修改前 SHA-256 `2619cb3a6bb659d53ddfaed5d497b0cda3785e9b4e7967730192005162755052`；字节备份、`source.diff` 与互换脚本见 `backups/zddl-swap-20261021-162147/`。
+- 检查：`python tools/check_zddl_static.py` 全部 PASS（自动识别回归改按新入口 `c:zddl2` 执行）；`python -m unittest discover -s tests -p test_zddl2.py -v` 10 项通过（包装层撤销闭合改按新入口 `c:zddl`）；`python gen_命令索引.py --check` 通过（176 条）；`python tools/check_all_static.py` ALL PASS（33 项专项）；`python scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS (no CAD)，91 项单元测试通过、0 项结构告警。源码 UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作任何 CAD，实际命令输入与提示显示待用户重载插件后确认。
+- AutoCAD 状态：暂不同步。AutoCAD 2018 的 ZDDL/ZDDL2 入口未交换；如需同步，应按其 GBK/CP936、CRLF 规则移植同一入口互换并跑自身检查。
+- 台账同步：本次同时把 AutoCAD 侧缺失的 2026-10-20 22:01:59 至 2026-10-21 15:23:43 六条记录补齐，两边 `docs/PLATFORM_SYNC_LOG.md` 恢复完全一致；未修改 AutoCAD 插件代码。
+
+## 2026-10-21 21:15:34 中望 ZDDL / ZDDL2 去掉图面标题与统计文字
+
+- 中望完成时间：2026-10-21 21:15:34 +08:00。
+- 用户要求：ZDDL、ZDDL2 生成结果不再带“端子排接线图”标题和“N 块端子排 / N 个端子 / N 根电缆 / 全部向上(下)”统计说明。
+- 改动范围：两行文字唯一来源是 `zddl2:entities`（现 ZDDL 两次选字生成路径），删除两条 `zddl2:e-text` 及仅为其服务的 `rightx`、`tops-list`、`titley`、`dirnote` 计算和局部变量；ZDDL2 自动识别出线路径本身不生成这两行文字，无需改动。离线引擎 `tools/zddl2_engine.py` 的 `drawTitle` 默认改为 `False` 保持一致（外框仍按原位置计算）。
+- 来源：中望主文件 SHA-256 `8f53e76ff7de92c9feae698ea8cc6e215c19d32c5c1bf7daaad87032a0c96916`；修改前 SHA-256 `0dbc02f8b4f1612a3548adc3f8ae2dd4df0105b2665d6e8b2d3cd5619bba3fd2`。
+- 检查：`python tools/check_all_static.py` ALL PASS；`python -m unittest tests.test_zddl2` 10 项通过；`python gen_命令索引.py --check` 通过（176 条）；`python scripts/audit_lsp.py --write` 0 项结构告警。源码 UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作任何 CAD，待用户重载插件后确认。
+- AutoCAD 状态：暂不同步。
+
+## 2026-10-21 新增 DEH 命令
+
+- 中望完成时间：2026-10-21 22:59:19 +08:00。
+- 命令/模块：新增 `DEH`，删除所选对象中内容含有中文的 TEXT/MTEXT 文字。新增辅助函数 `aa:has-chinese`（按 UTF-8 字节 E4..E9 检测中文）；文字内容经既有 `aa:ysdl-get-plain-text` 提取，MTEXT 去除格式码后判断。整批删除在 `aa:cmd-begin` / `aa:cmd-end` 的单个撤销组内，一次 U 整体撤销。文件头命令清单已同步。
+- 来源：中望 `AA整合版本.lsp` SHA-256 前 16 位 `13eda8633e1acb4a`。字节级备份 `AA整合版本.lsp.bak-deh-20261021-225555`。
+- 检查：`gen_命令索引.py` 重新生成（177 个命令），`tools/check_all_static.py` 全部通过（编码、整文件解析、命令清单、undo 配对及 33 项专项）。
+- AutoCAD 状态：待同步。未修改 AutoCAD 插件代码，仅同步本台账；后续须按 CP936/CRLF 局部移植（GBK 编码下中文检测逻辑可直接沿用，字节范围判断在 GBK 中不适用，移植时需改为 GBK 双字节判断）。
+- 加载与验证：未连接、加载或操作任何 CAD，中文判定与删除行为待用户实机验证。
+
+## 2026-10-21 DEH 中文检测修复（UTF-16 码元兼容）
+
+- 中望完成时间：2026-10-21 23:09:41 +08:00。
+- 命令/模块：`DEH` 辅助函数 `aa:has-chinese`。实机反馈"110kV至星灿升压站线路"未被删除；原因是 LISPSYS=1 下 `vl-string->list` 返回 UTF-16 码元（如"至"=33268），原按 UTF-8 字节 E4..E9 判断漏检。改为双窗口判定：命中 0x2E80..0x9FFF（CJK 区段，覆盖 UTF-16 码元）或 E4..E9（UTF-8 字节形态）任一即判含中文。
+- 来源：中望 `AA整合版本.lsp` SHA-256 前 16 位 `7fdbe496e761b05f`。
+- 检查：`gen_命令索引.py` 重新生成，`tools/check_all_static.py` 全部通过。
+- AutoCAD 状态：待同步。移植时注意 GBK 源码下检测逻辑需按 CP936 双字节另行实现，不能直接沿用本函数。
+- 加载与验证：需用户重新加载后实机复测该样例文字。
+
+## 2026-10-21 DEH 修复（缺失函数、#x 字面量、\U+ 转义）
+
+- 中望完成时间：2026-10-21 23:19:11 +08:00。
+- 命令/模块：`DEH`。(1) 补定义 `aa:layer-locked-p`：原代码调用了未定义的该函数，遇到第一个含中文的文字就报错中断，导致一个都删不掉。(2) `aa:has-chinese` 中的 `#x2E80` 等写法不是 AutoLISP 语法，会被读成值为 nil 的符号，导致数值比较出错；已改为十进制 11904..40959 和 228..233。(3) 新增 `\U+XXXX` 转义识别（SHX 大字体旧图常见），MTEXT 去格式码后反斜杠会被去掉，所以按 `U+` 加 4 位十六进制匹配，码点落在 CJK 区段即判定含中文；新增辅助函数 `aa:hex->int`。`\M+` 多字节转义暂不识别。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `f5387d16959dd2d1705bb6b092bff6e2b3c176e799b82024e6f27a8d929ea8ee`；字节级备份位于 `backups/` 下的 `AA整合版本.lsp.bak-*-DEH`。
+- 检查：`python tools/check_all_static.py` ALL PASS；`python gen_命令索引.py --check` 通过（177 条）；`python scripts/audit_lsp.py --write` 0 项结构告警；源码 UTF-8 无 BOM、纯 CRLF。用 Python 模拟判定逻辑，中文、`\U+4E2D`、`U+4E2D` 判定为含中文，`ABC-123`、`\U+00D7`、不完整的 `U+4E2` 判定为不含中文。
+- AutoCAD 状态：待同步（DEH 尚未移植）。
+- 加载与验证：未连接、加载或操作任何 CAD，需用户重新加载后实机复测。
+
+## 2026-10-21 ZDDL 端子排辅助层锁定 + 新增 ZDDLD
+
+- 中望完成时间：2026-10-21 23:29:12 +08:00。
+- 用户需求：ZDDL 生成后，原理号、电缆接线、电缆文字（含"至××"终点柜）可选，用来移到自己的图纸；端子排框线、端子名、端子号不可选，用完后删除。
+- 改动：`zddl2:work` 生成时先临时解锁 `端子排-框线`、`端子排-文字` 两个辅助层，给这两层上的图元附加 XDATA 标记 `AA_ZDDL`，生成完把这两层锁定（锁定后仍可见但选不中）。锁层检查改为只针对 `接线-原理号`、`电缆-接线`、`电缆-文字` 等需保留的图层，避免第二次运行时因辅助层已锁而拒绝生成。新增辅助函数 `zddl2:scaffold-layers`、`zddl2:xdata-app`、`zddl2:set-layer-lock`（用 entmod 修改图层表 70 组码）。新增命令 `ZDDLD`：用 `ssget "_X"` 按 XDATA 标记选出 ZDDL 辅助图元，临时解锁所在图层后删除，再恢复锁定；保留的三部分不受影响；整批一次 U 撤销。
+- 范围说明：只有本次修改后新生成的图元带标记；旧的 ZDDL 结果和图中其他同名图层对象不会被 ZDDLD 删除，但会随图层一起锁定。ZDDL2 不受影响。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `41180f314daf8a72af3335df28259c96c51f0df9671c8a3f4396645b2285e843`；字节级备份 `backups/AA整合版本.lsp.bak-20261021-232608-ZDDLD`。
+- 检查：`tests/test_zddl2.py` 增加辅助层图元与锁定顺序断言，10 项通过；`python tools/check_all_static.py` ALL PASS；命令索引重新生成并核对通过（178 条）；`audit_lsp.py --write` 0 项结构告警；源码 UTF-8 无 BOM、纯 CRLF。
+- AutoCAD 状态：待同步。
+- 加载与验证：未连接、加载或操作任何 CAD；图层 entmod 锁定、XDATA 过滤删除需用户重载后实机确认。
+
+## 2026-10-22 10:22:52 AutoCAD 2018 补齐 10-21 ZDDL / ZDDL2 / DEH / ZDDLD 待同步项
+
+- AutoCAD 完成时间：2026-10-22 10:22:52 +08:00。用户要求把最近中望插件的修改全部同步到 AutoCAD。
+- 核对方法：以上次同步基准（中望 SHA-256 `2619cb3a…`，即 `backups/zddl-swap-20261021-162147/AA整合版本.lsp.bak`）与当前中望源码逐函数比对 AST，得出 15 个变更函数；AutoCAD 中这些函数在移植前均与基准逐节点一致，可直接移植。
+- 已移植：
+  1. ZDDL / ZDDL2 入口互换（10-21 16:38:52 条）：`c:ZDDL` = 两次选字生成端子排与电缆，`c:ZDDL2` = 自动识别出线，ZDC 仍调用 `c:ZDDL`；提示标签、头部清单与分节注释同步。
+  2. 去掉图面标题与统计文字（10-21 21:15:34 条）：`zddl2:entities` 不再生成两行 `zddl2:e-text`；`tools/zddl2_engine.py` 的 `drawTitle` 默认改为 `False`。
+  3. 辅助层锁定与新增 ZDDLD（10-21 23:29:12 条）：`zddl2:work`、`zddl2:scaffold-layers`、`zddl2:xdata-app`、`zddl2:set-layer-lock`、`c:ZDDLD`。
+  4. 新增 DEH（10-21 三条 DEH 条目）：`c:DEH`、`aa:layer-locked-p`、`aa:hex->int` 与中望逐节点一致；`aa:has-chinese` 按 AutoCAD 平台改写，见下条适配。
+- 平台适配：AutoCAD 2018 经典引擎 `vl-string->list` 返回 GBK 字节，`aa:has-chinese` 改为按双字节逐字判断，首字节 >= 129 时连同尾字节一起跳过（尾字节可能落在 ASCII 区）。只把汉字区判为中文：首字节 129..160、176..247；170..175、248..254 且尾字节 64..160。符号区 161..169（全角标点、×、°、〇、假名等）不算中文。`U+XXXX` 转义判断与中望一致。与中望的差异：中望把 、。〇 等 CJK 标点和假名（0x2E80..0x9FFF）也判为中文，只含这类符号、不含汉字的文字两版结果可能不同；×、全角逗号/括号两版都不算中文。
+- 随同更新：`tools/check_zddl_static.py` 的自动识别回归改按新入口 `c:zddl2` 执行；`tests/test_zddl2.py` 增加辅助层图元、锁定顺序与 XDATA 断言，包装层撤销闭合改按 `c:zddl`；新增 AutoCAD 专用 `tests/test_deh_gbk.py`（真实 AST，GBK 字节模拟：汉字/GBK 扩展字/`U+` 转义判中文，×、°、全角标点、假名、ASCII 不判）；`docs/ZDDL2.md` 按新入口与 ZDDLD 说明更新。
+- 未移植：命令别名设置面板及其配套的 `gen_命令索引.py` C# 扫描/说明校验、`check_all_static.py` 接入项（10-21 08:44:29 至 15:23:43 四条），面向 ZWCAD 2026 的 PGP 路径与编码，按原条目保持“暂不同步”。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `41180f314daf8a72af3335df28259c96c51f0df9671c8a3f4396645b2285e843`；AutoCAD 改前 `2b1bd9782dbc715ea9654258511b43b9c62ba9e53c697450617d9b87c01c33eb`、改后 `6f2afe91e4c383552b4f76a2b59363ea35f01ca1c5067a0ae8226255a311a0fc`；字节备份 `AutoCAD2018_lisp/backups/sync-deh-zddld-20261022-101120/`。
+- 检查：移植后 AST 比对，14 个变更函数与中望逐节点一致、`aa:has-chinese` 为预期差异、其他函数无改动；GBK/CP936 无 BOM、纯 CRLF、严格解码无替换字符。`python tools/check_all_static.py` ALL PASS（32 项专项）；`python scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS (no CAD)；`tests/test_zddl2.py` 12 项通过；`tests/test_deh_gbk.py` 通过；`gen_命令索引.py` 已重新生成（175 条，含 DEH、ZDDLD）；`audit_lsp.py --write` 0 项结构告警。
+- 验证状态：未连接、加载或操作 AutoCAD；GBK 中文判定、图层 entmod 锁定、XDATA 过滤删除均待用户重载后实机确认。
+- 状态更新：10-21 16:38:52（ZDDL/ZDDL2 互换）、21:15:34（去标题）、DEH 三条、23:29:12（ZDDLD）的 AutoCAD 状态均改为已同步（2026-10-22 10:22:52）；命令别名面板四条仍为暂不同步。目前台账中没有其他待同步项。
+
+## 2026-10-22 CadImeSwitch 自动加载改为插件包（AutoCAD 单边）
+
+- AutoCAD 完成时间：2026-10-22 10:29:30 +08:00。
+- 问题：用户反馈功能失效。复查发现 AutoCAD 10-22 10:24 重启后 `CadImeSwitch.dll` 未被加载（文件未被占用、`mode.txt` 未更新），说明 `HKCU\...\Applications\CadImeSwitch`（LOADCTRLS=2、MANAGED=1）在本机不能保证启动加载；同时配套 AHK 脚本由 AI 工具进程拉起，10-20 随客户端更新被连带结束。
+- 处理：新增 `tools/CadImeSignal/PackageContents.xml`、`install.ps1`，安装到 `%APPDATA%\Autodesk\ApplicationPlugins\CadImeSwitch.bundle`（与正常加载的 FastBatchPlot 同方式），并删除旧注册项；AHK 脚本改由 explorer 主进程拉起，启动文件夹快捷方式保持不变。
+- 验证：插件包文件已就位、旧注册项已删除、AHK 进程父进程为 explorer.exe。AutoCAD 启动加载待用户下次重启 CAD 验证，本次未连接或操作 CAD。
+- 中望状态：不适用。
+
+## 2026-10-22 10:43:23 DAO 改名 ZDAO、新增 HDAO（两版同步）
+
+- 中望完成时间：2026-10-22 10:37:32 +08:00 之前（中望离线检查全部通过后，于该时刻开始 AutoCAD 移植）；AutoCAD 完成时间：2026-10-22 10:43:23 +08:00。
+- 命令/模块：原 `DAO`（文字上下颠倒）改名为 `ZDAO`，行为不变；新增 `HDAO`，按水平位置左右颠倒：最左边的文字移到最右边文字的位置，左二移到右二，依此类推（同一列 X 相同时上面的在前）。两个命令共用 `dao:run`，排序改用 `aa:merge-sort`（比较器 `dao:upper-p` / 新增 `dao:left-p`），删除 `dao:insert-sorted`；入口改为 `aa:cmd-begin` / `aa:cmd-end`，一次 U 撤销；`dao:move-text` 去掉逐个 `entupd`，结束后统一 `redraw`。TEXT 的对齐点（组码 11）仍同步平移。删去原文件顶层的 DAO 加载提示。`DAO` 不再保留为命令名。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `4c819ae95c06e71143df85827e5b3274e45a1f47ebfe6f2f924df995505c77dd`，改前 `41180f314daf8a72af3335df28259c96c51f0df9671c8a3f4396645b2285e843`，备份 `backups/zdao-hdao-20261022-103036/`。AutoCAD 改前 `6f2afe91e4c383552b4f76a2b59363ea35f01ca1c5067a0ae8226255a311a0fc`，改后 `82abfaddd992b18f6ead97c018d02d5fc5d57355273d447e7dd504744de91859`，备份 `AutoCAD2018_lisp/backups/sync-zdao-hdao-20261022-103732/`。移植前 AutoCAD 的 DAO 相关 4 个函数与中望改前逐节点一致；移植后 6 个函数两版 AST 完全一致，无平台适配。
+- 检查：两边新增 `tests/test_dao.py`（真实 AST：ZDAO 纵向、HDAO 水平颠倒、TEXT 对齐点平移、单个文字不动、撤销组开闭）4 项通过。中望 `check_all_static.py` ALL PASS（33 项专项）、`check_project.py` 全部通过、命令索引 179 条（`--check` 通过）；AutoCAD `check_project.py`（含 check_all_static，32 项专项）全部通过、命令索引 176 条；两边 `audit_lsp.py --write` 0 项结构告警。中望 UTF-8 无 BOM，AutoCAD GBK/CP936 无 BOM，均为纯 CRLF。
+- 验证状态：未连接、加载或操作任何 CAD，待用户重载后实机确认。
+- AutoCAD 状态：已同步（2026-10-22 10:43:23）。
+
+## 2026-10-22 11:07:28 中望 H 上下间距改按插入点/对齐点计算
+
+- 中望完成时间：2026-10-22 11:07:28 +08:00。
+- 问题：用户反馈 H 设间距 5 后，含 `***` 的第一行与下一行对齐点相差 5.5。原因是 H 按每个文字外框（包围盒）顶边排列，`***` 字形只占上半部、外框高 2，其余文字外框高 3，顶边对齐后对齐点相差 0.5；行与行之间的空隙也不是 5（外框 3 高时为 2）。
+- 修改：`c:H` 统一左中对正后，上下间距改按参考点计算：TEXT 取对齐点（组码 11），MTEXT 取插入点（组码 10）；第 n 个文字的参考点 Y = 最上方文字参考点 Y − n×间距，与字形无关。左对齐仍按外框左边界，分行与排序规则不变，仍一次 U 撤销。头部清单说明同步更新。H2 及其他命令未改。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `f0a931c2c979e7ed48ecf56970c7e61137b62a74e10b43d457838196af881578`；字节备份 `backups/h-refpt-20261022-110420/`。
+- 检查：`python tools/check_all_static.py` ALL PASS（33 项专项）；`gen_命令索引.py --check` 通过（179 条）；`audit_lsp.py --write` 0 项结构告警；UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步。
+
+## 2026-10-22 11:09:12 AutoCAD 2018 新增命令别名设置面板（移植中望版）
+
+- AutoCAD 完成时间：2026-10-22 11:09:12 +08:00。用户要求给 AutoCAD 2018 做命令别名面板，AutoCAD 用自己单独的一份别名表，初始复制中望现有的自定义别名。
+- 移植来源：中望 10-21 08:44:29 至 15:23:43 四条命令别名面板条目的最终实现（`tools/alias_pgp.py`、`tools/alias_panel.py`、`tools/check_alias_panel_static.py`、`tools/start-alias-panel.ps1`、`命令别名设置.cmd`、三个 fixtures、`tests/test_alias_panel.py`、`tests/test_alias_panel_gui.py`）。这四条的 AutoCAD 状态由“暂不同步”改为已同步（本条）。
+- AutoCAD 适配：PGP 默认路径改为 `%AppData%\Autodesk\AutoCAD 2018\R22.0\chs\Support\acad.pgp`（无 chs 时取 R22.0 下第一个语言目录）；默认区/用户区分界改为最后一个含 `DO NOT REMOVE` 的行（acad.pgp 出厂的用户自定义区说明段结尾），找不到再退回中望的“末尾第一个空行”规则；托管区块标记改为 `AutoCAD2018_lisp aliases`；本机设置存 `%LocalAppData%\AutoCAD2018_lisp\alias_panel.ini`；历史备份 `.lsp` 先按 GBK 再按 UTF-8 读取；界面与提示中的“中望”“ZWCAD.pgp”改为 AutoCAD / acad.pgp。其余解析、校验、事务与界面逻辑与中望一致。
+- 命令扫描：AutoCAD `gen_命令索引.py` 新增 `scan_with_skipped()`（`scan()` 改为调用它，索引输出不变，仍按 GBK 优先读取、C# 仍只收录 DWGWIN），面板复用该入口；为原本说明为空的 `LOADAICADACAD` 补默认说明。未移植中望的 C# 全量扫描与 `--check` 说明质量校验（说明质量由面板静态检查覆盖）。
+- 主表：新建 `AutoCAD2018_lisp/config/aliases.csv`（UTF-8 带 BOM、CRLF），复制中望主表现有 7 条：TXDC→ARCHDWGEXPORT、CI→CIRCLE、C→COPY、FIL→FILLET、G→GROUP、-G→-GROUP、R→ROTATE。ARCHDWGEXPORT 不在本机 acad.pgp 中，推测为中望专有命令，已加 `native` 标记（保存时只警告），备注写明 AutoCAD 2018 可能没有此命令；其余 6 条目标均在 acad.pgp 默认区出现。
+- 新增：`tools/fixtures/sample_acad.pgp`（模拟 acad.pgp 结构，用户区内含空行）、`tests/test_alias_panel_acad.py` 9 项（分界标志、无标志时回退、首次应用注释默认行与迁入用户行、删除后恢复默认行、默认路径优先 chs 与回退、GBK 历史备份）、`docs/命令别名设置.md`；`tools/check_all_static.py` 接入面板检查；README 与三份根规范（内容一致）补充入口说明。
+- 真实 acad.pgp 只读模拟（未写入，前后 SHA-256 一致）：UTF-8 带 BOM、CRLF，540 行，分界在第 540 行；首次应用将注释默认区 C（158）、CI（159）、G（237）、-G（238）、R（350，原指向 REDRAW）5 行，用户区无迁入，追加托管区块后 557 行，BOM 与 CRLF 保持；校验无错误，仅 TXDC 原生命令警告。
+- 检查：`python tools/check_alias_panel_static.py` 全部通过（34 + 6 + 9 个用例，面板与索引 176 条命令一致）；`python scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS（含 check_all_static 33 项专项）；`gen_命令索引.py --check` 通过；`audit_lsp.py --write` 0 项结构告警。未改动 `AA整合版本.lsp` 与 V6 源码。
+- 验证状态：未连接或操作 AutoCAD，未写入真实 acad.pgp；REINIT 后别名生效、ARCHDWGEXPORT 是否存在、高 DPI 显示均待用户确认。中望版代码未改。
+
+## 2026-10-22 11:11:46 AutoCAD 别名表删除 TXDC
+
+- AutoCAD 完成时间：2026-10-22 11:11:46 +08:00。用户要求删除 AutoCAD 主表 `AutoCAD2018_lisp/config/aliases.csv` 中的 TXDC→ARCHDWGEXPORT（中望专有命令，acad.pgp 中没有）；主表现为 6 条：CI→CIRCLE、C→COPY、FIL→FILLET、G→GROUP、-G→-GROUP、R→ROTATE，UTF-8 带 BOM、CRLF。`docs/命令别名设置.md` 同步更新。中望主表不变。
+- 检查：`python tools/check_alias_panel_static.py` 全部通过。真实 acad.pgp 仍未写入，未连接 AutoCAD。
+
+## 2026-10-22 20:04:12 中望 ZDDL 坐标识别放宽（容差 50、自动端子名、横排直接用）
+
+- 中望完成时间：2026-10-22 20:04:12 +08:00。
+- 需求：用户希望 ZDDL 选端子名/端子号时不必先用 9 旋转、DZ 改青色、H 对齐，容差改为 50。
+- 修改：`zddl2:selection-text` 端子名改按 `aa:dz-number-p` 自动识别（纯数字及“数字+a”为端子号，其余为端子名，“端子名”后缀仍有效），不再依赖青色；新增 `zddl2:coord-tol`=50，用于竖排列归组与横排分排；`zddl2:count-near` 改为按最近名称的上下/左右偏移判断竖排或横排；`zddl2:coord-vertical` 名称上方的端子号并入本列第一块，`zddl2:coord-horizontal` 名称左边的端子号并入本排第一块，不再报错。`tools/zddl2_engine.py` 同步相同规则（`COORDINATE_X_TOLERANCE`=50），`tests/test_zddl2.py` 新增 5 组 LISP 与 Python 一致性用例。文档 `docs/ZDDL2.md` 已更新。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `df33175195dc40562c889550a8e5fa7563709a2abd1bcb983e27dc767c9cf453`；字节备份 `backups/zddl-tol50-20261022-195617/`。
+- 检查：`python tools/check_all_static.py` ALL PASS（33 项专项）；`python -m unittest tests.test_zddl2` 11 项通过；`gen_命令索引.py --check` 通过（179 条）；`audit_lsp.py --write` 0 项结构告警；`scripts/check_project.py` 全部通过；UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步。
+
+## 2026-10-22 20:16:41 中望 ZDDL 坐标端子排改为始终横排、容差 30
+
+- 中望完成时间：2026-10-22 20:16:41 +08:00。
+- 需求：用户要求容差由 50 改为 30，并取消竖横自动判断——端子排始终横着、从左往右读。
+- 修改：`zddl2:coord-tol` 改为 30（仅用于横排分排）；`zddl2:parse-coords` 始终调用 `zddl2:coord-horizontal`；删除不再使用的 `zddl2:count-near`、`zddl2:col-add`、`zddl2:coord-vertical`。`tools/zddl2_engine.py` 同步：常量改名 `COORDINATE_Y_TOLERANCE`=30，删除 `parse_vertical_coordinate_terminals` 与竖横判断。`tests/test_zddl2.py` 一致性用例改为横排场景（上下错位、名称在中间、两排相距 40、同排两块）；旧纵列附件用例改为断言报“没有识别到端子号”。`docs/ZDDL2.md` 已更新。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `42e135bc98d9dc4fc2da85883bcef013542cf1ff953e834ae16f906f00cd2485`；本轮之前的字节备份仍为 `backups/zddl-tol50-20261022-195617/`（容差修改前原版）。
+- 检查：`python tools/check_all_static.py` ALL PASS；`python -m unittest tests.test_zddl2` 11 项通过；`gen_命令索引.py --check` 通过（179 条）；`audit_lsp.py --write` 0 项结构告警；`scripts/check_project.py` 全部通过；UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步（与 20:04:12 条目合并同步，以本条为准）。
+
+## 2026-10-22 20:30:06 中望 ZDDL 横排出图修复：同一排端子排不再拆成多排
+
+- 中望完成时间：2026-10-22 20:30:06 +08:00。
+- 问题：用户用 QW3 选中的 320 个旋转 90° 端子名/端子号（原图 4 排、40 块端子排）运行 ZDDL，结果不对。离线重现：识别出的 40 块端子排本身正确，但横排模式给每块端子排单独编排键“坐标块-N”，`zddl2:columns` 按排键分行，于是画成 40 排；原竖排模式整列共用“坐标列-k”所以不曾出现。
+- 修改：`zddl2:coord-horizontal` 改为同一水平带共用排键“坐标排-带序号”，原图一排仍画成一排、从左到右；带内纵坐标排序由递归插入排序 `zddl2:isort` 改为 `aa:merge-sort`，避免数百个文字时递归过深。`tools/zddl2_engine.py` 同步 `physicalGroup`/`rowOrder` 按带序号。新增 `tests/fixtures/zddl_qw3_320_horizontal.json`（按用户贴出的对齐点坐标重建）与用例：40 块、280 个端子、4 排（12/5/9/14 块），`zddl2:columns` 出图排数为 4，LISP 与 Python 逐块一致。`docs/ZDDL2.md` 已更新。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `db4f8ba0047ab06da854958db71ef33b239eaf5056d54b96c28a6d48e2ca8467`；容差修改前原版备份 `backups/zddl-tol50-20261022-195617/`。
+- 检查：`python tools/check_all_static.py` ALL PASS；`python -m unittest tests.test_zddl2` 12 项通过；`gen_命令索引.py --check` 通过（179 条）；`audit_lsp.py --write` 0 项结构告警；`scripts/check_project.py` 全部通过；UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD；用户反馈的具体现象（报错原文或出图截图）未提供，“画成 40 排”为离线推断的原因，待用户重载后实机确认。
+- AutoCAD 状态：待同步（与 20:04:12、20:16:41 条目合并同步，以本条为准）。
+
+## 2026-10-22 21:45:30 中望新增 DET 删除指定内容的属性定义
+
+- 中望完成时间：2026-10-22 21:45:30 +08:00。
+- 需求：用户提供 QW3 导出的两个 ATTDEF（内容分别为 A0、A1），要求新增命令删除所选对象中内容为 A0 和 A1 的属性定义。
+- 修改：`AA整合版本.lsp` 新增 `c:DET`（DE* 删除家族，位于 DEH 与 A2T 之间）：输入要删除的内容，逗号或空格分隔多个值，回车沿用上次输入（首次默认 `A0,A1`，会话变量 `*DET_Values*`）；框选后仅处理 ATTDEF，内容取 QW3 同源组码 1（复用 `aa:ysdl-get-raw-text`），`strcase` 后精确整串比较，不区分大小写；匹配项按既有 `aa:layer-locked-p` 跳过锁定图层并单独计数，删除统计一条消息输出，整体一次 U 撤销。新增辅助函数 `det:split-values`（按逗号/空格拆分）。头部命令清单同步加入 DET。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `33258698b2eb531a9ae7ec8ec6c598ee5f91b91b183e2439f34660c78202ffe0`；修改前字节备份 `backups/det-attdef-20261022-213043/`。
+- 检查：`python tools/check_all_static.py` ALL PASS（33 项专项）；`gen_命令索引.py --check` 通过（180 条）；`audit_lsp.py --write` 0 项结构告警；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS；UTF-8 无 BOM、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步。
+
+## 2026-10-22 22:42:01 中望 NU 与 C1/C2/C3 统一目标数字选择规则
+
+- 中望完成时间：2026-10-22 22:42:01 +08:00。
+- 命令/模块：`NU`、`C1`、`C2`、`C3`。
+- 问题：NU 取字符串中第一个数字并把前面的 "+"/"-" 当正负号，`1(2)SVG-501` 改的是开头的 1，`SVG-501` 减号被当负号、`35kV 1#风机回路进线柜` 改的是 35；C1/C2/C3 的减号规则正确但缺井号规则，`35kV 1#…` 同样改的是 35。
+- 修改：新增共用纯函数 `aa:num-target-span`（逐字符 `substr`/`strlen` 扫描，不用 `vl-sort`、不用正则），规则 A 井号（半角 `#`、全角 `＃`，左边紧挨数字向左扩展，否则右边紧挨数字向右扩展，命中即停）> 规则 B 最后一个减号（半角 `-`、全角 `－`，只作分隔符）后的第一段连续数字 > 规则 C 兜底第一段连续整数；返回 `(start end kind)`，kind 为 `HASH`/`HYPHEN`/`FIRST`。辅助函数 `aa:num-next-digit-pos`、`aa:num-digit-run-len`、`aa:num-int-target-p`、`aa:num-pad-int`。`aa:nu-rewrite-text` 先取 `aa:num-target-span`：HASH/HYPHEN 按整数处理并用 `aa:num-pad-int` 保留原数字位宽（`#09`+2→`#11`、`SVG-009`+2→`SVG-011`、`SVG-99`+1→`SVG-100`），结果小于 0 返回 nil；FIRST 或无目标时仍走原 `aa:nu-find-first-number` + `aa:nu-format-number`。`c:NU` 增加 `skipped` 计数并在命令行提示跳过数（选择、undo、entmod 结构不变）。`c1c2:first-number-span` 改为调用 `aa:num-target-span` 并转换成原 `(start len)`，`c1c2:change-number`/`c1c2:run` 的调用与拖动预览、连续复制逻辑未改；兜底仍只取整数段。C1/C2/C3 注释与文件头命令清单的描述改为“优先井号相邻数字，其次减号后数字”。未新增、删除或改名任何命令。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `38481c3cf088a484b0a37b2d454e3a01216d3cec57e6a472d6089fe673105627`（修改前 `33258698b2eb531a9ae7ec8ec6c598ee5f91b91b183e2439f34660c78202ffe0`）；修改前字节备份 `backups/nu-c1c2-target-20261022-221144/AA整合版本.lsp`。
+- 检查：`python tools/check_all_static.py` ALL PASS（编码、整文件解析 965 顶层表达式/875 defun/162 命令、头部清单、索引、undo 配对、禁用项与 34 项专项）；新增专项 `tools/check_nu_c1c2_target_static.py`：结构检查通过，19 条任务用例 + 33 条补充用例在离线 LISP 解释器中执行真实 AST，578 次断言全部与 Python 参照实现一致；`python gen_命令索引.py` 生成 180 条，`--check` 通过，两份索引 NU/C1/C2/C3 说明已更新；`python scripts/audit_lsp.py --write`：5 个 LSP、175 命令、0 项结构发现、99 项审阅候选；`python scripts/check_project.py`：ALL PROJECT STATIC CHECKS PASS；UTF-8 无 BOM、无替换字符、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD；以上为离线静态检查与离线 LISP 解释器结果，实机效果待用户重载后确认。
+- AutoCAD 状态：待同步（按 CP936/CRLF 局部移植 `aa:num-target-span` 及各辅助函数、`aa:nu-rewrite-text`、`c:NU` 跳过提示、`c1c2:first-number-span` 及 NU/C1/C2/C3 注释，并按 GBK 字节语义补离线对照）。

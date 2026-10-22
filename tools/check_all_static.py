@@ -134,6 +134,7 @@ def run_command_checks():
         'check_fkx_static.py',
         'check_cc_static.py',
         'check_c1c2_static.py',
+        'check_nu_c1c2_target_static.py',
         'check_des_static.py',
         'check_gtx_static.py',
         'check_hwd_static.py',
@@ -160,6 +161,7 @@ def run_command_checks():
         'check_zddl_static.py',
         'check_lbz_lby_static.py',
         'check_cabinet_panel_static.py',
+        'check_alias_panel_static.py',
     ]
     for name in checks:
         path = tools / name
