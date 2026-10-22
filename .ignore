@@ -1,0 +1,12 @@
+# 供 ripgrep / AI 代码搜索使用（不影响 Git）：排除旧副本和大体积生成物，避免搜到同名旧代码
+.agents/
+.workbuddy/
+.reasonix/
+backups/
+__pycache__/
+*.bak
+*.bak-*
+*.bak_*
+*.lsp.bak*
+docs/lsp-audit.json
+命令索引.html

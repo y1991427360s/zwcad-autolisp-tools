@@ -1,7 +1,7 @@
 """NU / C1 / C2 / C3 目标数字选择规则离线检查（执行真实 LISP AST，不连接 CAD）。
 
-规则 A：井号（半角 #、全角 ＃）相邻数字；规则 B：最后一个减号（半角 -、全角 －）后的
-第一段连续数字；规则 C：兜底第一段连续整数。NU 与 C1/C2/C3 共用 aa:num-target-span。
+规则 A：井号（半角 #、全角 ＃）相邻数字；规则 B：后面还有数字的最后一个减号（半角 -、
+全角 －）后的第一段连续数字；规则 C：兜底第一段连续整数。NU 与 C1/C2/C3 共用 aa:num-target-span。
 
 1. 用 Python 独立实现同一规则作为参照，逐条比对 LISP 实际结果；
 2. 在仓库自带的离线 LISP 解释器（tests/test_ss_mm_ortho_osnap.py）里执行真实的
@@ -43,6 +43,8 @@ NU_CASES = [
     ('无数字文字', None, None, None),
     # 结果小于 0：NU 不修改（跳过后在命令行提示）。
     ('SVG-000', 'HYPHEN', 'SVG-002', None),
+    # 最后一个减号后没有数字：退到前一个减号，"-5" 不当负数。
+    ('A-5-B', 'HYPHEN', 'A-7-B', 'A-4-B'),
     # 前导零宽度与进位。
     ('#01', 'HASH', '#03', '#00'),
     ('SVG-009', 'HYPHEN', 'SVG-011', 'SVG-008'),
@@ -57,6 +59,8 @@ REFERENCE_CASES = [
     '35kV 10kV 20kV', '1.5#2', '#1.5', 'Q1-2.5', 'Z-9#8', 'X#9-8',
     '000', '0#0', 'a#1b' + FW_HASH + '2c', '+2', '-3', '-1.5', 'A+2', 'A-0.5',
     '35kV 1#…', '1(2)SVG-501 (备用)', '#3 SVG-9',
+    # 审核补充：最后一个减号后没有数字时退到前一个减号；C2 遇 0 停止。
+    'A-5-B', 'A-5-', 'SVG-12-备用', 'A' + FW_HYPHEN + '7' + FW_HYPHEN + 'B', 'SVG-0', '#0',
 ]
 
 DELTAS = [('C1', 1), ('C2', -1), ('C3', 2)]
@@ -89,10 +93,13 @@ def py_target_span(s):
                 while end + 1 < len(s) and is_digit(s[end + 1]):
                     end += 1
                 return (i + 1, end, 'HASH')
-    hyphen = None
+    # 后面还有数字的最后一个减号（"A-5-B" 取第一个减号，不把 "-5" 当负数）
+    hyphen = pending = None
     for i, ch in enumerate(s):
         if ch in ('-', FW_HYPHEN):
-            hyphen = i
+            pending = i
+        elif is_digit(ch) and pending is not None:
+            hyphen = pending
     if hyphen is not None:
         for i in range(hyphen + 1, len(s)):
             if is_digit(s[i]):
@@ -172,10 +179,13 @@ def py_nu_rewrite(s, delta):
     span = py_target_span(s)
     if span and span[2] in ('HASH', 'HYPHEN'):
         start, end, _ = span
-        value = int(s[start:end + 1]) + delta
+        digits = s[start:end + 1]
+        value = int(digits) + delta
         if value < 0:
             return None
-        return s[:start] + pad_int(value, end - start + 1) + s[end + 1:]
+        if delta == int(delta):
+            return s[:start] + pad_int(value, end - start + 1) + s[end + 1:]
+        return s[:start] + py_format_number(value, digits) + s[end + 1:]
     token = py_find_first_number(s)
     if not token:
         return None
@@ -192,6 +202,8 @@ def py_c1c2(s, delta):
     # c1c2:change-number 用 atoi 取整段：AutoLISP atoi 遇到小数点即停止，只取前面整数位。
     lead = re.match(r'[+-]?[0-9]*', s[start:end + 1].lstrip()).group(0)
     value = (int(lead) if lead else 0) + delta
+    if value < 0:
+        return None  # 结果小于 0：c1c2:change-number 返回 nil，C2 不产生 "SVG--1"
     text = str(value).zfill(length) if value >= 0 else str(value)
     return s[:start] + text + s[end + 1:]
 
@@ -277,6 +289,10 @@ def check_structure(source, funcs):
         for legacy in ('last-hyphen', 'after'):
             if legacy in params:
                 problems.append(f'c1c2:first-number-span 残留旧局部变量 {legacy}')
+    if 'c1c2:run' in funcs and 'c1c2:change-number' not in repr(funcs['c1c2:run'][3:][:]):
+        problems.append('c1c2:run 未调用 c1c2:change-number')
+    if 'c1c2:run' in funcs and '编号已减到 0' not in repr(funcs['c1c2:run']):
+        problems.append('c1c2:run 缺少减到 0 自动停止提示')
     if not calls('c1c2:run', 'c1c2:first-number-span'):
         problems.append('c1c2:run 未调用 c1c2:first-number-span')
     for cmd, delta in [('c:c1', '1'), ('c:c2', '-1'), ('c:c3', '2')]:
@@ -388,11 +404,19 @@ def check(path=None):
         ('SVG-009', 1, 'SVG-010'),
         ('SVG-99', 1, 'SVG-100'),
         ('#09', 2, '#11'),
-        ('#09', -0.5, '#08'),
-        ('SVG-009', 0.5, 'SVG-009'),
-        ('#01', 0.5, '#01'),
-        ('SVG-50', -1.5, 'SVG-48'),
+        # 小数增量输出小数，不再截断成原值
+        ('#09', -0.5, '#8.5'),
+        ('SVG-009', 0.5, 'SVG-9.5'),
+        ('#01', 0.5, '#1.5'),
+        ('SVG-50', -1.5, 'SVG-48.5'),
+        ('SVG-501', 0.5, 'SVG-501.5'),
+        ('SVG-501', 1.7, 'SVG-502.7'),
+        ('SVG-501', 2.0, 'SVG-503'),
+        ('#0', -0.5, None),
     ]
+    # C2 遇 0：不产生双减号
+    for text in ('SVG-000', 'SVG-0', '#0', '0'):
+        compare(f'C2 {text!r} 小于 0 返回 nil', lisp.call('c1c2:change-number', [text, -1], {}), None)
     for text, delta, want in format_cases:
         compare(f'NU 格式 {text!r} {delta:+}', lisp.call('aa:nu-rewrite-text', [text, delta], {}), want)
     compare('aa:num-pad-int 72,3', lisp.call('aa:num-pad-int', [72, 3], {}), '072')
@@ -406,7 +430,8 @@ def check(path=None):
 
     print(f'PASS 用例：{len(NU_CASES)} 条任务用例 + {len(REFERENCE_CASES)} 条补充用例，'
           f'{total} 次断言全部与 Python 参照一致')
-    print('PASS: NU/C1/C2/C3 目标数字规则（井号 > 减号 > 兜底）、前导零宽度、结果小于 0 跳过')
+    print('PASS: NU/C1/C2/C3 目标数字规则（井号 > 减号 > 兜底）、前导零宽度、小数增量、'
+          '结果小于 0 跳过（NU）/停止（C1C2）')
     return 0
 
 

@@ -206,7 +206,7 @@ def test_text_coordinates_and_strip():
             assert entity[10] == entity[11]
     runner.mocks['zddl:make-text'] = text_mock
     print('PASS: actual principle TEXT DXF: short/long strings share 2mm endpoint anchors; outside the number band, aligned to the outer frame')
-    # Execute c:ZDDL with mocked CAD boundaries: verify 9 successes, all-failed,
+    # Execute c:ZDDL2 with mocked CAD boundaries: verify 9 successes, all-failed,
     # and failed-then-success numbering using actual lookup/draw/command AST.
     command_cables = [[[(ref, '+KM') for ref in refs], '目标柜', ''] for refs in groups]
     runner.mocks.update({
@@ -224,7 +224,7 @@ def test_text_coordinates_and_strip():
                              ([[[('UNKNOWN1', '+KM')], '目标柜', ''], command_cables[0]], 1)]:
         messages.clear(); labels.clear(); lines.clear()
         runner.mocks['zddl:parse-wiring-ss'] = lambda *args: cables
-        runner.call('c:zddl', [], {'pi': 3.141592653589793})
+        runner.call('c:zddl2', [], {'pi': 3.141592653589793})
         cable_labels = [label[1] for label in labels if label[1].startswith('WL-')]
         assert sorted(cable_labels) == ['WL-' + str(i).zfill(2) for i in range(1, expected+1)]
         assert not any('WL-00' in message for message in messages)
@@ -237,7 +237,7 @@ def test_text_coordinates_and_strip():
             messages.clear(); labels.clear(); lines.clear()
             runner.mocks['getkword'] = lambda *args: 'Xia' if direction == 'X' else 'Shang'
             runner.mocks['zddl:parse-wiring-ss'] = lambda *args: cables
-            runner.call('c:zddl', [], {'pi': 3.141592653589793})
+            runner.call('c:zddl2', [], {'pi': 3.141592653589793})
             expected_rows = {}
             for cable in cables:
                 matches = [runner.call('zddl:lookup-terminal', [pr[0], result[0]]) for pr in cable[0]]
@@ -289,7 +289,7 @@ def test_text_coordinates_and_strip():
         runner.mocks['zddl:parse-strip'] = lambda ss: xt_result
         runner.mocks['zddl:parse-wiring-ss'] = lambda *args: xt_cables
         runner.mocks['getkword'] = lambda *args: 'Xia' if direction == 'X' else 'Shang'
-        runner.call('c:zddl', [], {'pi': 3.141592653589793})
+        runner.call('c:zddl2', [], {'pi': 3.141592653589793})
         assert sorted(label[1] for label in labels if label[1].startswith('WL-')) == [
             'WL-01', 'WL-02', 'WL-03', 'WL-04', 'WL-05']
         assert len([line for line in lines if line[0][0] == line[1][0]]) == 16
@@ -438,7 +438,7 @@ def check_layout_fixture():
     for direction in ('Shang', 'Xia'):
         made.clear(); lines.clear(); triangles.clear(); messages.clear()
         runner.mocks['getkword'] = lambda *args: direction
-        runner.call('c:zddl', [], {'pi': math.pi})
+        runner.call('c:zddl2', [], {'pi': math.pi})
         trunks = [line for line in lines if line[3] == 3]
         assert len(trunks) == 3 and len({line[1][0] for line in trunks}) == 1
         assert len({round(point[0], 6) for point in triangles}) == 1, triangles

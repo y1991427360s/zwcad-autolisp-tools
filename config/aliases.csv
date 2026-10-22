@@ -1,0 +1,8 @@
+﻿别名,目标命令,备注,标记
+TXDC,ARCHDWGEXPORT,中望导出归档,
+CI,CIRCLE,圆,
+C,COPY,复制,
+FIL,FILLET,圆角,
+G,GROUP,编组,
+-G,-GROUP,编组（命令行）,
+R,ROTATE,旋转,

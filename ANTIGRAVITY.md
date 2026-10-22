@@ -36,7 +36,15 @@
 - `ZJ`、`YJ` 等命令必须内嵌在整合文件中，不得依赖已删除的小命令目录。
 - 新增、删除、修改或改名命令后，必须同步整合文件并运行 `python gen_命令索引.py`，核对 `命令索引.md` 与 `命令索引.html`。
 - 文件开头的命令清单必须覆盖所有实际 `(defun c:...)` 入口，不保留已删除命令。
+- 每个命令定义上方必须写 `;;; 功能: 一句话说明`（或写入文件开头 `;;; - 命令: 说明` 清单），说明要写清“对什么对象做什么”。缺少有效说明时 `python gen_命令索引.py --check` 与 `python tools/check_alias_panel_static.py` 均会失败。
 - 根目录 `AGENTS.md`、`CLAUDE.md` 与 `ANTIGRAVITY.md` 必须完全一致。
+
+## 高效定位（整合文件 2 万多行，禁止通读）
+
+- 先查 `docs/CODE_MAP.md`（命令/函数行号、直接调用的函数、按前缀分组），或运行 `python tools/code_map.py show 命令或函数`（加 `--source` 打印源码；以冒号结尾如 `zddl2:` 列整组），再按行号只读相关段落；不要从头分段通读 `AA整合版本.lsp`。
+- 修改共享函数（尤其 `aa:` 前缀）前运行 `python tools/code_map.py callers 函数名`，确认最终影响的命令并据此选择专项检查。
+- `docs/CODE_MAP.md` 由 `python gen_命令索引.py` 顺带生成（也可单独 `python tools/code_map.py write`）；行号随源码变化，改完 LISP 必须重新生成，否则全量检查失败。
+- 根目录 `.ignore` 让代码搜索跳过 `.agents/`、`backups/`、`*.bak*` 等旧副本和大体积生成物；需要查旧副本时直接按路径读取。
 
 ## 命令实现规范
 
@@ -48,7 +56,7 @@
 - `FDX` 分配后直接复用 `dx:apply-group`，不得调用交互式 `c:DX` 造成二次选择或嵌套撤销组；保留本批恢复逻辑。离线检查运行 `python tools/check_fdx_static.py`。
 - `CC` 读取已有剪贴板，预选单个文字后按基点连续复制并替换副本完整内容；不得改回提取源文字到剪贴板或调用 `c:QE`。离线检查运行 `python tools/check_cc_static.py`，使用说明见 `docs/CC.md`。
 - `HBDL` 用于电缆清册并入行合并，就地修改主电缆芯数（如3改4）并在原理号末尾向后堆积追加，消除并入行；无需新建表格。离线检查运行 `python tools/check_hb_static.py`，使用说明见 `docs/HBDL.md`。
-- 改动 AA整合版本.lsp 后，交付前优先运行一键静态检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对，并串跑 FDX/CC/C1C2/DES/GTX/XY/HDDL/XYG/HBDL 专项检查）。
+- 改动 AA整合版本.lsp 后，交付前必须运行一次不带参数的全量检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对、代码地图是否过期，并行跑全部专项检查，约 70 秒）。开发过程中用 `--quick`（只跑与相对 HEAD 改动函数相关的专项）或 `--only NU,ZDDL`（按命令/函数/脚本名指定）快速迭代，二者输出 PARTIAL PASS，不能代替交付前的全量检查。
 - `ZHONG`、`ZUO`、`YOU`、`SHANG`、`XIA` 共用 `aa:align-text-cmd`；`SYAN`、`XYAN` 共用 `aa:extend-line-cmd`。
 - 文字对齐优先使用 COM 的 `Alignment` / `AttachmentPoint`，用 `vl-catch-all-error-p` 判断结果，并补偿外包框位置。
 

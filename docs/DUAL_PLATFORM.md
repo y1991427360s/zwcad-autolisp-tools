@@ -181,3 +181,26 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 差异：AutoCAD 2018 用户实机执行 HAO2 报“函数错误: #<SUBR @... -lambda->”；同一代码在中望正常。全文件仅此一处未加引号的 lambda，其余写成 `'(lambda ...)` 的比较器在 AutoCAD 中正常（XYG、GTY 等）。是“未加引号”还是“带局部变量”触发，未单独实测区分。
 - 处理：AutoCAD 版 `hao2:sort-blocks` 改为 foreach；新增 `tests/test_autocad_compat.py` 禁止 AutoCAD 主文件出现未加引号的 lambda。中望不改。
 - 验证状态：报错为用户实机现象；修复仅离线检查，待用户重载验收。
+
+## 2026-10-19 本机 AutoCAD 2018（22.0s）无 LISP 反应器、命令中拒绝 COM、.NET 写注册表不可见（已实机验证）
+
+- 适用范围：需要监听命令开始/结束的功能（如输入法自动切换信号），以及外部程序通过 COM 读 CAD 状态。
+- 差异：`(atoms-family 1)` 中没有任何 `VLR-*` 函数，`(vl-load-reactors)` 后仍为 nil，`vlr-command-reactor` 报 no function definition；命令运行中外部 COM 调用返回 `RPC_E_CALL_REJECTED`；.NET 插件用 `Microsoft.Win32.Registry` 写 HKCU 不报错，但注册表中找不到写入结果（同进程 LISP `vl-registry-write` 可见）。.NET 的 Document 命令事件与文件写入正常。中望未测。
+- 处理：AutoCAD 版不要使用 `vlr-*` 反应器；命令事件改用 .NET 插件（`tools/CadImeSignal`），信号经文件传递。
+- 证据：2026-10-19 经用户授权连接 AutoCAD 2018，用诊断 LISP 与诊断 DLL 的日志实测上述现象。
+
+## 2026-10-22 DEH 中文判定（GBK 字节 vs Unicode 码位）
+
+- 适用范围：`DEH` 的 `aa:has-chinese`。
+- 中望版：按 Unicode 码位 0x2E80..0x9FFF（兼容 UTF-8 字节 E4..E9）判定，CJK 标点（、。〇）与假名也算中文。
+- AutoCAD 2018 版：`vl-string->list` 返回 GBK 字节，按双字节逐字判断，只认 GBK 汉字区（首字节 129..160、176..247；170..175、248..254 且尾字节 64..160）；符号区 161..169（全角标点、×、°、〇、假名）不算中文。两版都识别 `U+XXXX` 转义，×、全角逗号/括号都不算中文。
+- 影响：只含 CJK 标点或假名、不含汉字的文字，两版结果可能不同；含汉字的文字两版一致。
+- 证据与状态：源码静态比对及 AutoCAD `tests/test_deh_gbk.py`（真实 AST + GBK 字节模拟）；两版均未实机验证。
+
+## 2026-10-22 命令别名面板（ZWCAD.pgp / acad.pgp）
+
+- 适用范围：两版各自的命令别名设置面板（`tools/alias_pgp.py`、`tools/alias_panel.py`）与主表 `config/aliases.csv`。
+- PGP 位置：中望 `%AppData%\ZWSOFT\ZWCAD\2026\zh-CN\Support\ZWCAD.pgp`；AutoCAD `%AppData%\Autodesk\AutoCAD 2018\R22.0\chs\Support\acad.pgp`。
+- 默认区/用户区分界：中望按文件末尾往前第一个空行；acad.pgp 末尾有 `-- User Defined Command Aliases --` 说明段，以含 `DO NOT REMOVE` 的行结尾，AutoCAD 版以最后一个这样的行为分界，找不到时退回空行规则。
+- 托管区块标记分别为 `ZW-auto_lisp aliases` 与 `AutoCAD2018_lisp aliases`；两版主表各自独立，互不同步。默认别名不同（例如 acad.pgp 默认 R→REDRAW），同一主表放到另一平台可能产生不同的覆盖提示。
+- 证据与状态：本机 acad.pgp 只读解析（UTF-8 带 BOM、CRLF、540 行）与离线测试；未实机验证 REINIT 生效。

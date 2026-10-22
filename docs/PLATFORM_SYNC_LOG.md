@@ -1038,3 +1038,23 @@
 - 检查：`python tools/check_all_static.py` ALL PASS（编码、整文件解析 965 顶层表达式/875 defun/162 命令、头部清单、索引、undo 配对、禁用项与 34 项专项）；新增专项 `tools/check_nu_c1c2_target_static.py`：结构检查通过，19 条任务用例 + 33 条补充用例在离线 LISP 解释器中执行真实 AST，578 次断言全部与 Python 参照实现一致；`python gen_命令索引.py` 生成 180 条，`--check` 通过，两份索引 NU/C1/C2/C3 说明已更新；`python scripts/audit_lsp.py --write`：5 个 LSP、175 命令、0 项结构发现、99 项审阅候选；`python scripts/check_project.py`：ALL PROJECT STATIC CHECKS PASS；UTF-8 无 BOM、无替换字符、纯 CRLF。
 - 验证状态：未连接、加载或操作 CAD；以上为离线静态检查与离线 LISP 解释器结果，实机效果待用户重载后确认。
 - AutoCAD 状态：待同步（按 CP936/CRLF 局部移植 `aa:num-target-span` 及各辅助函数、`aa:nu-rewrite-text`、`c:NU` 跳过提示、`c1c2:first-number-span` 及 NU/C1/C2/C3 注释，并按 GBK 字节语义补离线对照）。
+
+## 2026-10-22 23:09:46 中望工具链：代码地图、快速检查与并行全量检查（不涉及插件功能）
+
+- 中望完成时间：2026-10-22 23:09:46 +08:00。
+- 背景：`AA整合版本.lsp` 已达 2 万多行、875 个函数，AI 改动时需要反复分段通读，且一键检查耗时约 176 秒（主要是 `check_zddl_static.py` 约 63 秒、`check_cable_perf_static.py` 约 50 秒的离线解释器回归）。
+- 修改：新增 `tools/code_map.py`（`write`/`check`/`show`/`callers`），生成 `docs/CODE_MAP.md`：命令行号范围、说明、直接调用的项目函数及按前缀分组；`gen_命令索引.py` 生成索引时顺带刷新代码地图。`tools/check_all_static.py` 新增代码地图过期校验，`--quick`（按 `git diff HEAD` 找改动函数及其调用者，只跑相关专项）、`--only`（按命令/函数/脚本名指定）和 `--serial`；全量模式改为每个专项独立进程并行。新增根目录 `.ignore`，代码搜索跳过 `.agents/`、`backups/`、`*.bak*`、`docs/lsp-audit.json`、`命令索引.html`。三份根规范增加“高效定位”一节并更新检查说明。
+- 效果：全量检查 176 秒 → 约 69 秒；`--only NU,C1` 约 1.4 秒。
+- 检查：`python tools/check_all_static.py` ALL PASS（34 项专项）；`python gen_命令索引.py --check` 通过（180 条，索引内容无变化）；`AA整合版本.lsp` 本次未修改。
+- AutoCAD 状态：插件代码无需同步；如需在 AutoCAD2018_lisp 使用同类工具，需按其 GBK 编码另行适配。
+
+## 2026-10-23 00:02:25 中望 NU / C1 / C2 / C3 三个边缘问题修复
+
+- 中望完成时间：2026-10-23 00:02:25 +08:00。
+- 命令/模块：`NU`、`C1`、`C2`、`C3`（`aa:num-target-span`、`aa:nu-rewrite-text`、`c1c2:change-number`、`c1c2:run`）。
+- 问题（审核 10-22 22:42:01 提交时发现）：① NU 小数增量在井号/减号规则下被 `fix` 截断，`SVG-501` +0.5 不变、+1.7 变 502；② C2 对 `SVG-000` 减 1 得到 `SVG--1`；③ `A-5-B` 最后一个减号后无数字，落入兜底后 NU 把 `-5` 当负数，+2 得 `A-3-B`。
+- 修改：① `aa:nu-rewrite-text` 在井号/减号命中时，整数增量仍用 `aa:num-pad-int` 保留位宽，小数增量改用 `aa:nu-format-number` 输出小数（`SVG-501` +0.5 → `SVG-501.5`），结果小于 0 仍跳过；② `c1c2:change-number` 结果小于 0 时返回 nil，`c1c2:run` 在指定基点前预检（提示“目标数字减小后小于 0，无法复制”），连续复制中下一份将小于 0 时自动停止并提示“编号已减到 0，停止复制”；③ `aa:num-target-span` 规则 B 改为取“后面还有数字的最后一个减号”（减号先记为待定，遇到数字才确认），`A-5-B` → 5，`SVG-12-备用` → 12。未新增、删除或改名命令。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `4e12f02fcb9ba64ebec59c98213d7d9eef68f8dcb562ac1aaee1b228b1caa7b8`（修改前 `38481c3cf088a484b0a37b2d454e3a01216d3cec57e6a472d6089fe673105627`）；修改前字节备份 `backups/nu-c1c2-edge-20261023-000058/`。
+- 检查：`tools/check_nu_c1c2_target_static.py` 同步更新 Python 参照与用例（20 条任务用例 + 39 条补充用例，650 次断言全部一致）；用修改前备份反跑可复现 `A-5-B` → `A-3-B` 等失败，证明用例有效；全量检查结果见下。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步（与 10-22 22:42:01 条目合并同步）。

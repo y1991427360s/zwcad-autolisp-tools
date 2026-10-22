@@ -38,8 +38,8 @@ COORDINATE_NAME_MARK = re.compile(r"^(?P<name>.*?)\s*端子名\s*$")
 NUMERIC_TOKEN = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
 # TEXT 实体只能是单行，粘贴带进来的换行、制表等控制字符会写坏 DXF。
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]+")
-# CAD 导出的文字插入点常有 0.1~0.3 mm 抖动；按物理列归组时不能使用过严的 0.05。
-COORDINATE_X_TOLERANCE = 0.5
+# 原理图散字不必先对齐：纵坐标相差不超过 30 即归为同一排。
+COORDINATE_Y_TOLERANCE = 30.0
 CJK_START = 0x2E80
 
 DRAWING = {
@@ -66,7 +66,7 @@ DRAWING = {
     "bianToOffset": 1.5,
     "bianSpecOffset": 32.0,
     "bianTextYOffset": 0.5,
-    "drawTitle": True,
+    "drawTitle": False,
     "drawFrame": False,
     "layers": {
         "frame": "端子排-框线",
@@ -109,7 +109,7 @@ def unique_block_name(label: str, name_counts: dict[str, int]) -> str:
     return label if name_counts[label] == 1 else "%s@%d" % (label, name_counts[label])
 
 
-def cluster_coordinate_bands(rows: list[dict], gap: float = 50.0) -> list[list[dict]]:
+def cluster_coordinate_bands(rows: list[dict], gap: float = COORDINATE_Y_TOLERANCE) -> list[list[dict]]:
     bands: list[list[dict]] = []
     for row in sorted(rows, key=lambda item: item["y"], reverse=True):
         if not bands or abs(bands[-1][-1]["y"] - row["y"]) > gap:
@@ -119,81 +119,39 @@ def cluster_coordinate_bands(rows: list[dict], gap: float = 50.0) -> list[list[d
     return bands
 
 
-def parse_vertical_coordinate_terminals(rows: list[dict]):
-    """旧式纵排坐标：相同 X 为一块物理端子排，按 Y 从上到下读取。"""
-    columns = []
-    for row in sorted(rows, key=lambda item: item["x"]):
-        column = next((item for item in columns if abs(item["x"] - row["x"]) <= COORDINATE_X_TOLERANCE), None)
-        if column is None:
-            column = {"x": row["x"], "rows": []}
-            columns.append(column)
-        column["rows"].append(row)
-
-    blocks = []
-    name_counts: dict[str, int] = {}
-    errors = []
-    for column_index, column in enumerate(sorted(columns, key=lambda item: item["x"]), start=1):
-        current = None
-        physical_group = "坐标列-%d" % column_index
-        if not any(row.get("isName") for row in column["rows"]):
-            sample = [row["text"] for row in sorted(column["rows"], key=lambda item: item["y"], reverse=True)
-                      if row.get("text")][:3]
-            sample_text = "、".join(sample)
-            errors.append(
-                "坐标列 %d（横坐标 %.2f）没有标「端子名」的端子排名称；该列示例文字：%s。"
-                "请在本列任意一行补写「端子排名称 端子名」"
-                % (column_index, column["x"], sample_text or "（空）")
-            )
-            continue
-        for row in sorted(column["rows"], key=lambda item: item["y"], reverse=True):
-            token = row["text"]
-            if row.get("isName"):
-                current = {"name": unique_block_name(token, name_counts), "label": token, "terminals": [], "segments": 1,
-                           "layoutGroup": "坐标端子排", "physicalGroup": physical_group,
-                           "sourceColumn": physical_group, "rowOrder": column_index}
-                blocks.append(current)
-            elif token:
-                if current is None:
-                    errors.append("坐标列 %d 的“%s”前面没有端子排名称" % (column_index, token))
-                else:
-                    current["terminals"].append(token)
-    return blocks, errors, "纵列"
-
-
 def parse_horizontal_coordinate_terminals(rows: list[dict]):
     """横排坐标：按水平带分组，再由名称的 X 位置划分每一块端子排。"""
     blocks = []
     name_counts: dict[str, int] = {}
     errors = []
-    block_order = 0
     for band_index, band in enumerate(cluster_coordinate_bands(rows), start=1):
         anchors = sorted((row for row in band if row.get("isName")), key=lambda item: item["x"])
         terminal_rows = sorted((row for row in band if not row.get("isName") and row["text"]),
                                key=lambda item: item["x"])
-        # 和纵列模式一致：没有归属的文字必须报出来，不能静默丢掉（漏标「端子名」会让整排端子从图上消失）。
+        # 没有归属的文字必须报出来，不能静默丢掉（漏标「端子名」会让整排端子从图上消失）。
         if not anchors:
             if terminal_rows:
                 errors.append("纵坐标 %.2f 附近的一排文字没有标「端子名」的端子排名称；示例文字：%s。"
                               "请在这一排补写「端子排名称 端子名」"
                               % (band[0]["y"], "、".join(row["text"] for row in terminal_rows[:3])))
             continue
-        orphans = [row["text"] for row in terminal_rows if row["x"] <= anchors[0]["x"]]
-        if orphans:
-            errors.append("纵坐标 %.2f 附近的“%s”左边没有端子排名称" % (band[0]["y"], "、".join(orphans[:3])))
+        # 名称左边的端子号并入本排第一块，名称写在一排中间或右端也能识别。
+        orphans = [row for row in terminal_rows if row["x"] <= anchors[0]["x"]]
         for anchor_index, anchor in enumerate(anchors):
             next_x = anchors[anchor_index + 1]["x"] if anchor_index + 1 < len(anchors) else float("inf")
             # 右端取闭区间：正好落在下一个名称横坐标上的文字归前一块，不会两边都不要。
-            terminals = [row for row in terminal_rows if anchor["x"] < row["x"] <= next_x]
+            terminals = (orphans if anchor_index == 0 else []) + [
+                row for row in terminal_rows if anchor["x"] < row["x"] <= next_x]
             if not terminals:
-                errors.append("端子排「%s」右侧没有识别到端子号" % anchor["text"])
+                errors.append("端子排「%s」附近没有识别到端子号" % anchor["text"])
                 continue
-            block_order += 1
             label = anchor["text"]
+            # 同一排的端子排共用一个物理排键，出图时仍画在同一排、从左到右排列。
             blocks.append({
                 "name": unique_block_name(label, name_counts), "label": label,
                 "terminals": [row["text"] for row in terminals], "segments": 1,
-                "layoutGroup": "坐标端子排", "physicalGroup": "坐标块-%d" % block_order,
-                "rowOrder": block_order, "sourceBand": band_index,
+                "layoutGroup": "坐标端子排", "physicalGroup": "坐标排-%d" % band_index,
+                "rowOrder": band_index, "sourceBand": band_index,
             })
     if not blocks:
         errors.append("坐标清单里没有标「端子名」的横向端子排")
@@ -201,7 +159,7 @@ def parse_horizontal_coordinate_terminals(rows: list[dict]):
 
 
 def parse_coordinate_terminals(text: str):
-    """自动识别纵列型或横排型“X,Y 文字”清单；仅行末「端子名」建立端子排，其余文字均为端子号。"""
+    """“X,Y 文字”清单始终按横排读取；仅行末「端子名」建立端子排，其余文字均为端子号。"""
     rows = []
     errors = []
     for line_number, raw in enumerate((text or "").splitlines(), start=1):
@@ -227,13 +185,7 @@ def parse_coordinate_terminals(text: str):
         return [], errors
     if not any(row.get("isName") for row in rows):
         return [], errors + ["坐标清单里没有标「端子名」的端子排名称。请写成「X 端子名」这种格式"]
-    anchors = [row for row in rows if row.get("isName")]
-    terminal_rows = [row for row in rows if not row.get("isName") and row["text"]]
-    vertical_matches = sum(1 for row in terminal_rows if any(abs(row["x"] - anchor["x"]) <= COORDINATE_X_TOLERANCE for anchor in anchors))
-    if terminal_rows and vertical_matches / len(terminal_rows) >= 0.5:
-        blocks, parse_errors, mode = parse_vertical_coordinate_terminals(rows)
-    else:
-        blocks, parse_errors, mode = parse_horizontal_coordinate_terminals(rows)
+    blocks, parse_errors, mode = parse_horizontal_coordinate_terminals(rows)
     errors.extend(parse_errors)
     for block in blocks:
         if not block["terminals"]:

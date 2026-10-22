@@ -44,7 +44,9 @@ class ZDDL2Tests(unittest.TestCase):
             runner.call("zddl2:e-line", [[1., 2.], [3., 4.], "test", 7]),
             runner.call("zddl2:e-text", ["A431", 2., 3., "test", 1, 2, 3., 1.5707963, 7]),
             runner.call("zddl2:e-poly", [[[1., 2.], [3., 4.], [5., 6.]], "test", 7]),
+            runner.call("zddl2:e-line", [[0., 0.], [5., 0.], "端子排-框线", 7]),
         ]
+        locks = []
         runner.mocks.update({
             "ssget": lambda *args: ["text"], "sslength": len,
             "ssname": lambda ss, i: ss[i], "zddl2:text": lambda en: "X、1",
@@ -57,10 +59,15 @@ class ZDDL2Tests(unittest.TestCase):
             "tblsearch": lambda *args: None, "zddl:ensure-layer": lambda *args: None,
             "entmake": lambda data: made.append(data) or True,
             "redraw": lambda: None, "princ": lambda *args: None,
+            "regapp": lambda name: name,
+            "zddl2:set-layer-lock": lambda name, lock: locks.append((name, bool(lock))),
         })
         runner.call("zddl2:work", [])
         entities = [e for e in made if e[0] in [(0, "LINE"), (0, "TEXT"), (0, "LWPOLYLINE")]]
-        self.assertEqual(3, len(entities))
+        self.assertEqual(4, len(entities))
+        # 辅助层先解锁、生成后再锁定；只有辅助层图元带 AA_ZDDL 标记
+        self.assertEqual([("端子排-框线", False), ("端子排-文字", False),
+                          ("端子排-框线", True), ("端子排-文字", True)], locks)
         for before, after in zip(source, entities):
             expected = []
             for code, value in before:
@@ -72,6 +79,8 @@ class ZDDL2Tests(unittest.TestCase):
                     expected.append((code, value))
             if before[0][1] == "LWPOLYLINE":
                 expected.append((38, 30.))
+            if before[1][1] == "端子排-框线":
+                expected.append([-3, ["AA_ZDDL", (1000, "ZDDL")]])
             self.assertEqual(expected, after)
 
     def test_actual_command_cleanup_on_success_and_error(self):
@@ -93,7 +102,7 @@ class ZDDL2Tests(unittest.TestCase):
                 "vl-catch-all-error-message": str,
                 "vl-catch-all-apply": caught,
             })
-            runner.call("c:zddl2", [])
+            runner.call("c:zddl", [])
             self.assertEqual(["begin", "end"], events)
 
     def test_actual_mtext_paragraphs_become_input_lines(self):
@@ -175,9 +184,61 @@ class ZDDL2Tests(unittest.TestCase):
         if not attachment.exists():
             self.skipTest("本机会话附件不可用")
         text = attachment.read_text(encoding="utf-8-sig")
-        params, _ = bridge.prepare(text, "UD:1、A630II、UD:2、B630II、UD:3、C630II、UD:4、N600、电压转接柜", "UP")
-        self.assertEqual(4, len(params["connections"]))
-        self.assertGreater(sum(len(b["terminals"]) for b in params["terminalBlocks"]), 50)
+        # 该附件是旧的纵列坐标清单；2026-10-22 起坐标端子排始终按横排读取，纵列清单会报“没有识别到端子号”。
+        with self.assertRaisesRegex(ValueError, "没有识别到端子号"):
+            bridge.prepare(text, "UD:1、A630II、UD:2、B630II、UD:3、C630II、UD:4、N600、电压转接柜", "UP")
+
+    def test_loose_coordinate_rows_match_engine(self):
+        # 坐标始终横排、容差 30：未对齐的横排、名称在中间及多排，LISP 与网页核心结果一致。
+        runner = StringRunner(self.funcs)
+        runner.mocks["eq"] = lambda a, b: a is b
+        cases = {
+            "0,0 ZD 端子名\n" + "\n".join("%d,%.1f %d" % (5 * i, (-8.0, 6.0)[i % 2], i) for i in range(1, 13)):
+                [("ZD", [str(i) for i in range(1, 13)])],
+            "0,0 1\n5,0 2\n10,2 ZD 端子名\n15,0 3\n20,0 4": [("ZD", ["1", "2", "3", "4"])],
+            "0,0 ZD 端子名\n5,0 1\n10,0 2\n0,-40 JD 端子名\n5,-40 1\n10,-40 2\n15,-40 3":
+                [("ZD", ["1", "2"]), ("JD", ["1", "2", "3"])],
+            "0,0 ZD 端子名\n5,0 1\n10,0 2\n30,0 JD 端子名\n35,0 1": [("ZD", ["1", "2"]), ("JD", ["1"])],
+        }
+        for text, expected in cases.items():
+            blocks, errors = engine.parse_coordinate_terminals(text)
+            self.assertEqual([], errors)
+            self.assertEqual(expected, [(b["label"], b["terminals"]) for b in blocks])
+            rows = []
+            for line in text.splitlines():
+                xy, token = line.split(" ", 1)
+                marked = token.endswith("端子名")
+                rows.append([float(xy.split(",")[0]), float(xy.split(",")[1]),
+                             token[:-3].strip() if marked else token, True if marked else None])
+            result = runner.call("zddl2:coord-horizontal", [rows])
+            self.assertEqual(expected, [(b[1], list(b[2])) for b in result[0]])
+            self.assertFalse(result[1])
+
+    def test_user_320_horizontal_rows_stay_four_rows(self):
+        # 用户 QW3 选中的 320 个旋转 90° 文字（4 排、40 块端子排，按对齐点坐标重建）。
+        # 同一排的端子排必须共用排键，出图仍为 4 排；曾因每块单独成排画成 40 排。
+        import json
+        items = json.loads((ROOT / "tests/fixtures/zddl_qw3_320_horizontal.json").read_text(encoding="utf-8"))
+        rows = [[x, y, t, None if t.isdigit() else True] for x, y, t in items]
+        runner = StringRunner(self.funcs)
+        runner.mocks["eq"] = lambda a, b: a is b
+        blocks, errors = runner.call("zddl2:coord-horizontal", [rows])
+        self.assertFalse(errors)
+        self.assertEqual(40, len(blocks))
+        self.assertEqual(320 - 40, sum(len(b[2]) for b in blocks))
+        groups = {}
+        for b in blocks:
+            groups.setdefault(b[3], []).append(b[1])
+        self.assertEqual([12, 5, 9, 14], [len(v) for v in groups.values()])
+        self.assertEqual(["1C5D", "ZD", "I14D", "UD"], [v[0] for v in groups.values()])
+        self.assertEqual(31, len(next(b[2] for b in blocks if b[1] == "YBD")))
+        cols = runner.call("zddl2:columns", [blocks])
+        self.assertEqual(4, len({p[4] for p in cols[0]}))
+        text = "\n".join("%.6f,%.6f %s" % (x, y, t if t.isdigit() else t + " 端子名") for x, y, t in items)
+        py_blocks, py_errors = engine.parse_coordinate_terminals(text)
+        self.assertEqual([], py_errors)
+        self.assertEqual([(b[1], list(b[2]), b[3]) for b in blocks],
+                         [(b["label"], b["terminals"], b["physicalGroup"]) for b in py_blocks])
 
 
 if __name__ == "__main__":

@@ -9689,30 +9689,34 @@
 ;;;     A2 否则井号紧挨的右边是数字 → 取向右扩展的连续数字（"35kV #1风机" → 1、"#12" → 12）；
 ;;;     A3 两边都不是数字 → 继续下一个井号。
 ;;;   规则 B（减号，仅在规则 A 未命中时）：减号指半角 "-" 或全角 "－"，只作分隔符，
-;;;     取最后一个减号之后出现的第一段连续数字（"1(2)SVG-501" → 501）。
+;;;     取“后面还有数字的最后一个减号”之后出现的第一段连续数字（"1(2)SVG-501" → 501；
+;;;     "A-5-B" 最后一个减号后没有数字，退到前一个减号 → 5，不会把 "-5" 当负数）。
 ;;;   规则 C（兜底）：以上都没有命中时取第一段连续整数位，即 kind 为 'FIRST。
 ;;;   规则 A、B 只处理连续整数位，不处理小数点和正负号；调用方按 kind 决定数值格式。
 ;;; ---------------------------------------------------------------------------------------
 (defun aa:num-target-span (str / len idx ch first-s first-e hash-s hash-e
-                                 hyphen-pos nxt-e)
+                                 hyphen-pos pending-hyphen nxt-e)
   (setq len (strlen str)
         idx 1
         first-s nil
         first-e nil
         hash-s nil
         hash-e nil
-        hyphen-pos nil)
-  ;; 第一遍：记住第一段连续整数位（兜底）和字符串中最后一个减号的位置。
+        hyphen-pos nil
+        pending-hyphen nil)
+  ;; 第一遍：记住第一段连续整数位（兜底），以及“后面还有数字的最后一个减号”的位置：
+  ;; 减号先记为待定，之后遇到数字才确认，结尾没有数字的减号不会覆盖前面已确认的位置。
   (while (<= idx len)
     (setq ch (substr str idx 1))
     (cond
       ((aa:digit-char-p ch)
        (if (null first-s) (setq first-s idx))
        (setq first-e idx)
+       (if pending-hyphen (setq hyphen-pos pending-hyphen))
        (setq idx (1+ idx)))
       (T
        (if (or (= ch "-") (= ch "－"))
-         (setq hyphen-pos idx))
+         (setq pending-hyphen idx))
        (setq idx (1+ idx))))
   )
   ;; 规则 A：从左到右逐个井号，紧挨的左边是数字则向左扩展，否则右边是数字则向右扩展；
@@ -9850,7 +9854,7 @@
 
 ;;; ---------------------------------------------------------------------------------------
 ;;; 功能: NU 的单个文字改写：按 aa:num-target-span 选目标数字后加 delta；井号/减号命中时
-;;;       只改这段整数位并保留前导零宽度，结果小于 0 返回 nil（由 NU 跳过并提示），
+;;;       只改这段整数位（整数增量保留前导零宽度，小数增量输出小数），结果小于 0 返回 nil（由 NU 跳过并提示），
 ;;;       其余情况沿用原有 aa:nu-find-first-number 流程（支持小数和正负号）。
 ;;; ---------------------------------------------------------------------------------------
 (defun aa:nu-rewrite-text (str delta / span token start end old-val new-str)
@@ -9862,10 +9866,15 @@
            end     (cadr span)
            old-val (atoi (substr str start (1+ (- end start))))
            ;; 结果小于 0 时不产生 "SVG--1" 这类文字，返回 nil 让调用方跳过。
-           ;; 按整数输出并保留原数字位宽：增量是小数时只取整数位（去末尾多余 0）。
-           new-str (if (>= (+ old-val delta) 0)
-                     (aa:num-pad-int (+ old-val delta) (1+ (- end start)))
-                     nil))
+           ;; 整数增量按整数输出并保留原数字位宽；小数增量按 aa:nu-format-number 输出小数
+           ;; （"SVG-501" +0.5 → "SVG-501.5"），不再被截断成原值。
+           new-str (cond
+                     ((< (+ old-val delta) 0) nil)
+                     ((= delta (fix delta))
+                      (aa:num-pad-int (+ old-val delta) (1+ (- end start))))
+                     (T
+                      (aa:nu-format-number (+ old-val delta)
+                                           (substr str start (1+ (- end start)))))))
      (if new-str
        (strcat
          (if (> start 1)
@@ -16584,8 +16593,10 @@
   )
 )
 
+;;; 功能: C1/C2/C3 把目标数字加 delta 并保留原位宽；结果小于 0 返回 nil（不产生 "SVG--1"）。
 (defun c1c2:change-number (s delta / span start len old new pre post)
-  (if (setq span (c1c2:first-number-span s))
+  (if (and (setq span (c1c2:first-number-span s))
+           (>= (+ (atoi (substr s (car span) (cadr span))) delta) 0))
     (progn
       (setq start (car span)
             len   (cadr span)
@@ -16703,6 +16714,9 @@
        ((not (c1c2:first-number-span txt))
         (vlax-release-object obj)
         (princ "\r\n选中文字中没有找到数字。"))
+       ((not (c1c2:change-number txt delta))
+        (vlax-release-object obj)
+        (princ "\r\n目标数字减小后小于 0，无法复制。"))
        ((not (setq base (getpoint "\r\n指定基点: ")))
         (vlax-release-object obj)
         (princ "\r\n已取消。"))
@@ -16728,6 +16742,9 @@
           (princ (strcat "\r\n[C" (cond ((= delta 1) "1") ((= delta -1) "2") ((= delta 2) "3") (T "")) "] 已完成复制，共放置 " (itoa count) " 个对象。"))
           (princ "\r\n已取消。")
         )
+        ;; txt 为 nil 说明下一份编号会小于 0，是自动停止而不是用户取消
+        (if (null txt)
+          (princ "\r\n编号已减到 0，停止复制。"))
        )
      )
     )

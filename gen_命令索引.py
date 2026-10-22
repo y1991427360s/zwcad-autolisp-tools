@@ -33,6 +33,17 @@ AICAD_DEFAULTS = {
     'UNLOAD_XXX': '卸载 AICAD 扩展插件（别名）',
 }
 
+# C# [CommandMethod] 命令的说明；源码有 /// <summary> 或 // 注释时优先使用注释。
+CS_DEFAULTS = {
+    'DWGWIN': '打开单实例图纸窗口管理器，汇总本机当前会话所有中望CAD图纸并跨进程切换。',
+    'AICADPANEL': '预留占位命令：已注册，但当前不执行任何操作。',
+    'AICADREPLACEPANEL': '切换 AICAD 查找替换浮动面板：已打开则关闭，未打开则显示。',
+    'HUAN': '切换 AICAD 查找替换浮动面板的别名，与 AICADREPLACEPANEL 行为相同。',
+    'UNLOADAICAD': '卸载 AICAD .NET 扩展插件，并调用 LISP 卸载入口清理注册环境。',
+}
+
+EXCLUDED_CS = {'obj', 'bin', '__pycache__', 'backups'}
+
 def files():
     out = []
     for p in ROOT.rglob('*.lsp'):
@@ -91,11 +102,77 @@ def extract(p, hints):
         out.append((n, p.relative_to(ROOT).as_posix(), i + 1, final_desc))
     return out
 
-def scan():
-    fs = files()
+def _read_text(path, skipped):
+    """按 UTF-8 严格读取；失败时记录相对路径并返回 None。"""
+    try:
+        return path.read_bytes().decode('utf-8')
+    except (OSError, UnicodeDecodeError):
+        skipped.append(path.relative_to(ROOT).as_posix())
+        return None
+
+def cs_files():
+    """V6 下所有 C# 源文件，排除 obj/bin/backups 等目录。"""
+    out = []
+    v6 = ROOT / 'V6'
+    if not v6.exists():
+        return out
+    for p in v6.rglob('*.cs'):
+        rel = p.relative_to(ROOT)
+        if any(part.lower() in EXCLUDED_CS for part in rel.parts[:-1]):
+            continue
+        if '.bak' in p.name.lower():
+            continue
+        out.append(p)
+    return sorted(out, key=lambda p: p.as_posix().lower())
+
+def _cs_comment_above(lines, index):
+    """读取 [CommandMethod] 上方紧邻的 /// <summary> 或 // 注释。"""
+    i = index - 1
+    block = []
+    while i >= 0:
+        s = lines[i].strip()
+        if s.startswith('///'):
+            block.append(s[3:].strip())
+        elif s.startswith('//'):
+            block.append(s[2:].strip())
+        elif not s:
+            if block:
+                break
+        else:
+            break
+        i -= 1
+    if not block:
+        return ''
+    text_block = ' '.join(reversed(block))
+    text_block = re.sub(r'</?summary>', '', text_block, flags=re.I)
+    return re.sub(r'\s+', ' ', text_block).strip()
+
+def extract_cs(path, skipped):
+    """扫描 C# [CommandMethod("XXX"...)]，返回 (命令名, 文件, 行号, 说明)。"""
+    content = _read_text(path, skipped)
+    if content is None:
+        return []
+    lines = content.splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        m = re.search(r'\[CommandMethod\("([A-Za-z0-9_]+)"', line)
+        if not m:
+            continue
+        name = m.group(1).upper()
+        desc = _cs_comment_above(lines, i) or CS_DEFAULTS.get(name, '')
+        out.append((name, path.relative_to(ROOT).as_posix(), i + 1, desc))
+    return out
+
+def scan_with_skipped():
+    """返回 (文件列表, 命令行, 被跳过文件)。不写文件，可在面板中安全复用。"""
+    skipped = []
+    fs = []
     hints = dict(AICAD_DEFAULTS)
-    for p in fs:
-        content = text(p)
+    for p in files():
+        content = _read_text(p, skipped)
+        if content is None:
+            continue
+        fs.append(p)
         header_part = content.split('(defun', 1)[0]
         for m in re.finditer(r'^;;;\s*-\s*([A-Za-z0-9_]+)\s*[:：]\s*(.+)$', header_part, re.M):
             n, d = m.group(1).upper(), m.group(2).strip()
@@ -106,14 +183,16 @@ def scan():
                 if n:
                     hints.setdefault(n.upper(), m.group(3).strip())
     rows = [r for p in fs for r in extract(p, hints)]
-    ribbon = ROOT / 'V6' / 'AICADRibbon' / 'AiRibbonPlugin.cs'
-    if ribbon.exists():
-        for i, line in enumerate(text(ribbon).splitlines(), 1):
-            if re.search(r'\[CommandMethod\("DWGWIN"', line):
-                rows.append(('DWGWIN', ribbon.relative_to(ROOT).as_posix(), i,
-                             '打开单实例图纸窗口管理器，汇总本机当前会话所有中望CAD图纸并跨进程切换。'))
-                fs.append(ribbon)
+    # C# [CommandMethod] 命令（V6 下全部 .cs）
+    for p in cs_files():
+        rows.extend(extract_cs(p, skipped))
+        if p not in fs:
+            fs.append(p)
     rows.sort(key=lambda r: (r[0], r[1], r[2]))
+    return fs, rows, skipped
+
+def scan():
+    fs, rows, _ = scan_with_skipped()
     return fs, rows
 
 def build_html(fs, rows, dup):
@@ -904,6 +983,11 @@ def generate(fs, rows):
     if dup:
         print('重复定义命令:', ', '.join(sorted(dup)))
 
+    # 顺带刷新代码地图 docs/CODE_MAP.md（命令/函数行号），供按行号定位而不通读整合文件
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import code_map
+    code_map.cmd_write(code_map.load())
+
 def check(fs, rows):
     errors = []
     for p in fs:
@@ -923,6 +1007,15 @@ def check(fs, rows):
         if b'\r\r\n' in b or re.search(rb'(?<!\r)\n', b):
             errors.append(f'{rel}: 存在混合换行')
     actual = {n for n, *_ in rows}
+    bad_desc = []
+    for n, f, ln, d in rows:
+        desc = (d or '').strip()
+        if (not desc or set(desc) <= set('=-*#_~` ') or desc.upper() == n
+                or len(desc) < 6):
+            bad_desc.append(f'{n} ({f}:{ln})')
+    if bad_desc:
+        errors.append('命令说明缺失或不合格（请在源码写 ;;; 功能: 注释头）：'
+                      + ', '.join(bad_desc))
     if MAIN.exists():
         main_actual = {n for n, *_ in extract(MAIN, {})}
         h = text(MAIN).split('(defun', 1)[0]
