@@ -58,8 +58,8 @@
 ;;;   - YAN   : 延长竖直直线统一间距，支持分组和上下方向控制。
 ;;;   - SYAN  : 将选中直线向上延长 5 个单位。
 ;;;   - XYAN  : 将选中直线向下延长 5 个单位。
-;;;   - SYI   : 预选对象中非竖直对象向上移动 5X，竖直直线向上拉伸 5X。
-;;;   - XYI   : 预选对象中非竖直对象向下移动 5X，竖直直线向下拉伸 5X。
+;;;   - SYI   : 预选对象中非竖直对象向上移动 5X，竖直直线向上拉伸 5X；自动补选短斜线左侧与水平线相交的竖直线。
+;;;   - XYI   : 预选对象中非竖直对象向下移动 5X，竖直直线向下拉伸 5X；自动补选短斜线左侧与水平线相交的竖直线。
 ;;;   - LL    : 水平/竖直连续画直线并实时预览，结束恢复正交、捕捉与跟踪设置。
 ;;;   - MM    : 水平/竖直移动并实时预览，第二点可捕捉或输入距离，偏斜自动投影。
 ;;;   - SS    : 水平/竖直拉伸并实时预览实体变形，第二点可捕捉或输入距离，偏斜自动投影。
@@ -116,7 +116,7 @@
 ;;;   - DB    : 删除每个选中文字末尾的 N 个字符。
 ;;;   - DF    : 删除每个选中文字开头的 N 个字符。
 ;;;   - DE    : 删除选中文字的最右侧括号及括号内容。
-;;;   - DE2   : 用最右侧括号内容替换括号前连续数字。
+;;;   - DE2   : 用最右侧括号内容替换括号前连续数字（数字带相同尾缀时一并替换）。
 ;;;   - DL1   : 创建电缆柜、电缆路径、电缆竖井相关的 1F / 2F 图层。
 ;;;   - AB    : 在每个选中文字末尾增加文字（空输入使用剪贴板）。
 ;;;   - AF    : 在每个选中文字开头增加文字（空输入使用剪贴板）。
@@ -5503,8 +5503,49 @@
 )
 
 ;;; --- SYI / XYI：非竖直对象移动，竖直直线单端拉伸 ---
+;; 自动补选竖直线：短斜线左端 X 处、与选中水平线相交且未被选中的竖直 LINE。
+;; 短斜线须有一端落在该水平线上；查找用小窗口 ssget "_C"（对象需在当前视图内）。
+(defun aa:msv-find-verticals (ss horiz slashes / tol found h hp1 hp2 hy hx1 hx2 s sp1 sp2 lx
+                              pt cs j ce ced cp1 cp2)
+  (setq tol 0.01
+        found (ssadd))
+  (foreach h horiz
+    (setq hp1 (car h) hp2 (cadr h)
+          hy (cadr hp1)
+          hx1 (min (car hp1) (car hp2))
+          hx2 (max (car hp1) (car hp2)))
+    (foreach s slashes
+      (setq sp1 (car s) sp2 (cadr s)
+            lx (min (car sp1) (car sp2)))
+      (if (and (or (<= (abs (- (cadr sp1) hy)) tol)
+                   (<= (abs (- (cadr sp2) hy)) tol))
+               (<= (- hx1 tol) lx (+ hx2 tol)))
+        (progn
+          (setq pt (list lx hy 0.0)
+                cs (ssget "_C"
+                          (trans (list (- lx 0.05) (- hy 0.05) 0.0) 0 1)
+                          (trans (list (+ lx 0.05) (+ hy 0.05) 0.0) 0 1)
+                          '((0 . "LINE")))
+                j 0)
+          (if cs
+            (repeat (sslength cs)
+              (setq ce (ssname cs j)
+                    ced (entget ce)
+                    cp1 (cdr (assoc 10 ced))
+                    cp2 (cdr (assoc 11 ced)))
+              (if (and (not (ssmemb ce ss))
+                       (not (ssmemb ce found))
+                       (<= (abs (- (car cp1) (car cp2))) tol)
+                       (<= (abs (- (car cp1) lx)) tol)
+                       (<= (- (min (cadr cp1) (cadr cp2)) tol) hy (+ (max (cadr cp1) (cadr cp2)) tol)))
+                (ssadd ce found))
+              (setq j (1+ j))))))))
+  found
+)
+
 (defun aa:move-stretch-vertical-cmd (tag hint up-p / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
-                                      ss move-ss i ent ed p1 p2 delta x tol top-code top-y)
+                                      ss move-ss i ent ed p1 p2 delta x tol top-code top-y
+                                      verts horiz slashes found)
   (aa:cmd-begin tag)
   (if (setq ss (ssget "_I"))
     (progn
@@ -5516,6 +5557,7 @@
               move-ss (ssadd)
               i 0
               tol 1e-8)
+        ;; 1. 分类：竖直线待拉伸；其余对象待移动；同时记下水平线和短斜线供自动补选
         (repeat (sslength ss)
           (setq ent (ssname ss i)
                 ed (entget ent))
@@ -5523,27 +5565,46 @@
             (progn
               (setq p1 (cdr (assoc 10 ed))
                     p2 (cdr (assoc 11 ed)))
-              (if (<= (abs (- (car p1) (car p2))) tol)
-                (progn
-                  ;; 竖直线只移动朝向 hint 的端点，形成单端拉伸。
-                  (if up-p
-                    (if (>= (cadr p1) (cadr p2))
-                      (setq top-code 10 top-y p1)
-                      (setq top-code 11 top-y p2))
-                    (if (<= (cadr p1) (cadr p2))
-                      (setq top-code 10 top-y p1)
-                      (setq top-code 11 top-y p2)))
-                  ;; 向上取上端、向下取下端，端点沿命令方向延伸。
-                  (setq top-y (list (car top-y) (+ (cadr top-y) delta) (caddr top-y)))
-                  (entmod (subst (cons top-code top-y) (assoc top-code ed) ed)))
-                (ssadd ent move-ss)))
+              (cond
+                ((<= (abs (- (car p1) (car p2))) tol)
+                 (setq verts (cons ent verts)))
+                (T
+                 (if (<= (abs (- (cadr p1) (cadr p2))) tol)
+                   (setq horiz (cons (list p1 p2) horiz))
+                   (if (< (distance p1 p2) 5.0)
+                     (setq slashes (cons (list p1 p2) slashes))))
+                 (ssadd ent move-ss))))
             (ssadd ent move-ss))
           (setq i (1+ i)))
+        ;; 2. 自动补选短斜线左侧、与水平线相交的竖直线
+        (setq found (if (and horiz slashes) (aa:msv-find-verticals ss horiz slashes) (ssadd))
+              i 0)
+        (repeat (sslength found)
+          (setq verts (cons (ssname found i) verts)
+                i (1+ i)))
+        ;; 3. 竖直线只移动朝向 hint 的端点，形成单端拉伸。
+        (foreach ent verts
+          (setq ed (entget ent)
+                p1 (cdr (assoc 10 ed))
+                p2 (cdr (assoc 11 ed)))
+          (if up-p
+            (if (>= (cadr p1) (cadr p2))
+              (setq top-code 10 top-y p1)
+              (setq top-code 11 top-y p2))
+            (if (<= (cadr p1) (cadr p2))
+              (setq top-code 10 top-y p1)
+              (setq top-code 11 top-y p2)))
+          ;; 向上取上端、向下取下端，端点沿命令方向延伸。
+          (setq top-y (list (car top-y) (+ (cadr top-y) delta) (caddr top-y)))
+          (entmod (subst (cons top-code top-y) (assoc top-code ed) ed)))
         (if (> (sslength move-ss) 0)
           (command "_.MOVE" move-ss "" '(0.0 0.0 0.0) (list 0.0 delta 0.0)))
         (redraw)
         (princ (strcat "\r\n已完成：非竖直对象" hint "移动 " (rtos (abs delta) 2 3)
-                       "，竖直直线" hint "拉伸相同距离。")))
+                       "，竖直直线" hint "拉伸相同距离"
+                       (if (> (sslength found) 0)
+                         (strcat "（自动补选竖直线 " (itoa (sslength found)) " 条）。")
+                         "。"))))
       )
     (princ "\r\n请先选择对象，再输入命令。"))
   (aa:cmd-end)
@@ -6924,17 +6985,34 @@
 ;;; =======================================================================================
 ;;; 命令: LAN
 ;;; 功能: 竖直线/斜线/水平线联动复制+移动插件。
-;;;       选中 x 条竖直直线时，副本右移 5*x 单位；S = 向上 5，X = 向下 5
-;;;       所有对象先原地复制，再对副本执行移动/变形，原始对象不动。
-;;;       水平线：副本上/下移 5，左端缩短 5*x（右端不动）
+;;;       连续模式：x 条竖直线相邻间距均为 5 时，副本右移 5*x 单位；
+;;;       间隔模式：竖直线相邻间距均大于 5（如 4/20/36/52 号端子）时，副本各右移 5 单位。
+;;;       S = 向上 5，X = 向下 5；所有对象先原地复制，再对副本执行移动/变形，原始对象不动。
+;;;       水平线：副本上/下移 5；连续模式左端缩短 5*x，间隔模式左端对齐最左竖线副本（右端均不动）
 ;;; =======================================================================================
 
-(defun lan-get-option (vert_count move_right / kw)
+;; 按竖直线 X 坐标判断模式：相邻间距全为 5 → "C"（连续）；全大于 5 → "S"（间隔）；否则 nil
+(defun lan-vert-mode (vert_lines / xs prev gaps)
+  (setq xs (aa:merge-sort
+             (mapcar '(lambda (e) (car (cdr (assoc 10 (entget e))))) vert_lines)
+             '<))
+  (setq prev (car xs))
+  (foreach x (cdr xs)
+    (setq gaps (cons (- x prev) gaps)
+          prev x))
+  (cond
+    ((vl-every '(lambda (g) (< (abs (- g 5.0)) 0.01)) gaps) "C")
+    ((vl-every '(lambda (g) (> g 5.01)) gaps) "S")
+  )
+)
+
+(defun lan-get-option (vert_count move_right mode / kw)
   (initget "Shang Xia")
   (setq kw
     (getkword
       (strcat "\r\n检测到 " (itoa vert_count)
-              " 条竖直线，副本将右移 " (rtos move_right 2 0)
+              (if (equal mode "S") " 条间隔竖直线" " 条连续竖直线")
+              "，副本将右移 " (rtos move_right 2 0)
               " 单位。请选择方向 [向上(Shang)/向下(Xia)] <向上>: ")))
 
   (cond
@@ -6946,7 +7024,7 @@
 (defun c:LAN ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss total_count
                vert_lines  horiz_lines  diag_lines
                vert_count  horiz_count  diag_count
-               opt  move_right  dy
+               opt  move_right  dy  mode  min_x
                i  ent  copy_ent  entdata
                pt1 pt2 new_pt1 new_pt2 )
   (aa:cmd-begin "LAN")
@@ -7003,11 +7081,16 @@
      (exit))
   )
 
-  ;; 4. 计算移动量
-  (setq move_right (* 5 vert_count))
+  ;; 4. 判断连续/间隔模式并计算移动量
+  (setq mode (lan-vert-mode vert_lines))
+  (if (null mode)
+    (progn
+      (princ "\r\n错误：竖直线间距混杂（部分相距 5、部分更远），请分批选择。")
+      (exit)))
+  (setq move_right (if (equal mode "S") 5.0 (* 5 vert_count)))
 
   ;; 5. 获取 S / X 选项
-  (setq opt (lan-get-option vert_count move_right))
+  (setq opt (lan-get-option vert_count move_right mode))
   (if (null opt)
     (progn (princ "\r\n已取消。") (exit)))
 
@@ -7022,6 +7105,8 @@
 
     (setq new_pt1 (list (+ (car pt1) move_right) (cadr pt1) (caddr pt1))
           new_pt2 (list (+ (car pt2) move_right) (cadr pt2) (caddr pt2)))
+    (if (or (null min_x) (< (car new_pt1) min_x))
+      (setq min_x (car new_pt1)))
 
     (if (> (cadr new_pt1) (cadr new_pt2))
       (if (> dy 0)
@@ -7052,7 +7137,8 @@
     (entmod entdata)
   )
 
-  ;; 8. 处理水平直线：复制 → 上/下移 5 → 左端缩短 move_right（右端不动）
+  ;; 8. 处理水平直线：复制 → 上/下移 5 → 左端缩短（右端不动）
+  ;;    连续模式左端右移 move_right；间隔模式左端直接对齐最左竖线副本的 X
   (foreach ent horiz_lines
     (setq copy_ent (entmakex (entget ent))
           entdata  (entget copy_ent)
@@ -7060,10 +7146,12 @@
           pt2      (cdr (assoc 11 entdata)))
 
     (if (< (car pt1) (car pt2))
-      (setq new_pt1 (list (+ (car pt1) move_right) (+ (cadr pt1) dy) (caddr pt1))
+      (setq new_pt1 (list (if (equal mode "S") min_x (+ (car pt1) move_right))
+                          (+ (cadr pt1) dy) (caddr pt1))
             new_pt2 (list (car pt2)                 (+ (cadr pt2) dy) (caddr pt2)))
       (setq new_pt1 (list (car pt1)                 (+ (cadr pt1) dy) (caddr pt1))
-            new_pt2 (list (+ (car pt2) move_right)  (+ (cadr pt2) dy) (caddr pt2)))
+            new_pt2 (list (if (equal mode "S") min_x (+ (car pt2) move_right))
+                          (+ (cadr pt2) dy) (caddr pt2)))
     )
 
     (setq entdata (subst (cons 10 new_pt1) (assoc 10 entdata) entdata))
@@ -7077,7 +7165,9 @@
             "\r\n副本：竖直线 & 斜线右移 " (rtos move_right 2 0)
             " 单位 + " (if (> dy 0) "向上" "向下") " 5 单位；"
             "\r\n      水平线 " (if (> dy 0) "向上" "向下")
-            " 5 单位 + 左端缩短 " (rtos move_right 2 0) " 单位（右端不动）。"))
+            (if (equal mode "S")
+              " 5 单位 + 左端对齐最左竖线副本（右端不动）。"
+              (strcat " 5 单位 + 左端缩短 " (rtos move_right 2 0) " 单位（右端不动）。"))))
   (aa:cmd-end)
 )
 
@@ -16775,6 +16865,7 @@
 ;; DE / DE2  括号处理（支持半角()、全角（）和批量选择）
 ;;   DE  : 删除括号及括号内容        "DS-10(11)" -> "DS-10"
 ;;   DE2 : 用括号内容替换括号前数字  "DS-10(11)" -> "DS-11"
+;;         数字带相同尾缀时连尾缀替换  "A630I(640I)" -> "A640I"
 ;; ============================================================
 
 ;; 查找子串最后一次出现位置（0 基），无则 nil
@@ -16812,6 +16903,34 @@
   (substr s 1 n)
 )
 
+;; 取字符串最后一个半角数字之后的尾缀；无数字返回 nil
+(defun de:digit-tail (s / n ch)
+  (setq n (strlen s))
+  (while (and (> n 0)
+              (setq ch (substr s n 1))
+              (not (and (>= (ascii ch) 48) (<= (ascii ch) 57))))
+    (setq n (1- n))
+  )
+  (if (> n 0)
+    (substr s (1+ n))
+    nil)
+)
+
+;; DE2 去掉括号前要被替换的部分：
+;; 括号内容为“数字+尾缀”（如 640I）且括号前以“数字+同尾缀”结尾（如 A630I）时，
+;; 连尾缀一起去掉（A630I -> A）；否则只去掉末尾连续数字（DS-10 -> DS-）
+(defun de:strip-replace-target (before inner / tail head)
+  (setq tail (de:digit-tail inner))
+  (if (and tail
+           (> (strlen tail) 0)
+           (> (strlen before) (strlen tail))
+           (= (substr before (1+ (- (strlen before) (strlen tail)))) tail)
+           (setq head (substr before 1 (- (strlen before) (strlen tail))))
+           (/= (de:rstrip-digits head) head))
+    (de:rstrip-digits head)
+    (de:rstrip-digits before))
+)
+
 ;; 返回最右侧完整括号对：（左位置 右位置 左括号 右括号）
 (defun de:find-pair (txt / pa pb posR openCh closeCh posL)
   (setq pa (de:rfind txt ")")
@@ -16847,7 +16966,7 @@
             after (substr txt (+ posR (strlen closeCh) 1)))
       (if (= mode 0)
         (strcat before after)
-        (strcat (de:rstrip-digits before) inner after)))
+        (strcat (de:strip-replace-target before inner) inner after)))
     nil)
 )
 

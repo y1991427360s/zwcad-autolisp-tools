@@ -1058,3 +1058,36 @@
 - 检查：`tools/check_nu_c1c2_target_static.py` 同步更新 Python 参照与用例（20 条任务用例 + 39 条补充用例，650 次断言全部一致）；用修改前备份反跑可复现 `A-5-B` → `A-3-B` 等失败，证明用例有效；全量检查结果见下。
 - 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
 - AutoCAD 状态：待同步（与 10-22 22:42:01 条目合并同步）。
+
+## 2026-10-23 11:30:54 中望 LAN 支持间隔竖直线
+
+- 中望完成时间：2026-10-23 11:30:54 +08:00。
+- 命令/模块：`LAN`（新增 `lan-vert-mode`，修改 `lan-get-option`、`c:LAN`）。
+- 修改：按竖直线 X 坐标排序后判断模式。相邻间距全为 5 为连续模式，行为不变：副本右移 5×条数，水平线左端缩短 5×条数。相邻间距全大于 5 为间隔模式（如 4/20/36/52 号端子）：竖直线与斜线副本各右移 5，水平线副本左端对齐最左竖线副本的 X，右端不动。间距混杂（部分为 5、部分更远）时报错退出，提示分批选择。上/下延长 5 的逻辑不变；命令提示显示连续/间隔模式。未新增、删除或改名命令。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `44d404a4add4145254e697b01d1f6ea62b06d50b67f97e190fdd3182abe90c8b`（修改前 `4e12f02fcb9ba64ebec59c98213d7d9eef68f8dcb562ac1aaee1b228b1caa7b8`）；修改前字节备份 `AA整合版本.lsp.bak-lan-spaced-20261023-112824`。
+- 检查：`python tools/check_all_static.py` ALL PASS；`python gen_命令索引.py` 与 `python scripts/audit_lsp.py --write` 已重新生成；UTF-8 无 BOM、无替换字符、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步（按 CP936/CRLF 局部移植 `lan-vert-mode`、`lan-get-option`、`c:LAN`）。
+
+## 2026-10-23 12:04:32 中望 DE2 括号内数字带尾缀时一并替换
+
+- 中望完成时间：2026-10-23 12:04:32 +08:00。
+- 命令/模块：`DE2`（新增 `de:digit-tail`、`de:strip-replace-target`，修改 `de:strip`）；`DE` 行为不变。
+- 问题：`A630I(640I)` 执行 DE2 得到 `A630I640I`，原因是括号前以字母 `I` 结尾，只去末尾数字时什么也没去掉。
+- 修改：括号内为“数字+尾缀”（如 `640I`），括号前以“数字+同一尾缀”结尾（如 `A630I`）时，连尾缀一起替换，`A630I(640I)` → `A640I`，全角括号同样适用。其余情况仍只替换末尾连续数字（`DS-10(11)` → `DS-11`）；尾缀前没有数字时不去尾缀（`XI(5I)` → `XI5I`）。文件头命令清单的 DE2 说明已更新。未新增、删除或改名命令。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `5841ae9332db95c7288c4dd81deeb1c31ff22088a5fd96a156513df57a537ebd`（修改前 `44d404a4add4145254e697b01d1f6ea62b06d50b67f97e190fdd3182abe90c8b`，该备份已含同日未提交的 LAN 改动）；修改前字节备份 `AA整合版本.lsp.bak-de2-suffix-20261023-120148`。
+- 检查：`python tools/check_all_static.py` ALL PASS；12 条 DE/DE2 用例在离线 LISP 解释器中执行真实源码，全部符合预期（测试脚本放在临时目录，未加入项目）；`python gen_命令索引.py` 与 `python scripts/audit_lsp.py --write` 已重新生成；UTF-8 无 BOM、无替换字符、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步（按 CP936/CRLF 局部移植 `de:digit-tail`、`de:strip-replace-target`、`de:strip`；GBK 下 `substr` 按字节，需核对全角括号与中文尾缀）。
+
+## 2026-10-23 12:14:35 中望 SYI / XYI 自动补选竖直线
+
+- 中望完成时间：2026-10-23 12:14:35 +08:00。
+- 命令/模块：`SYI`、`XYI`（新增 `aa:msv-find-verticals`，重构 `aa:move-stretch-vertical-cmd`）。
+- 问题：电缆出线处的竖直线很难框选，原来必须连竖直线一起预选才会被拉伸。
+- 修改：预选集中有水平 LINE 和短斜线（长度 < 5 的非水平、非竖直 LINE，且有一端落在该水平线上）时，在每条短斜线左端 X 与水平线 Y 的交点处用 ±0.05 小窗口 `ssget "_C"` 查找 LINE；X 与斜线左端一致、Y 范围跨过水平线、且未被选中的竖直线自动加入单端拉伸。已预选的竖直线不重复处理。处理顺序改为先分类收集，再统一拉伸竖直线，最后 MOVE 其余对象；位移、方向和 undo 不变；完成提示会显示自动补选的条数。文件头 SYI/XYI 说明已更新。未新增、删除或改名命令。
+- 已知限制：`ssget "_C"` 只能找到当前视图内可见的对象。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `f6d4431369f6215ba546befc191fed2c989fe2e80735eb8ad5a306590d06fd44`（修改前 `5841ae9332db95c7288c4dd81deeb1c31ff22088a5fd96a156513df57a537ebd`，该备份已含同日未提交的 LAN、DE2 改动）；修改前字节备份 `AA整合版本.lsp.bak-syi-auto-20261023-121031`。
+- 检查：用用户提供的 QW3 坐标（1 条水平线、4 条短斜线、4 条竖线，另加 2 条干扰竖线）在离线 LISP 解释器中执行 `aa:msv-find-verticals` 真实源码，补选结果正好是 4 条目标竖线，竖线已预选时不重复补选；`python tools/check_all_static.py` ALL PASS（第一次运行时 `check_zz_static.py` 的 5 倍加速比基准在并行负载下未达标，单独运行通过，重跑全量检查 ALL PASS）；索引、代码地图和审计已重新生成；UTF-8 无 BOM、无替换字符、纯 CRLF。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后实机确认。
+- AutoCAD 状态：待同步（按 CP936/CRLF 局部移植 `aa:msv-find-verticals`、`aa:move-stretch-vertical-cmd`）。
