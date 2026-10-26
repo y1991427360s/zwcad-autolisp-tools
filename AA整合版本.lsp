@@ -23909,21 +23909,42 @@
   (and (< (abs (- (car (car ln)) (car (cadr ln)))) 0.01)
        (> (abs (- (cadr (car ln)) (cadr (cadr ln)))) 1.0)))
 
-(defun bdl:edge (cx ylo yhi / best d y ln)
-  ;; 原理号上下 4 以内、跨过 cx 的水平线即端子排边线：返回 (边线 Y 方向)，方向 -1 向下出线、1 向上出线
-  (setq best nil)
+(defun bdl:edge (cx ylo yhi / below above d y ln)
+  ;; 原理号上下 4 以内、跨过 cx 的水平线：返回 (下方最近 上方最近)，各为 (距离 Y) 或 nil。
+  ;; 文字两端允许压线 0.5（手工补的原理号常比格子略长）
+  (setq below nil above nil)
   (foreach ln (bdl:cross-lines (list (- cx 0.05) (- ylo 4.0) 0.0) (list (+ cx 0.05) (+ yhi 4.0) 0.0))
     (if (bdl:horizontal-p ln)
       (progn
         (setq y (cadr (car ln)))
-        (cond
-          ((<= y ylo)
-           (setq d (- ylo y))
-           (if (or (null best) (< d (car best))) (setq best (list d y -1))))
-          ((>= y yhi)
-           (setq d (- y yhi))
-           (if (or (null best) (< d (car best))) (setq best (list d y 1))))))))
-  (if best (cdr best)))
+        (if (<= y (+ ylo 0.5))
+          (progn
+            (setq d (max 0.0 (- ylo y)))
+            (if (or (null below) (< d (car below))) (setq below (list d y)))))
+        (if (>= y (- yhi 0.5))
+          (progn
+            (setq d (max 0.0 (- y yhi)))
+            (if (or (null above) (< d (car above))) (setq above (list d y))))))))
+  (list below above))
+
+(defun bdl:direction (items / los his lo-sp hi-sp nb na db da e)
+  ;; 整组判断出线方向：1 向上、-1 向下、nil 判断不了。
+  ;; ZDDL 向下出线的原理号底端对齐（贴下边线），向上出线顶端对齐；长短不一时据此判断，否则看哪侧边线更近
+  (setq los (mapcar 'cadr items) his (mapcar 'caddr items)
+        lo-sp (- (apply 'max los) (apply 'min los))
+        hi-sp (- (apply 'max his) (apply 'min his))
+        nb 0 na 0 db 0.0 da 0.0)
+  (foreach e (mapcar 'cadddr items)
+    (if (car e) (setq nb (1+ nb) db (+ db (car (car e)))))
+    (if (cadr e) (setq na (1+ na) da (+ da (car (cadr e))))))
+  (cond
+    ((and (< lo-sp 0.2) (> hi-sp 0.2)) -1)
+    ((and (< hi-sp 0.2) (> lo-sp 0.2)) 1)
+    ((> nb na) -1)
+    ((> na nb) 1)
+    ((= nb 0) nil)
+    ((<= db da) -1)
+    (T 1)))
 
 (defun bdl:cell-center (cx yin / left right x ln)
   ;; 端子格左右竖线的中点；找不到格线（如已 ZDDLD）时用原理号中心 X
@@ -24002,75 +24023,9 @@
       (setq hit (car t2))))
   hit)
 
-(defun bdl:on-cable (moved x y / hit g)
-  ;; (x, y) 落在某根待让行电缆线上（含两端 0.1 容差）时返回该电缆线
-  (setq hit nil)
-  (foreach g moved
-    (if (and (null hit)
-             (< (abs (- (car g) y)) 0.05)
-             (<= (- (cadr g) 0.1) x (+ (caddr g) 0.1)))
-      (setq hit g)))
-  hit)
-
-(defun bdl:shift-cables (moved dy / ss i en ed typ p1 p2 code pt best g m obj n)
-  ;; 与 XYI 相同的让行：电缆线、短斜线、箭头、电缆文字整体移动 dy，引线只拉伸电缆线那一端；返回处理的图元数
-  (setq ss (ssget "_X" (list '(0 . "LINE,LWPOLYLINE,TEXT,MTEXT") (cons 410 (getvar "CTAB"))))
-        i 0 n 0)
-  (if ss
-    (repeat (sslength ss)
-      (setq en (ssname ss i) i (1+ i)
-            ed (entget en) typ (cdr (assoc 0 ed)) obj nil code nil)
-      (cond
-        ((= typ "LINE")
-         (setq p1 (cdr (assoc 10 ed)) p2 (cdr (assoc 11 ed)))
-         (cond
-           ((bdl:vertical-p (list p1 p2))
-            (cond
-              ((bdl:on-cable moved (car p1) (cadr p1)) (setq code 10 pt p1))
-              ((bdl:on-cable moved (car p2) (cadr p2)) (setq code 11 pt p2))))
-           ((bdl:horizontal-p (list p1 p2))
-            (if (and (equal (cdr (assoc 62 ed)) 3)
-                     (setq g (bdl:on-cable moved (car p1) (cadr p1)))
-                     (< (abs (- (min (car p1) (car p2)) (cadr g))) 0.05)
-                     (< (abs (- (max (car p1) (car p2)) (caddr g))) 0.05))
-              (setq obj en)))
-           ((and (< (distance p1 p2) 5.0)
-                 (or (bdl:on-cable moved (car p1) (cadr p1))
-                     (bdl:on-cable moved (car p2) (cadr p2))))
-            (setq obj en))))
-        ((= typ "LWPOLYLINE")
-         (if (= (cdr (assoc 90 ed)) 3)
-           (progn
-             (setq best nil)
-             (foreach pt ed
-               (if (= (car pt) 10)
-                 (if (or (null best) (> (cadr pt) (car best)))
-                   (setq best (cdr pt)))))
-             (if (and best (bdl:on-cable moved (car best) (cadr best)))
-               (setq obj en)))))
-        (T
-         ;; 电缆文字写在线上方 0.5、电缆线右端往左 60 以内，右端外可能还有 JM/BH 的红字；
-         ;; 只认右端附近，避免长电缆线左段同高度的其他文字被带走
-         (setq pt (cdr (assoc 10 ed)) g nil)
-         (foreach m moved
-           (if (and (null g)
-                    (<= (car m) (cadr pt) (+ (car m) 4.0))
-                    (<= (max (cadr m) (- (caddr m) 65.0)) (car pt) (+ (caddr m) 80.0)))
-             (setq g m)))
-         (if g (setq obj en))))
-      (if code
-        (if (entmod (subst (cons code (list (car pt) (+ (cadr pt) dy) (caddr pt))) (assoc code ed) ed))
-          (setq n (1+ n))))
-      (if obj
-        (if (not (vl-catch-all-error-p
-                   (vl-catch-all-apply 'vla-move
-                     (list (vlax-ename->vla-object obj) (vlax-3d-point 0.0 0.0 0.0) (vlax-3d-point 0.0 dy 0.0)))))
-          (setq n (1+ n))))))
-  n)
-
 (defun bdl:work (/ ss i en bbox items it cx edge pin s kw cen x used xs minx maxx
                    greens tips k run lastk free g stack ycab p tip linr best bestd d gtip
-                   layers lname ok ents count moved nshift)
+                   layers lname ok ents count)
   (princ "\n[BDL] 选择后补的原理号文字（同一根电缆的一起选），空格确认：")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))
   (if ss
@@ -24087,27 +24042,35 @@
                                     (bdl:edge cx (aa:bbox-bottom-y bbox) (aa:bbox-top-y bbox)))
                               items)))))
       (setq items (reverse items) ok T pin nil s nil)
-      (foreach it items
-        (if (setq edge (nth 3 it))
-          (if pin
-            (if (or (/= s (cadr edge)) (> (abs (- pin (car edge))) 1.0))
-              (setq ok nil))
-            (setq pin (car edge) s (cadr edge)))))
+      (if items
+        (progn
+          ;; 先整组定方向，再取该侧边线；同一根电缆的原理号边线应在同一高度
+          (setq s (bdl:direction items))
+          (if (null s)
+            (progn
+              ;; 找不到端子排边线（如已 ZDDLD）且原理号等长时询问方向
+              (initget "Shang Xia")
+              (setq kw (getkword "\n[BDL] 未找到端子排边线，出线方向 [向上(Shang)/向下(Xia)] <向下>: ")
+                    s (if (equal kw "Shang") 1 -1))))
+          (foreach it items
+            (if (setq edge (if (= s -1) (car (nth 3 it)) (cadr (nth 3 it))))
+              (if pin
+                (if (> (abs (- pin (cadr edge))) 1.0)
+                  (setq ok nil)
+                  (setq pin (if (= s -1) (max pin (cadr edge)) (min pin (cadr edge)))))
+                (setq pin (cadr edge)))))
+          ;; 该侧没有边线时按 ZDDL 原理号距边 2 反推
+          (if (null pin)
+            (setq pin (if (= s 1)
+                        (+ (apply 'max (mapcar 'caddr items)) 2.0)
+                        (- (apply 'min (mapcar 'cadr items)) 2.0))))))
       (cond
         ((null items)
          (princ "\n[BDL] 未读到原理号文字的范围。"))
         ((not ok)
-         (princ "\n[BDL] 所选原理号不在同一排端子的同一侧，请只选同一根电缆的原理号。"))
+         (princ (strcat "\n[BDL] 所选原理号" (if (= s 1) "上" "下")
+                        "方的端子排边线高度不一致（相差超过 1），请只选同一排端子上同一根电缆的原理号。")))
         (T
-         ;; 找不到端子排边线（如已 ZDDLD）时询问方向，按 ZDDL 原理号距边 2 反推边线
-         (if (null pin)
-           (progn
-             (initget "Shang Xia")
-             (setq kw (getkword "\n[BDL] 未找到端子排边线，出线方向 [向上(Shang)/向下(Xia)] <向下>: ")
-                   s (if (equal kw "Shang") 1 -1)
-                   pin (if (= s 1)
-                         (+ (apply 'max (mapcar 'caddr items)) 2.0)
-                         (- (apply 'min (mapcar 'cadr items)) 2.0)))))
          ;; 2. 引线 X：端子格中心，已有引线时错开 1.5
          (setq used nil)
          (foreach it items
@@ -24134,21 +24097,8 @@
          (cond
            (free (setq ycab (+ pin (* s (+ 10.0 (* 5.0 free))))))
            ((< lastk 0) (setq ycab (+ pin (* s 10.0))))
-           (T
-            (setq p (getpoint "\n[BDL] 电缆组中没有空行，点插入位置（该行及外侧电缆自动让出 5）<接在最后一根之后>: "))
-            (if p
-              (progn
-                ;; 按 5 的行距对齐到最近一行
-                (setq k (fix (+ 0.5 (/ (- (* s (- (cadr (trans p 1 0)) pin)) 10.0) 5.0))))
-                (if (< k 0) (setq k 0))
-                (setq ycab (+ pin (* s (+ 10.0 (* 5.0 k))))))
-              (setq ycab (+ pin (* s (+ 10.0 (* 5.0 (1+ lastk)))))))
-            ;; 点到已有电缆的行：该行及更外侧的电缆稍后整体外移 5（同 XYI/SYI）
-            (setq moved nil)
-            (if (bdl:slot-line greens ycab minx)
-              (foreach g stack
-                (if (>= (* s (- (car g) pin)) (- (* s (- ycab pin)) 0.5))
-                  (setq moved (cons g moved)))))))
+           ;; 没有空行：接在最后一根之后
+           (T (setq ycab (+ pin (* s (+ 10.0 (* 5.0 (1+ lastk))))))))
          ;; 4. 箭头与文字位置对齐最近一根已有电缆；没有电缆时让用户指定箭头尖端
          (setq tip nil linr nil best nil bestd nil)
          (foreach g stack
@@ -24172,7 +24122,6 @@
                  (if (not (tblsearch "STYLE" "HZ"))
                    (entmake '((0 . "STYLE") (2 . "HZ") (70 . 0) (40 . 0.0) (41 . 0.7)
                               (50 . 0.0) (71 . 0) (42 . 3.0) (3 . "txt.shx") (4 . "hztxt.shx"))))
-                 (setq nshift (if moved (bdl:shift-cables moved (* s 5.0)) 0))
                  ;; 5. 与 zddl2:draw-cables 相同的图元：引线、短斜线、电缆线、箭头、三段文字
                  (setq ents nil)
                  (foreach x xs
@@ -24194,11 +24143,7 @@
                  (redraw)
                  (if (= count (length ents))
                    (princ (strcat "\n[BDL] 已补画 1 根电缆（" (itoa (length xs)) " 根引线，距端子排 "
-                                  (rtos (abs (- ycab pin)) 2 1) "）"
-                                  (if moved
-                                    (strcat "，外侧 " (itoa (length moved)) " 根电缆已让出 5（处理 " (itoa nshift) " 个图元）")
-                                    "")
-                                  "；填写去向后可运行 JM 补截面、BH1 编号。"))
+                                  (rtos (abs (- ycab pin)) 2 1) "）；填写去向后可运行 JM 补截面、BH1 编号。"))
                    (princ "\n[BDL] 部分图元创建失败，请用一次 U 撤销本批。")))
                (princ "\n[BDL] 电缆图层已锁定，请解锁后重试。")))
            (princ "\n[BDL] 未指定箭头位置，已取消。")))))
@@ -24207,7 +24152,7 @@
 
 ;;; =======================================================================================
 ;;; 命令: BDL
-;;; 功能: 选择端子排上后补的原理号文字，按 ZDDL 样式自动补画引线、短斜线、绿色电缆线、箭头及“未编号/至未填写/未填写”，自动找电缆组空行，没有空行时点插入位置并让该行及外侧电缆外移 5，一次 U 撤销。
+;;; 功能: 选择端子排上后补的原理号文字，按 ZDDL 样式自动补画引线、短斜线、绿色电缆线、箭头及“未编号/至未填写/未填写”，自动找电缆组空行，没有空行时接在最后一根之后，一次 U 撤销。
 ;;; =======================================================================================
 (defun c:BDL (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho result)
   (aa:cmd-begin "BDL")

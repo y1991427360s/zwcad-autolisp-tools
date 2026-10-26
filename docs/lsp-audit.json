@@ -3,9 +3,9 @@
   "files": [
     {
       "file": "AA整合版本.lsp",
-      "bytes": 1012534,
-      "top_level_forms": 1104,
-      "functions": 1012,
+      "bytes": 1009800,
+      "top_level_forms": 1103,
+      "functions": 1011,
       "commands": 168
     },
     {
@@ -1055,7 +1055,7 @@
     {
       "command": "BDL",
       "file": "AA整合版本.lsp",
-      "line": 24212,
+      "line": 24157,
       "description": "选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行。",
       "params": [],
       "inputs": [
@@ -1065,7 +1065,6 @@
       ],
       "input_prompts": [
         "\\n[BDL] 未找到端子排边线，出线方向 [向上(Shang)/向下(Xia)] <向下>: ",
-        "\\n[BDL] 电缆组中没有空行，点插入位置（该行及外侧电缆自动让出 5）<接在最后一根之后>: ",
         "\\n[BDL] 附近没有已有电缆，指定箭头尖端位置: "
       ],
       "direct_dependencies": [
@@ -1084,14 +1083,13 @@
         "aa:try-get-bbox",
         "bdl:cell-center",
         "bdl:cross-lines",
+        "bdl:direction",
         "bdl:edge",
         "bdl:green-lines",
         "bdl:horizontal-p",
         "bdl:lead-used-p",
         "bdl:lead-x",
         "bdl:line-tip",
-        "bdl:on-cable",
-        "bdl:shift-cables",
         "bdl:slot-line",
         "bdl:tips",
         "bdl:vertical-p",
@@ -6819,7 +6817,7 @@
     {
       "command": "ZDDL",
       "file": "AA整合版本.lsp",
-      "line": 24224,
+      "line": 24169,
       "description": "两次选择文字并指定插入点，按网页规则生成端子排与电缆。",
       "params": [],
       "inputs": [

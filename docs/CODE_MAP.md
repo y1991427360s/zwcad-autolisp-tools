@@ -10,7 +10,7 @@
 3. 改共享函数前先跑 `python tools/code_map.py callers 函数名`，确认影响哪些命令。
 4. 改动过程中用 `python tools/check_all_static.py --quick` 只跑相关检查；交付前跑一次不带参数的全量检查。
 
-- 源文件：`AA整合版本.lsp`，24232 行，1012 个函数，其中 168 个 `c:` 命令。
+- 源文件：`AA整合版本.lsp`，24177 行，1011 个函数，其中 168 个 `c:` 命令。
 
 ## 命令
 
@@ -180,10 +180,10 @@
 | `VPO2` | 21996-22001 | 6 | 切换到“两个：垂直”标准视口。 | aa:cmd-begin:699, aa:cmd-end:712 |
 | `TONG` | 22007-22091 | 85 | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | aa:cmd-begin:699, aa:cmd-end:712, aa:merge-sort:787, aa:gtx-natural-less:6011 |
 | `ZDDL2` | 22711-22802 | 92 | 自动根据现有端子排与接线方格绘制电缆引线、干线与标注。 | aa:cmd-begin:699, aa:cmd-end:712, zddl:parse-strip:22260, zddl:parse-wiring-ss:22463, zddl:ensure-layer:22523, zddl:plan-cables:22600, zddl:lookup-terminal:22192, zddl:label-layout:22625, zddl:draw-one-cable:22632, zddl:format-cable-no:22590 |
-| `ZDC` | 22804-22806 | 3 | ZDDL 命令的简写别名。 | c:zddl:24224 |
+| `ZDC` | 22804-22806 | 3 | ZDDL 命令的简写别名。 | c:zddl:24169 |
 | `ZDDLD` | 23860-23888 | 29 | 删除 ZDDL 生成的端子排框线与端子名/号，保留原理号、电缆接线和电缆文字。 | aa:cmd-begin:699, zddl2:xdata-app:23843, aa:layer-locked-p:4594, zddl2:set-layer-lock:23846, aa:cmd-end:712 |
-| `BDL` | 24212-24218 | 7 | 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行。 | aa:cmd-begin:699, bdl:work:24071, aa:cmd-end:712 |
-| `ZDDL` | 24224-24231 | 8 | 两次选择文字并指定插入点，按网页规则生成端子排与电缆。 | aa:cmd-begin:699, zddl2:work:23768, aa:cmd-end:712 |
+| `BDL` | 24157-24163 | 7 | 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行。 | aa:cmd-begin:699, bdl:work:24026, aa:cmd-end:712 |
+| `ZDDL` | 24169-24176 | 8 | 两次选择文字并指定插入点，按网页规则生成端子排与电缆。 | aa:cmd-begin:699, zddl2:work:23768, aa:cmd-end:712 |
 
 ## 辅助函数分组（按前缀）
 
@@ -229,4 +229,4 @@
 | `cu:` | 1 | 21286-21351 | CD, CU, CY, CZ |
 | `zddl:` | 25 | 22100-22709 | BDL, ZDC, ZDDL, ZDDL2 |
 | `zddl2:` | 93 | 22814-23854 | BDL, ZDC, ZDDL, ZDDLD |
-| `bdl:` | 14 | 23894-24206 | BDL |
+| `bdl:` | 13 | 23894-24151 | BDL |
