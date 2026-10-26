@@ -20805,13 +20805,37 @@
   (list (hddl:cell row 1) (hddl:cell row 0) (hddl:cell row 2) (reverse prins) (car (hddl:item row 1)) nospec)
 )
 
+(defun bh:stale-keys (recs rkeys dwg sel hold / sides k p ks r other cand)
+  ;; BH3 重跑同一张清册：找出清册里已经没有的旧记录，返回 (删除键列表 . 保留键列表)
+  ;;   条件：本图登记、一端“柜名 + 原理号”在本次清册里出现、这根电缆（键）不在本次清册里。
+  ;;   同一键还有别的图纸登记的（可能是另一端 BH1/BH2 记的）不删，只提醒。
+  ;;   sel 为本次清册各行的键，hold 为不能删的键（清册各行、跳过行、换柜名的原键、已删的键）
+  (foreach k sel
+    (setq p (bh:split k (chr 1))
+          sides (cons (cons (car p) (caddr p)) (cons (cons (cadr p) (caddr p)) sides))))
+  (setq ks rkeys)
+  (foreach r recs
+    (setq k (car ks) ks (cdr ks))
+    (if (/= (strcase (if (nth 4 r) (nth 4 r) "")) (strcase dwg))
+      (if (not (member k other)) (setq other (cons k other)))
+      (if (and (not (member k hold)) (not (member k cand))
+               (setq p (bh:split k (chr 1)))
+               (or (member (cons (car p) (caddr p)) sides) (member (cons (cadr p) (caddr p)) sides)))
+        (setq cand (cons k cand)))))
+  (setq ks nil r nil)
+  (foreach k cand
+    (if (member k other) (setq r (cons k r)) (setq ks (cons k ks))))
+  (cons ks r)
+)
+
 ;;; 功能: 框选电缆清册文字（起点柜/编号/终点柜/规格/芯数/原理号），以本次选中的清册为准写入共享记录：没有的记入，有的强制改成清册编号，编号被别的电缆占用或清册内重复时也照清册记入并在命令行说明。
 (defun c:BH3 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                 ss i e d items rows row tr num k nc hit r path dwg now recs rkeys kmap nmap
-                upd ren del keep notes nok nadd nchg nskip nsteal nmul bad-ss selk seln dk dn act same pairs nospec)
+                upd ren del keep notes nok nadd nchg nskip nsteal nmul bad-ss selk seln dk dn act same pairs nospec
+                hold stale ndrop keepold)
   (aa:cmd-begin "BH3")
   (aa:rep-begin "BH3")
-  (setq bad-ss (ssadd) nok 0 nadd 0 nchg 0 nskip 0 nsteal 0 nmul 0 nospec nil)
+  (setq bad-ss (ssadd) nok 0 nadd 0 nchg 0 nskip 0 nsteal 0 nmul 0 ndrop 0 nospec nil)
   (cond
     ((/= (getvar "DWGTITLED") 1)
      (princ "\r\n[BH3] 请先保存图纸：电缆编号记录写在 dwg 所在文件夹，未保存的新图没有文件夹。"))
@@ -20842,6 +20866,9 @@
          ;; 编号为空或“未编号”、柜名不全、没有原理号的行（含表头）跳过；*** 等占位编号照常记录
          ((or (= num "") (= (bh:clean num) (bh:clean "未编号"))
               (= (cadr tr) "") (= (caddr tr) "") (null (cadddr tr)))
+          ;; 柜名和原理号齐全的跳过行（如改成“未编号”）：这根电缆的旧记录不当作清册里已经没有
+          (if (and (/= (cadr tr) "") (/= (caddr tr) "") (cadddr tr))
+            (setq hold (cons (bh:key (cadr tr) (caddr tr) (bh:prins-str (cadddr tr))) hold)))
           (setq nskip (1+ nskip)))
          (T
           (if (nth 5 tr) (setq nospec (cons tr nospec)))
@@ -20895,6 +20922,39 @@
             (setq upd (cons (list k (list num (cadr tr) (caddr tr) (bh:prins-str (cadddr tr)) dwg now)) upd)))))
        ;; 上一版标红的编号恢复白色
        (if (and (nth 4 tr) (= (cdr (assoc 62 (entget (nth 4 tr)))) 1)) (hddl:color (nth 4 tr) 7)))
+     ;; 重跑同一张清册：本图以前登记、清册里已经没有的同柜同原理号记录删掉（例如清册把柜名和编号一起改了）
+     ;; 只框了清册的一部分时，链头链尾相邻的电缆也会被当成“已经没有”，所以删除前列出来问一次（回车删除）
+     (setq stale (bh:stale-keys recs rkeys dwg (mapcar 'car selk)
+                                (append (mapcar 'car selk) hold (mapcar 'car ren) del))
+           i 0)
+     (if (car stale)
+       (progn
+         (princ (strcat "\r\n[BH3] 本图以前登记的 " (itoa (length (car stale))) " 条记录，本次清册里已经没有："))
+         (foreach k (car stale)
+           (setq r (nth (vl-position k rkeys) recs) i (1+ i))
+           (if (<= i 10) (princ (strcat "\r\n  " (car r) "  " (cadr r) "—" (caddr r) "  " (cadddr r)))))
+         (if (> i 10) (princ (strcat "\r\n  ……共 " (itoa i) " 条")))
+         (princ "\r\n  （如果只框选了清册的一部分，没框到的电缆也会列在这里，请选“保留”）")
+         (initget "D K")
+         (if (= "K" (getkword "\r\n[BH3] 删除这些旧记录？[删除(D)/保留(K)] <删除>: "))
+           (setq keepold T))))
+     (foreach k (append (car stale) (cdr stale))
+       (setq r (nth (vl-position k rkeys) recs))
+       (cond
+         ((and keepold (member k (car stale)))
+          (setq notes (cons (list nil (strcat "清册里已经没有 " (car r) " " (cadr r) "—" (caddr r) " " (cadddr r)
+                                              "，按你的选择保留了这条记录"))
+                            notes)))
+         ((member k (car stale))
+          (setq ndrop (1+ ndrop)
+                del (cons k del)
+                notes (cons (list nil (strcat "清册里已经没有 " (car r) " " (cadr r) "—" (caddr r) " " (cadddr r)
+                                              "，已删除这条本图以前登记的记录"))
+                            notes)))
+         (T
+          (setq notes (cons (list nil (strcat "清册里已经没有 " (car r) " " (cadr r) "—" (caddr r) " " (cadddr r)
+                                              "，但别的图纸也登记过这根电缆，未删除，请核对"))
+                            notes)))))
      (if (or upd del) (setq keep (bh:rebuild recs rkeys upd del ren)))
      ;; 先写记录文件，写不进去就不改图
      (if (and (or upd del) (not (bh:write-records path keep)))
@@ -20920,11 +20980,13 @@
          (aa:rep-end
            (strcat "完成：" (aa:rep-counts (list (cons "新记入" nadd) (cons "改为清册编号" nchg) (cons "更正柜名/原理号" (length ren))
                                                 (cons "一致" nok) (cons "从别的电缆改过来" nsteal) (cons "清册内重复" nmul)
+                                                (cons "删除清册已没有的旧记录" ndrop)
                                                 (cons "没写规格" (length nospec)) (cons "跳过行" nskip))))
            (strcat "完成（以本次选中的清册为准）：新记入 " (itoa nadd) " 根；记录改为清册编号 " (itoa nchg)
                    " 根；按清册更正柜名/原理号 " (itoa (length ren)) " 根；与记录一致 " (itoa nok)
                    " 根；其中编号从别的电缆改过来 " (itoa nsteal) " 根（原记录已删除）、清册内同一电缆或同一编号重复 "
-                   (itoa nmul) " 根（都已记入）；跳过 " (itoa nskip)
+                   (itoa nmul) " 根（都已记入）；删除本图以前登记、清册里已经没有的旧记录 " (itoa ndrop)
+                   " 根；跳过 " (itoa nskip)
                    " 行（编号为空或未编号、柜名不全、没有原理号）。"))))))
   (aa:cmd-end)
   (if (> (sslength bad-ss) 0)

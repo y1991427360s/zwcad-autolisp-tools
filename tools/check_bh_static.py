@@ -320,6 +320,7 @@ NATIVE = {
     'vl-catch-all-error-p': lambda x: None,
     'ascii': lambda s: ord(s[0]),
     'vl-remove': lambda x, a: [v for v in (a or []) if v != x] or None,
+    'vl-position': lambda x, a: a.index(x) if a and x in a else None,
     'vl-string-position': lambda code, s, start=None, from_end=None:
         (s.rfind(chr(code)) if from_end else s.find(chr(code), start or 0)) if chr(code) in s else None,
 }
@@ -1211,7 +1212,53 @@ c.install('35kV 1#PT柜')
 c.run('c:bh2')
 assert (c.num('p1'), c.dest('p1'), c.num('p2'), c.dest('p2')) == \
        ('DS-02', '至同步时钟主机柜', 'DS-201', '至35kV1#备用柜'), (c.num('p1'), c.dest('p1'), c.num('p2'), c.dest('p2'), c.out)
-print('PASS: 场景17 BH3 以本次清册为准：新记入、强制更新存旧编号、*** 可多根共用、编号属于别的电缆时删原记录改给清册、清册内重复都记入并说明、无原理号/表头跳过、重跑不变')
+# 用户实例：环网清单第一次把链头写成“交流馈线柜 JL-01/JL-04”，更正为“低压柜 ***”后重跑 BH3；
+# 上一版旧记录留着，风功率预测系统柜、网络通信柜各有 3 根 L1 N1，BH2 无法确定相邻柜。重跑应询问后删掉本图的两条旧记录
+T17.clear()
+rows17e = [
+    ['低压柜', '***', '风功率预测系统柜', '2', '2×4', 'L1', 'N1'],
+    ['风功率预测系统柜', 'SML-01', '关口计量柜', '2', '2×4', 'L1', 'N1'],
+    ['网络通信柜', '***', '低压柜', '2', '2×4', 'L1', 'N1'],
+    ['低压柜', '未编号', '关口计量柜', '2', '2×4', 'L1', 'N1'],          # 跳过行：这根的旧记录不当作已经没有
+]
+for r, row in enumerate(rows17e):
+    for col, txt in enumerate(row):
+        T17['t%d_%d' % (r, col)] = [(0, 'TEXT'), (1, txt), (8, '0'), (10, [xs[col] + (0.3 if col == 2 else 0.0), 100.0 - 5 * r, 0.0]), (62, 4)]
+RINGOLD = ['电缆编号\t柜名1\t柜名2\t原理号\t图纸\t时间\t旧编号',
+           'JL-01\t交流馈线柜\t风功率预测系统柜\tL1 N1\ta.dwg\tt\t',           # 本图旧记录 → 删
+           'SML-01\t风功率预测系统柜\t关口计量柜\tL1 N1\ta.dwg\tt\t',
+           'JL-04\t网络通信柜\t交流馈线柜\tL1 N1\ta.dwg\tt\t',                 # 本图旧记录 → 删
+           'DS-06\t风功率预测系统柜\t同步时钟主机柜\tB+ B-\ta.dwg\tt\t',       # 原理号不同 → 不动
+           'JL-09\t低压柜\t关口计量柜\tL1 N1\ta.dwg\tt\t',               # 清册里改成未编号（跳过行）→ 不动
+           'SML-90\t关口计量柜\t主变电度表柜\tL1 N1\tz.dwg\tt\t',              # 别的图登记 → 不动
+           'SML-91\t风功率预测系统柜\t电压转接柜\tL1 N1\ta.dwg\tt\t',          # 本图旧记录，但别的图也登记过 → 不删，提醒
+           'SML-91\t电压转接柜\t风功率预测系统柜\tN1 L1\tz.dwg\tt\t']
+FR = {PATH: list(RINGOLD)}
+c = Cad(FR)
+c.install('x')
+c.answers = [None]                                            # 回车：删除
+NATIVE.update(N17)
+c.run('c:bh3')
+assert [l.split('\t')[0] for l in FR[PATH][1:]] == ['SML-01', 'DS-06', 'JL-09', 'SML-90', 'SML-91', 'SML-91', '***', '***'], FR[PATH]
+assert any('删除这些旧记录' in p for p in c.prompts) and any('本图以前登记的 2 条记录' in o for o in c.out), (c.prompts, c.out)
+assert any('JL-01 交流馈线柜—风功率预测系统柜 L1 N1，已删除' in o for o in c.out) \
+    and any('SML-91 风功率预测系统柜—电压转接柜 L1 N1，但别的图纸也登记过' in o for o in c.out), c.out
+assert any('删除本图以前登记、清册里已经没有的旧记录 2 根' in o for o in c.out), c.out
+afterR = list(FR[PATH])
+c = Cad(FR)                                                   # 再跑一次：没有可删的，不再询问，记录不变
+c.install('x')
+NATIVE.update(N17)
+c.run('c:bh3')
+assert FR[PATH] == afterR and not any('删除这些旧记录' in p for p in c.prompts), (c.prompts, FR[PATH])
+FR = {PATH: list(RINGOLD)}                                    # 选“保留”：旧记录不删，结果卡片说明
+c = Cad(FR)
+c.install('x')
+c.answers = ['K']
+NATIVE.update(N17)
+c.run('c:bh3')
+assert [l.split('\t')[0] for l in FR[PATH][1:]][:4] == ['JL-01', 'SML-01', 'JL-04', 'DS-06'] and FR[PATH].count(RINGOLD[1]) == 1, FR[PATH]
+assert any('按你的选择保留了这条记录' in o for o in c.out) and any('旧记录 0 根' in o for o in c.out), c.out
+print('PASS: 场景17 BH3 以本次清册为准：新记入、强制更新存旧编号、*** 可多根共用、编号属于别的电缆时删原记录改给清册、清册内重复都记入并说明、无原理号/表头跳过、重跑不变、重跑时询问后删掉本图清册里已经没有的旧记录')
 # ---- 场景 18：BH2 处理“至相邻屏柜”的环网电缆（按 BH3 登记的环网清单）
 RING = ['电缆编号\t柜名1\t柜名2\t原理号\t图纸\t时间\t旧编号',
         '***\t低压柜\t电压转接柜\tL1 N1\tz.dwg\tt\t',
