@@ -1580,3 +1580,11 @@
 - 来源：中望 `AA整合版本.lsp` SHA-256 `e2aff0d04dfb1a8b87b67ae7c08f5d9b1c1f675ba8f4f06c2b155969bbbf14a4`（同时包含 BDL）。
 - 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已重新生成。未做 CAD 实机验证。
 - AutoCAD 状态：待同步，未修改 AutoCAD 插件代码。
+
+## 2026-10-26 BDL 无空行时外侧电缆自动让行
+
+- 中望完成时间：2026-10-26 13:47:45 +08:00。
+- 命令/模块：`BDL` 新增 `bdl:on-cable`、`bdl:shift-cables`。电缆组没有空行时点插入位置，点到已有电缆的行则该行及外侧电缆整体外移 5（同 XYI/SYI：电缆线、短斜线、三角箭头、电缆文字移动，引线只拉伸电缆线那一端），再在让出的行画新电缆；回车仍接在最后一根之后。电缆文字只认电缆线右端往左 65 到往右 80、线上方 4 以内，避免长电缆线左段同高度文字被带走。与补画同在一个 UNDO 内。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `15e2458561a4fafeaf64a8265ff02da292aee33e7b519ff978431f9d7891a96b`；修改前字节备份 `AA整合版本.lsp.bak-bdl-shift-*`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码。
