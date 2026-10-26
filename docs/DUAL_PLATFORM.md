@@ -204,3 +204,25 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 默认区/用户区分界：中望按文件末尾往前第一个空行；acad.pgp 末尾有 `-- User Defined Command Aliases --` 说明段，以含 `DO NOT REMOVE` 的行结尾，AutoCAD 版以最后一个这样的行为分界，找不到时退回空行规则。
 - 托管区块标记分别为 `ZW-auto_lisp aliases` 与 `AutoCAD2018_lisp aliases`；两版主表各自独立，互不同步。默认别名不同（例如 acad.pgp 默认 R→REDRAW），同一主表放到另一平台可能产生不同的覆盖提示。
 - 证据与状态：本机 acad.pgp 只读解析（UTF-8 带 BOM、CRLF、540 行）与离线测试；未实机验证 REINIT 生效。
+
+## 2026-10-26 文件读写编码差异与结果卡片（ANSI/GBK vs UTF-8）
+
+- 适用范围：`aa:rep-*`（结果卡片）、`bh:log-*`（电缆编号历史记录）、`c:HWT`（环网图电缆清单导出）等文件读写函数。
+- 中望版：`open` 支持三参数 `(open path mode "utf8")`，以 UTF-8 编码读写外部临时文件与记录文件。
+- AutoCAD 2018 版：`open` 仅支持两参数 `(open path mode)`，按当前操作系统 ANSI/GBK 编码读写文件；官方签名未确认支持编码参数，保守不传 `"utf8"`（未实机测定传入后的表现）。
+- 外部集成适配：AutoCAD 版的 `report.txt` 以 GBK 编码输出，外部 AHK 脚本 `cad-report-card.ahk` 自 2026-10-26 22:24:03 起自动识别编码：合法 UTF-8 按 UTF-8 解码，否则按 CP936 解码，两版共用同一结果文件路径和格式（冒烟测试覆盖 UTF-8 / GBK 两种写盘）。电缆记录文件（`cables.tsv`）在 AutoCAD 版同样使用 GBK 格式存储。
+- 证据与状态：AutoCAD 静态 AST 分析及 `check_bh_static.py` 场景 22 检验通过；未做 CAD 实机验证。
+
+## 2026-10-26 C1 / C2 / C3 原生 MOVE 拖动预览（隐藏静态副本差异）
+
+- 适用范围：`c1c2:place-one` 原生拖动预览逻辑。
+- 中望版：在调用 `(command "_.MOVE" ...)` 之后，调用 `(redraw copy-obj 2)` 隐藏静态副本，原生拖动影像仍能正常跟随鼠标，结束后再 `(redraw copy-obj 1)` 恢复。
+- AutoCAD 2018 版：若在 `MOVE` 之后调用 `(redraw copy-obj 2)`，AutoCAD 会将拖动中的动态影像连同原实体一同隐去，导致用户在拖动过程中看不到实时预览。因此 AutoCAD 版不得隐藏静态副本，保持原位可见，与 AutoCAD 原生 MOVE 拖动行为一致。
+- 证据与状态：`tools/check_c1c2_static.py` 静态断言显式约束；未做 CAD 实机验证。
+
+## 2026-10-26 字符截取与全角符号字节语义（动态步长适配）
+
+- 适用范围：`aa:num-target-span`（NU / C1 / C2 / C3 数字目标提取）、`aa:str-replace-all`、`jm:` 截面匹配等字符串分析函数。
+- 差异：AutoCAD 2018 的 AutoLISP 运行在 GBK 字节语义下，全角字符如 `＃`（0xA3 0xA3）和 `－`（0xA3 0xAD）的 `strlen` 返回 2，`substr` 按字节偏移切片；而纯 Python 解释器或中望环境字符语义下返回 1。
+- 处理：源码中涉及全角字符跳步和切片时，一律使用 `(strlen "－")`、`(strlen "＃")` 动态获取步长，禁止硬编码步长为 1 或 2，确保在 GBK 实机与 Python 离线模拟测试中逻辑完全一致。
+- 证据与状态：`tools/check_nu_c1c2_target_static.py` 全量 650 项断言（含 39 个复杂全角字符边界用例）全部通过。
