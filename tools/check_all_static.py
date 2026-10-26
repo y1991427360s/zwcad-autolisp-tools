@@ -132,6 +132,8 @@ def check_banned_patterns(text, forms):
 
 MODULE_CHECKS = [
     'check_t_static.py',
+    'check_zhu_static.py',
+    'check_hwt_static.py',
     'check_color_cmds_static.py',
     'check_fdx_static.py',
     'check_fkx_static.py',

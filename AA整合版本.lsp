@@ -17,6 +17,8 @@
 ;;;   - FKX   : 单击框内空白处选择正文对象，自动排除图框和右下角标题栏；支持手动指定范围。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 将文字刷为HZ/0.7样式并字高优先避让周围线框，优先3.0字高微移，避免文字缩小。
+;;;   - ZHU   : 选中端子排名和端子号文字，选短接或拆除连片，生成HZ/3/0.7的“注：”单行文字。
+;;;   - HWT   : 框选一列柜名文字，按从上到下顺序每行最多5个蛇形排列，生成L1/N1端子、SML电缆编号和两端JL进线的环网图，并输出可供BH3登记的电缆清单。
 ;;;   - ABCN  : 指定一点生成青色 A、B、C、N 单行文字，HZ/3/0.7、左中对正、按 H 默认间距5向下排列。
 ;;;   - H     : 先将选中文字统一为左中对正，再按指定间距（插入点/对齐点之间）从上到下排列。
 ;;;   - H2    : 先将选中文字统一为左中对正，右侧文字在最上、越靠左越靠下，按指定间距从上到下排列。
@@ -32,11 +34,11 @@
 ;;;   - HUI   : 将选中对象强制改为颜色 8；尺寸标注全要素改色，引线先分解再改色，块参照连块内实体一起改。
 ;;;   - ZHONG : 文字居中对齐；选择直线/矩形时按中心 X 居中。
 ;;;   - ZHENG : 以水平直线或矩形中心为基准整理文字的水平位置。
-;;;   - ZUO   : 将选中文字统一为左中对正，并以最上方文字为基准左对齐。
+;;;   - ZUO   : 将选中文字统一为左中对正，并以最左侧文字为基准左对齐。
 ;;;   - AZUO  : 选择一条竖直直线作为基准线，框选其他所有对象作为一个整体整体移动并左对齐到该直线。
 ;;;   - HP    : 将选中文字按从左到右排列，使相邻文字首尾间距为指定值，并按最左文字上边对齐。
 ;;;   - HP2   : 将选中文字改为正中对齐，按中心点指定间距从左到右横向排列。
-;;;   - YOU   : 将选中文字统一为右中对正，并以最上方文字为基准右对齐。
+;;;   - YOU   : 将选中文字统一为右中对正，并以最右侧文字为基准右对齐。
 ;;;   - AYOU  : 选择一条竖直直线作为基准线，框选其他所有对象作为一个整体整体移动并右对齐到该直线。
 ;;;   - SHANG : 将选中文字统一为中上对正，并以最上方文字为基准上对齐。
 ;;;   - ASHANG: 选择一条水平直线作为基准线，框选其他所有对象作为一个整体整体移动并向上对齐到该直线。
@@ -1184,6 +1186,26 @@
     (list ref-ename ref-bbox))
 )
 
+(defun aa:find-ref-by-right-bbox (doc ss / i ename bbox ref-ename ref-bbox)
+  (setq i         0
+        ref-ename nil
+        ref-bbox  nil)
+  (repeat (sslength ss)
+    (setq ename (ssname ss i)
+          bbox  (aa:safe-get-bbox doc ename))
+    (if bbox
+      (if (or (null ref-bbox)
+              (> (aa:bbox-right-x bbox)
+                 (aa:bbox-right-x ref-bbox)))
+        (setq ref-ename ename
+              ref-bbox  bbox))
+    )
+    (setq i (1+ i))
+  )
+  (if ref-bbox
+    (list ref-ename ref-bbox))
+)
+
 (defun aa:find-ref-by-top-bbox (doc ss / i ename bbox ref-ename ref-bbox)
   (setq i         0
         ref-ename nil
@@ -1998,6 +2020,376 @@
   (txt:run)
   (aa:cmd-end)
 )
+
+
+;;; =======================================================================================
+;;; 命令: ZHU
+;;; 功能: 选中端子排名和端子号文字，选短接或拆除连片，生成HZ/3/0.7的“注：”单行文字。
+;;; =======================================================================================
+(setq *zhu:last-mode* "D") ; (ZHU) 记住上次选择：D=短接，C=拆除连片
+
+(defun zhu:trim (str)
+  (if str (vl-string-trim " \t\r\n" str) ""))
+
+;; 去重并按端子号数值从小到大排序；数值相同再按原字符串排。
+(defun zhu:sort-nums (nums / out)
+  (foreach n nums
+    (if (not (member n out)) (setq out (cons n out))))
+  (aa:merge-sort out
+    '(lambda (a b)
+       (if (= (atoi a) (atoi b)) (< a b) (< (atoi a) (atoi b))))))
+
+;; 把文字分成端子号（纯数字）和其他文字（端子排名候选）；返回 (名称列表 . 端子号列表)。
+(defun zhu:classify (strs / names nums)
+  (foreach s strs
+    (setq s (zhu:trim s))
+    (cond
+      ((= s ""))
+      ((aa:nu-string-all-digits-p s) (setq nums (cons s nums)))
+      ((not (member s names)) (setq names (cons s names)))))
+  (cons (reverse names) (zhu:sort-nums nums)))
+
+;; mode 为 "D" 生成短接注释，"C" 生成拆除连片注释。
+(defun zhu:build-note (mode name nums / body)
+  (setq body "")
+  (foreach n nums
+    (setq body (strcat body (if (= body "") "" "、") name ":" n)))
+  (if (= mode "C")
+    (strcat "注：拆除" body "之间的连接片")
+    (strcat "注：短接" body)))
+
+;; 多个非数字文字时让用户点选端子排名，回车则手动输入。
+(defun zhu:pick-name (names / sel ed name)
+  (princ (strcat "\r\n[ZHU] 所选文字中有 " (itoa (length names)) " 个非数字文字，无法确定端子排名。"))
+  (while (and (null name)
+              (setq sel (entsel "\r\n[ZHU] 请点选端子排名文字 <手动输入>: ")))
+    (setq ed (entget (car sel)))
+    (if (wcmatch (cdr (assoc 0 ed)) "TEXT,MTEXT")
+      (setq name (zhu:trim (aa:ysdl-get-plain-text ed)))
+      (princ "\r\n[ZHU] 选中的不是文字，请重选。")))
+  (if (or (null name) (= name ""))
+    (setq name (zhu:trim (getstring T "\r\n[ZHU] 输入端子排名: "))))
+  name)
+
+(defun c:ZHU (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                ss i strs parts names nums name mode pt note)
+  (aa:cmd-begin "ZHU")
+  (cond
+    ((null (tblsearch "STYLE" "HZ"))
+     (princ "\r\n[ZHU] 未找到文字样式 HZ。"))
+    ((null (setq ss (ssget '((0 . "TEXT,MTEXT")))))
+     (princ "\r\n[ZHU] 未选择任何文字。"))
+    (T
+     (setq i 0)
+     (while (< i (sslength ss))
+       (setq strs (cons (aa:ysdl-get-plain-text (entget (ssname ss i))) strs)
+             i (1+ i)))
+     (setq parts (zhu:classify strs)
+           names (car parts)
+           nums  (cdr parts))
+     (setq name (cond
+                  ((= (length names) 1) (car names))
+                  ((null names) (zhu:trim (getstring T "\r\n[ZHU] 未找到端子排名，请输入: ")))
+                  (T (zhu:pick-name names))))
+     (cond
+       ((< (length nums) 2)
+        (princ "\r\n[ZHU] 至少要选两个端子号（纯数字文字）。"))
+       ((= name "")
+        (princ "\r\n[ZHU] 未指定端子排名。"))
+       (T
+        (initget "D C")
+        (setq mode (getkword (strcat "\r\n[ZHU] 选择 [短接(D)/拆除连片(C)] <"
+                                     (if (= *zhu:last-mode* "C") "C" "D") ">: ")))
+        (if (null mode) (setq mode (if (= *zhu:last-mode* "C") "C" "D")))
+        (setq *zhu:last-mode* mode
+              note (zhu:build-note mode name nums))
+        (princ (strcat "\r\n[ZHU] " note))
+        (if (setq pt (getpoint "\r\n[ZHU] 指定注释文字插入点: "))
+          (entmake
+            (list '(0 . "TEXT")
+                  (cons 8 (getvar "CLAYER"))
+                  (cons 10 (trans pt 1 0))
+                  (cons 40 3.0)
+                  (cons 1 note)
+                  '(50 . 0.0)
+                  (cons 41 0.7)
+                  (cons 7 "HZ")))
+          (princ "\r\n[ZHU] 未指定插入点，未生成文字。"))))))
+  (aa:cmd-end))
+
+;;; =======================================================================================
+;;; 命令: HWT
+;;; 功能: 框选一列柜名文字，按从上到下顺序每行最多5个蛇形排列，生成L1/N1端子、SML电缆编号和两端JL进线的环网图，并输出可供BH3登记的电缆清单。
+;;; =======================================================================================
+
+;; 每行最多 5 个：行数 = 向上取整(n/5)，各行数量尽量相等，多出的放在前面几行（13 个 -> 5 4 4）。
+(defun hwt:row-counts (n / r base extra i out)
+  (setq r     (/ (+ n 4) 5)
+        base  (/ n r)
+        extra (rem n r)
+        i     0)
+  (while (< i r)
+    (setq out (cons (if (< i extra) (1+ base) base) out)
+          i   (1+ i)))
+  (reverse out))
+
+(defun hwt:cable-no (i)
+  (strcat "SML-" (if (< i 10) "0" "") (itoa i)))
+
+;; 两端进线：xo 为线外端，d 为指向柜子的方向（1 向右，-1 向左），线本身由调用方画。
+(defun hwt:feeder-items (xo y d no)
+  (list (list "T" "2×4" (list (+ xo (* d 3.6)) (+ y 0.8)) 256)
+        (list "T" "至交流馈线柜" (list (+ xo (* d 20.5)) (+ y 0.8)) 256)
+        (list "P" (list (list (+ xo (* d 29.75)) y)
+                        (list (+ xo (* d 34.2)) (+ y 2.575))
+                        (list (+ xo (* d 34.2)) (- y 2.575))))
+        (list "T" no (list (+ xo (* d 46.5)) (+ y 0.8)) 256)))
+
+;; 柜框三格：柜名 / L1 N1 / JD 端子号，端子号一律默认 1~2、4~5，个别柜子出图后手改。
+(defun hwt:box-items (name cx top / hw)
+  (setq hw 17.36)
+  (list (list "P" (list (list (- cx hw) top) (list (+ cx hw) top)
+                        (list (+ cx hw) (- top 18.0)) (list (- cx hw) (- top 18.0))))
+        (list "L" (list (- cx hw) (- top 5.0)) (list (+ cx hw) (- top 5.0)) 256)
+        (list "L" (list (- cx hw) (- top 10.0)) (list (+ cx hw) (- top 10.0)) 256)
+        (list "L" (list cx (- top 5.0)) (list cx (- top 18.0)) 256)
+        (list "N" name (list cx (- top 4.0)) 4)
+        (list "T" "L1" (list (- cx 8.68) (- top 9.0)) 4)
+        (list "T" "N1" (list (+ cx 8.68) (- top 9.0)) 4)
+        (list "T" "JD：1~2" (list (- cx 8.68) (- top 15.5)) 4)
+        (list "T" "JD：4~5" (list (+ cx 8.68) (- top 15.5)) 4)))
+
+;; 电缆编号与规格：编号在线上方、规格在线下方，pt 为两者的中心位置。
+(defun hwt:label-items (no x y dy-no dy-spec)
+  (list (list "T" no (list x (+ y dy-no)) 4)
+        (list "T" "2×4" (list x (+ y dy-spec)) 4)))
+
+;; 生成全部图元描述，x0 y0 为第一行第一个柜框左上角（WCS）。
+;; 描述：("L" p1 p2 颜色) 直线，("C" 圆心 颜色) 端子圆，("D" 圆心) 实心点，
+;;       ("P" 点表) 闭合多段线，("T"/"N" 文字 中心 颜色) 居中单行文字（N 为柜名，需按柜宽压缩）。
+(defun hwt:layout (names x0 y0 / counts m1 hw p rs q lg sh xc xl xr k cno prev items
+                              m s top bot yc yu yl j name cx a yin yout din dout u1 u2
+                              in-end out-pt xt ymid xo last-cx)
+  (setq counts (hwt:row-counts (length names))
+        m1     (car counts)
+        hw     17.36
+        p      60.76
+        rs     45.0
+        q      8.68
+        lg     10.375
+        sh     4.625
+        xc     (+ x0 hw (/ (* (1- m1) p) 2.0))
+        xr     (+ xc (/ (* (1- m1) p) 2.0) hw 17.5)
+        xl     (- xc (/ (* (1- m1) p) 2.0) hw 17.5)
+        k      0
+        cno    1)
+  (foreach m counts
+    (setq s   (if (= (rem k 2) 0) 1 -1)
+          top (- y0 (* k rs))
+          bot (- top 18.0)
+          yc  (+ bot 1.5)
+          yu  (- yc sh)
+          yl  (- yc lg)
+          j   0)
+    (while (< j m)
+      (setq name   (car names)
+            names  (cdr names)
+            cx     (+ xc (* s (- j (/ (1- m) 2.0)) p))
+            items  (append (reverse (hwt:box-items name cx top)) items)
+            ;; 行内交替：偶数位从下线进、上线出，奇数位从上线进、下线出；每行第一个都从下线进
+            a      (= (rem j 2) 0)
+            yin    (if a yl yu)
+            yout   (if a yu yl)
+            din    (if a lg sh)
+            dout   (if a sh lg)
+            u1     (- cx (* s q))
+            u2     (+ cx (* s q)))
+      (foreach u (list u1 u2)
+        (setq items (append
+                      (list (list "D" (list (+ u (* s dout)) yout))
+                            (list "D" (list (- u (* s din)) yin))
+                            (list "L" (list u yc) (list (+ u (* s dout)) yout) 256)
+                            (list "L" (list u yc) (list (- u (* s din)) yin) 256)
+                            (list "C" (list u yc) 7))
+                      items)))
+      (setq in-end (list (- u2 (* s din)) yin)
+            out-pt (list (+ u1 (* s dout)) yout))
+      (cond
+        ((null prev)
+         (setq xo    (- cx (* s (+ hw 61.0)))
+               items (append (reverse (cons (list "L" (list xo yin) in-end 3)
+                                            (hwt:feeder-items xo yin s "JL-01")))
+                             items)))
+        ((= j 0)
+         (setq xt    (if (= s 1) xl xr)
+               ymid  (/ (+ (cadr prev) yin) 2.0)
+               items (append (reverse
+                               (append
+                                 (list (list "L" prev (list xt (cadr prev)) 256)
+                                       (list "L" (list xt (cadr prev)) (list xt yin) 256)
+                                       (list "L" (list xt yin) in-end 256))
+                                 (hwt:label-items (hwt:cable-no cno) (+ xt (* s 8.0)) ymid 1.2 -3.8)))
+                             items)
+               cno   (1+ cno)))
+        (T
+         (setq items (append (reverse
+                               (cons (list "L" prev in-end 256)
+                                     (hwt:label-items (hwt:cable-no cno) (- cx (* s (/ p 2.0))) yin 0.8 -3.8)))
+                             items)
+               cno   (1+ cno))))
+      (setq prev    out-pt
+            last-cx cx
+            j       (1+ j)))
+    (setq k (1+ k)))
+  (setq xo (+ last-cx (* s (+ hw 61.0))))
+  (append (reverse items)
+          (cons (list "L" prev (list xo (cadr prev)) 3)
+                (hwt:feeder-items xo (cadr prev) (- s) "JL-04"))))
+
+;; 电缆清单行：起点柜、编号、终点柜、规格、芯数、原理号 L1 N1（BH3/HDDL 的清册列顺序）；
+;; 首尾两行是交流馈线柜进线 JL-01、JL-04。
+(defun hwt:cable-rows (names / out i)
+  (setq out (list (list "交流馈线柜" "JL-01" (car names)))
+        i   1)
+  (while (cdr names)
+    (setq out   (cons (list (car names) (hwt:cable-no i) (cadr names)) out)
+          names (cdr names)
+          i     (1+ i)))
+  (setq out (cons (list (car names) "JL-04" "交流馈线柜") out)
+        names nil)
+  (foreach r out
+    (setq names (cons (append r (list "2×4" "2" "L1" "N1")) names)))
+  names)
+
+(defun hwt:counts-text (counts / out)
+  (foreach c counts
+    (setq out (if out (strcat out "/" (itoa c)) (itoa c))))
+  out)
+
+(defun hwt:pt3 (p z) (list (car p) (cadr p) z))
+
+;; 闭合多段线；width 为全局宽度，bulge 非空时每段用同一凸度（画实心点）。
+(defun hwt:make-pline (pts z width bulge / ed)
+  (setq ed (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 (getvar "CLAYER"))
+                 '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 1)
+                 (cons 43 width) (cons 38 z)))
+  (foreach p pts
+    (setq ed (append ed (list (list 10 (car p) (cadr p)))))
+    (if bulge (setq ed (append ed (list (cons 42 bulge))))))
+  (entmakex ed))
+
+;; 柜名太长时按柜宽压缩宽度系数，避免压到框线。
+(defun hwt:fit-name (e / ed box w)
+  (setq ed  (entget e)
+        box (textbox ed))
+  (if box (setq w (- (car (cadr box)) (car (car box)))))
+  (if (and w (> w 32.72))
+    (entmod (subst (cons 41 (* 0.7 (/ 32.72 w))) (assoc 41 ed) ed))))
+
+(defun hwt:draw (items z style / k p e)
+  (foreach it items
+    (setq k (car it))
+    (cond
+      ((= k "L")
+       (entmakex (list '(0 . "LINE") (cons 8 (getvar "CLAYER")) (cons 62 (nth 3 it))
+                       (cons 10 (hwt:pt3 (cadr it) z)) (cons 11 (hwt:pt3 (caddr it) z)))))
+      ((= k "C")
+       (entmakex (list '(0 . "CIRCLE") (cons 8 (getvar "CLAYER")) (cons 62 (caddr it))
+                       (cons 10 (hwt:pt3 (cadr it) z)) '(40 . 0.75))))
+      ((= k "D")
+       (setq p (cadr it))
+       (hwt:make-pline (list (list (- (car p) 0.153) (cadr p)) (list (+ (car p) 0.153) (cadr p)))
+                       z 0.306 1.0))
+      ((= k "P")
+       (hwt:make-pline (cadr it) z 0.0 nil))
+      ((wcmatch k "T,N")
+       (setq p (hwt:pt3 (caddr it) z)
+             e (entmakex (list '(0 . "TEXT") (cons 8 (getvar "CLAYER")) (cons 62 (nth 3 it))
+                               (cons 10 p) (cons 11 p) '(40 . 3.0) (cons 1 (cadr it))
+                               '(50 . 0.0) '(41 . 0.7) (cons 7 style) '(72 . 1) '(73 . 0))))
+       (if (and e (= k "N")) (hwt:fit-name e))))))
+
+(defun hwt:text-width (str style / box)
+  (setq box (textbox (list '(0 . "TEXT") (cons 1 str) '(40 . 3.0) '(41 . 0.7) (cons 7 style))))
+  (if box (- (car (cadr box)) (car (car box))) (* 2.1 (strlen str))))
+
+;; 清单：白色左中对齐、行距 5（同 H/HWD），列宽取该列最长文字、列间空 10，
+;; 这样 BH3/HDDL 按高度归行、行内按左右排序就能正确读出每一行。
+(defun hwt:draw-list (rows x0 y0 z style / c w xs x y p)
+  (setq c 0)
+  (while (< c (length (car rows)))
+    (setq w 0.0)
+    (foreach r rows
+      (setq w (max w (hwt:text-width (nth c r) style))))
+    (setq xs (cons w xs)
+          c  (1+ c)))
+  (setq x x0)
+  (foreach w (reverse xs)
+    (setq p (cons x p)
+          x (+ x w 10.0)))
+  (setq xs (reverse p)
+        y  (- y0 1.5))
+  (foreach r rows
+    (setq c 0)
+    (foreach s r
+      (setq p (list (nth c xs) y z))
+      (entmakex (list '(0 . "TEXT") (cons 8 (getvar "CLAYER")) '(62 . 7) (cons 10 p) (cons 11 p)
+                      '(40 . 3.0) (cons 1 s) '(50 . 0.0) '(41 . 0.7) (cons 7 style) '(72 . 0) '(73 . 2)))
+      (setq c (1+ c)))
+    (setq y (- y 5.0))))
+
+(defun c:HWT (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                ss i ed str pairs names pt style lpt)
+  (aa:cmd-begin "HWT")
+  (princ "\r\n[HWT] 选择一列柜名文字（从上到下即环网顺序）: ")
+  (cond
+    ((null (setq ss (ssget '((0 . "TEXT,MTEXT")))))
+     (princ "\r\n[HWT] 未选择任何文字。"))
+    (T
+     (setq i 0)
+     (while (< i (sslength ss))
+       (setq ed  (entget (ssname ss i))
+             str (vl-string-trim " \t\r\n" (aa:ysdl-get-plain-text ed))
+             i   (1+ i))
+       (if (/= str "")
+         (setq pairs (cons (cons (cdr (assoc 10 ed)) str) pairs))))
+     ;; 从上到下；同一高度再从左到右
+     (setq names (mapcar 'cdr
+                         (aa:merge-sort pairs
+                           '(lambda (a b)
+                              (if (equal (cadr (car a)) (cadr (car b)) 1e-6)
+                                (< (car (car a)) (car (car b)))
+                                (> (cadr (car a)) (cadr (car b))))))))
+     (cond
+       ((null names)
+        (princ "\r\n[HWT] 所选文字内容都是空的。"))
+       (T
+        (princ (strcat "\r\n[HWT] 共 " (itoa (length names)) " 个柜，分行 "
+                       (hwt:counts-text (hwt:row-counts (length names))) "。"))
+        (if (setq pt (getpoint "\r\n[HWT] 指定第一行第一个柜框的左上角: "))
+          (progn
+            (setq pt    (trans pt 1 0)
+                  style (if (tblsearch "STYLE" "HZ") "HZ" (getvar "TEXTSTYLE")))
+            (if (/= style "HZ")
+              (princ (strcat "\r\n[HWT] 未找到文字样式 HZ，改用当前样式 " style "。")))
+            (hwt:draw (hwt:layout names (car pt) (cadr pt)) (caddr pt) style)
+            (princ (strcat "\r\n[HWT] 已生成环网图"
+                           (if (> (length names) 1)
+                             (strcat "，柜间电缆 SML-01~" (hwt:cable-no (1- (length names))))
+                             "")
+                           "，端子号默认 JD：1~2 / JD：4~5，个别柜请手改。"))
+            ;; 顺带输出电缆清单，回车放在环网图左下方
+            (setq lpt (getpoint "\r\n[HWT] 指定电缆清单左上角 <环网图下方>: ")
+                  lpt (if lpt
+                        (trans lpt 1 0)
+                        (list (- (car pt) 61.0)
+                              (- (cadr pt) (* (length (hwt:row-counts (length names))) 45.0) 5.0)
+                              (caddr pt))))
+            (hwt:draw-list (hwt:cable-rows names) (car lpt) (cadr lpt) (caddr pt) style)
+            (princ (strcat "\r\n[HWT] 已生成电缆清单 " (itoa (1+ (length names)))
+                           " 行，可框选后用 BH3 登记编号。")))
+          (princ "\r\n[HWT] 未指定插入点，未生成。"))))))
+  (aa:cmd-end))
 
 ;;; =======================================================================================
 ;;; 命令: T2
@@ -3373,7 +3765,7 @@
   ;; ZHONG / ZUO / YOU / SHANG / XIA 五个对齐命令的共用实现。
   ;;   tag      命令名，用于提示和错误信息
   ;;   hint     动作描述，如 "居中对齐"
-  ;;   ref-fn   选取基准文字的函数（最上方或最左侧）
+  ;;   ref-fn   选取基准文字的函数（最上/最下/最左/最右）
   ;;   edge-fn  从基准包围盒取对齐坐标的函数
   ;;   norm-fn  统一对正方式的函数（水平或垂直）
   ;;   align-fn 按包围盒对齐单个文字的函数
@@ -3502,10 +3894,10 @@
     nil)
 )
 
-;;; 功能: 将选中文字统一为左中对正，并以最上方文字为基准左对齐。
+;;; 功能: 将选中文字统一为左中对正，并以最左侧文字为基准左对齐。
 (defun c:ZUO ()
   (aa:align-text-cmd "ZUO" "左对齐"
-    'aa:find-ref-by-top-bbox 'aa:bbox-left-x
+    'aa:find-ref-by-left-bbox 'aa:bbox-left-x
     'aa:normalize-text-horizontal-align 'aa:align-text-horizontal-by-bbox 1 "X")
 )
 
@@ -3926,10 +4318,10 @@
   (princ)
 )
 
-;;; 功能: 将选中文字统一为右中对正，并以最上方文字为基准右对齐。
+;;; 功能: 将选中文字统一为右中对正，并以最右侧文字为基准右对齐。
 (defun c:YOU ()
   (aa:align-text-cmd "YOU" "右对齐"
-    'aa:find-ref-by-top-bbox 'aa:bbox-right-x
+    'aa:find-ref-by-right-bbox 'aa:bbox-right-x
     'aa:normalize-text-horizontal-align 'aa:align-text-horizontal-by-bbox 3 "X")
 )
 ;;; =======================================================================================

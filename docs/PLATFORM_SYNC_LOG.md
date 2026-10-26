@@ -1606,3 +1606,51 @@
 - 来源：中望 `AA整合版本.lsp` SHA-256 `6a6c1c9ee45de9234fdcfa4b47aac10cd68d7e838c28e294fbcebde42e523bbf`；修改前字节备份 `AA整合版本.lsp.bak-bdl-append-*`。
 - 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
 - AutoCAD 状态：待同步，未修改 AutoCAD 插件代码；同步时以本条为准，前一条“外侧电缆自动让行”已被取代。
+
+## 2026-10-26 新增 ZHU 生成端子短接/拆除连片注释
+
+- 中望完成时间：2026-10-26 15:02:52 +08:00。
+- 命令/模块：新增 `ZHU`（`zhu:trim`、`zhu:sort-nums`、`zhu:classify`、`zhu:build-note`、`zhu:pick-name`）。选中端子排名和端子号文字（纯数字认作端子号，其余认作端子排名；多个非数字文字时点选，没有时手动输入），选择短接(D)或拆除连片(C)（记住上次选择），指定插入点生成单行文字：`注：短接1I3D:4、1I3D:5、…` 或 `注：拆除1I3D:4、1I3D:5、…之间的短接线`。端子号去重并按数值排序；文字为 HZ 样式、字高 3、宽度系数 0.7、当前图层，与 T 处理后一致。新增离线检查 `tools/check_zhu_static.py` 并加入全量检查。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `904ee576068a6f5fb365c1ef786b409342daf6a2a872009349dca196f7d68aba`；修改前字节备份 `AA整合版本.lsp.bak-zhu-*`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码。
+
+## 2026-10-26 ZHU 拆除注释措辞改为“之间的连片”
+
+- 中望完成时间：2026-10-26 15:08:53 +08:00。
+- 命令/模块：`zhu:build-note` 拆除连片的注释改为 `注：拆除1I2D:4、1I2D:5、1I2D:6、1I2D:7之间的连片`（原为“之间的短接线”，用户更正）；短接格式不变。`tools/check_zhu_static.py` 同步。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `541d22e90d713d5670facc5a4b0dd6d1e1c5bb664b445f468a36050cdb1abe82`；修改前字节备份 `AA整合版本.lsp.bak-zhu-lianpian-*`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码；同步 ZHU 时以本条措辞为准。
+
+## 2026-10-26 ZHU 拆除注释措辞改为“之间的连接片”
+
+- 中望完成时间：2026-10-26 15:13:46 +08:00。
+- 命令/模块：`zhu:build-note` 拆除注释改为 `注：拆除3I7D:4、3I7D:5、3I7D:6、3I7D:7之间的连接片`（用户再次更正，“连片”改为“连接片”）；短接格式不变。`tools/check_zhu_static.py` 同步。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `0003629c570df1d96867b5331cb49f3b5b93d2856574953f7fb940b02158bc8f`；修改前字节备份 `AA整合版本.lsp.bak-zhu-ljp-*`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码；同步 ZHU 时以本条措辞为准，前两条措辞已被取代。
+
+## 2026-10-26 ZUO/YOU 改为以最左/最右文字为基准
+
+- 中望完成时间：2026-10-26 15:54:17 +08:00。
+- 命令/模块：新增 `aa:find-ref-by-right-bbox`；`c:YOU` 基准文字由“最上方”改为“包围盒最右侧”，`c:ZUO` 由“最上方”改为“包围盒最左侧”（复用已有 `aa:find-ref-by-left-bbox`）。至此 SHANG/XIA/ZUO/YOU 分别以最上/最下/最左/最右文字为基准，ZHONG 仍以最上方文字为基准。文件头命令清单与命令说明同步。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `9f33b86acc053cd144161992b5b00d54a9c047707faf635549fd16e179cdc688`；修改前字节备份 `backups/AA整合版本.lsp.bak-YOU-*`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS（首轮 ZZ 基准加速比偶发不足，单独重跑及再次全量均通过）；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码；同步时需新增右侧基准查找函数并修改 ZUO/YOU 的基准函数参数。
+
+## 2026-10-26 新增 HWT 柜名列一键生成环网图
+
+- 中望完成时间：2026-10-26 17:38:29 +08:00。
+- 命令/模块：新增 `HWT`（`hwt:row-counts`、`hwt:cable-no`、`hwt:feeder-items`、`hwt:box-items`、`hwt:label-items`、`hwt:layout`、`hwt:counts-text`、`hwt:pt3`、`hwt:make-pline`、`hwt:fit-name`、`hwt:draw`）。框选一列柜名文字（从上到下为环网顺序），点第一行第一个柜框左上角，生成蛇形环网图：每行最多 5 个、各行数量尽量相等（13→5/4/4）且居中对称；柜框含柜名、L1/N1、默认 `JD：1~2`/`JD：4~5`；柜间 `SML-01` 起连续编号（换行竖线也占号），规格 `2×4`；环首 `JL-01`、环尾 `JL-04` 至交流馈线柜。几何取自用户示例 `环网示例.dxf`。新增 `tools/check_hwt_static.py` 与纯计算子集解释器 `tools/lisp_mini_eval.py`，已加入全量检查；说明见 `docs/HWT.md`。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `8ce7bb786f55ce9f1180651ea9aaabc3c67e522b7bb428737e5ba9061ea2a52b`；修改前字节备份 `AA整合版本.lsp.bak-hwt-20261026-173559`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码。
+
+## 2026-10-26 HWT 增加电缆清单输出（供 BH3 登记）
+
+- 中望完成时间：2026-10-26 17:55:16 +08:00。
+- 命令/模块：`c:HWT` 生成环网图后提示“指定电缆清单左上角 <环网图下方>”，新增 `hwt:cable-rows`、`hwt:text-width`、`hwt:draw-list`。清单每根电缆一行（柜数+1 行），列为 起点柜、编号、终点柜、`2×4`、`2`、`L1`、`N1`，首尾为交流馈线柜 `JL-01`/`JL-04`；白色、HZ/3/0.7、左中对齐、行距 5，列宽取最长文字、列间空 10，与 BH3/HDDL 清册列顺序和分行方式一致。环网图与清单同一撤销组。`tools/check_hwt_static.py`、`docs/HWT.md` 同步。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `0e5fca92247cbffc0798106904badcd268152c02ab1645d7c3feae6a440147f5`；修改前字节备份 `AA整合版本.lsp.bak-hwt-list-20261026-175255`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS；命令索引、代码地图、审计产物已更新。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码；同步 HWT 时连同本条一起移植。
