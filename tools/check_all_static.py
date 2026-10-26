@@ -144,6 +144,7 @@ MODULE_CHECKS = [
     'check_link_static.py',
     'check_xy_static.py',
     'check_hddl_static.py',
+    'check_bh_static.py',
     'check_cable_perf_static.py',
     'check_gty_copy_static.py',
     'check_xyg_static.py',
