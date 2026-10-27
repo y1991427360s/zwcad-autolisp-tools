@@ -1714,3 +1714,28 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 检查结果：见本条下方“检查”一行。
 - 验证状态：未连接、加载或操作任何 CAD；卡片点条目定位在 AutoCAD 下未实机验证。
 - 中望状态：不适用（中望版本来就有这 3 个函数；卡片 UTF-8 读取行为不变）。
+
+## 2026-10-27 09:53:34 中望新增 SXC：查看文字联动标记
+
+- 起因：用户反馈 SX 打的标记在图上看不见，要有一个命令告诉用户文字有没有标记、标记是什么，并接入 AHK 自动化面板。
+- 中望改动（`AA整合版本.lsp`）：
+  - 新增 `c:SXC` 和辅助函数 `aa:link-dwg-label`，插在 `c:SX` 之后。选文字后逐个判断：未标记、原件（附本图副本数）、本图副本（附原件句柄）、原件缺失（副本的原件已删或不再带标记，列为 err）、他图副本（附原件图名和句柄，提示用总图 SX2）。直接回车查本图全部已标记文字，这时只列原件和异常，副本只计数。明细交给结果卡片（`aa:rep-begin` / `aa:rep-item` / `aa:rep-end`），点条目复用 `aa:rep-zoom` 定位。只读，不修改图形。
+  - 文件头命令清单加入 SXC。修改前 SHA-256 `d875fbb0be2cc7a8bbd8e2b259021684855e9efa0b4a8220421325e375b736a2`，修改后 `2ab3d6e4bd23ad336b314800b24fe420c395bb42bbdeff18f358f31b52e6a193`；字节备份 `backups/dated/2026-10-27/AA整合版本.lsp.bak-SXC-20261027-095139`。
+- 面板改动（外部仓库 `excel-ahk-command-panel/src/excel-command-panel.ahk`）：在“图纸”页新增“文字联动标记（中望 CAD）”一节和“查看文字标记 SXC”按钮。新增 `RunZwcadCommand`：先确认中望在运行、当前没有执行命令（CMDACTIVE=0），再切到 CAD 发送 `SXC`。已运行 `install.ps1`，静态加载检查通过并重载面板。
+- 流程文档：`工作智能体/工作流程/二次接线-端子排与电缆清册.md` 的 SX 系列一节加入 SXC 的用途。
+- 检查：`python tools/check_all_static.py` ALL PASS（84.7s，37 项专项检查）；`gen_命令索引.py` 共 189 个命令；`scripts/audit_lsp.py --write` 0 structural findings。
+- 验证状态：未连接、加载或操作 CAD；SXC 和面板按钮都没有实机运行过。
+- AutoCAD 状态：待同步（AutoCAD 版需要移植 `c:SXC`、`aa:link-dwg-label`；面板按钮只针对中望）。
+
+## 2026-10-27 10:05:56 中望 SXC 提速
+
+- 起因：用户反馈 SXC 在 CAD 里偏慢。
+- 中望改动（`AA整合版本.lsp`）：
+  - 原来统计副本数时，每数一个副本都用 `subst` 重建一次计数表，复杂度是副本数 × 原件数。现在改成：先收集原件和副本引用的句柄，各用 `aa:merge-sort` 排一次序，再并行走一遍计数，复杂度 O(n log n)。
+  - 全图模式（直接回车）只扫一遍：原来是选择集一遍、全图计数一遍，两遍都对同一批文字做 entget。框选模式只在选中了原件时才额外扫一遍全图，而且挪到了用户选完之后，提示会立刻出现。
+  - 新增 `aa:link-txt`：文字内容只在真正要列出时才提取，全图模式下只计数的副本不再去剥 MTEXT 格式。
+  - 修改后 SHA-256 `2dffa6294f000b6e4d2c366967952039dd3a12aebeeb06798fad45fab5805e94`；备份 `backups/dated/2026-10-27/AA整合版本.lsp.bak-SXC-speed-20261027-100247`。
+- 面板改动：`src/cad-report-card.ahk` 的结果文件轮询间隔从 0.5 秒缩到 0.2 秒（只比较文件修改时间），卡片能更快弹出；已运行 `install.ps1` 重载。
+- 检查：第一次 `check_all_static.py` 只有 `check_zz_static.py` 的性能基准没过（这次没改 ZZ，属已知的负载抖动）；单独重跑 ZZ 通过（5.07x），再跑一次全量 ALL PASS（72.4s）。`audit_lsp.py --write` 0 structural findings。
+- 验证状态：未连接、加载或操作 CAD，提速效果没有实测。
+- AutoCAD 状态：待同步（同上一条，与 SXC 一起移植）。

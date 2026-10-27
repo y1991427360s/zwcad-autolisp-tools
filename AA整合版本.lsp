@@ -85,6 +85,7 @@
 ;;;   - BH2   : 框选起点柜和绿色电缆线，把已编号但没记录的电缆记入共享记录，给有记录的“未编号”按记录填写；不分配新编号，两端不一致的标红注明原因。
 ;;;   - BHG  : 以图为准修改电缆编号记录：记录编号改成图上的编号，原编号存为旧编号供另一端 BH1/BH2 自动跟改；“未编号”的删除其记录。
 ;;;   - BH3   : 框选电缆清册文字（起点柜/编号/终点柜/规格/芯数/原理号），以清册为准写入共享记录：没有的记入，有的强制改成清册编号（同 BHG）。
+;;;   - SXC   : 查看联动标记：选文字（回车=本图全部已标记文字），列出是未标记、原件、副本、原件缺失还是他图副本，点结果卡片条目定位；只读。
 ;;;   - SX0   : 清除联动标记：框选文字，删除副本的联动标记使其成为普通文字；原件自动跳过。
 ;;;   - YSSX0 : 强制清除联动标记：框选文字，原件和副本的联动标记一并删除，全部成为普通文字。
 ;;;   - SX    : 联动标记：框选原件端子排文字发放唯一编号（UID），草稿/XY/XYG/GTY 副本自动继承。
@@ -9538,6 +9539,115 @@
      )
      (princ (strcat "\r\n[SX] 新标记 " (itoa n-new) " 个，已是原件 " (itoa n-root)
                     " 个，副本跳过 " (itoa n-copy) " 个。"))
+    )
+  )
+  (aa:cmd-end)
+)
+
+;;; =======================================================================================
+;;; 命令: SXC
+;;; 功能: 查看文字的联动标记状态。选文字（回车=本图全部已标记文字），逐个判断是未标记、原件、
+;;;       本图副本、原件缺失还是他图副本，并用结果卡片列出；点卡片条目可定位到该文字。只读，不修改图形。
+;;; =======================================================================================
+(defun aa:link-dwg-label (id / p)
+  ;; 联动图纸 ID 形如 “46321.12345678-图名.dwg”，取“-”后的图名部分
+  (if (and id (setq p (vl-string-position 45 id)))
+    (substr id (+ p 2))
+    (if id id "")
+  )
+)
+
+(defun aa:link-txt (ed / s)
+  ;; 结果卡片里显示的文字内容（纯文本），取不到时为空串
+  (if (setq s (aa:ysdl-get-plain-text ed)) s "")
+)
+
+(defun c:SXC (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+               ss all whole small i n en ed h info dwg-id roots hits cnt
+               n-all n-none n-root n-copy n-lost n-other short)
+  (aa:cmd-begin "SXC")
+  (aa:rep-begin "SXC")
+  (setq dwg-id (aa:link-dwg-id nil))
+  (princ "\r\n[SXC] 选择要查看标记的文字，直接回车 = 本图全部已标记文字: ")
+  (setq ss (ssget '((0 . "TEXT,MTEXT"))))
+  (if (null ss)
+    (setq ss (ssget "_X" '((0 . "TEXT,MTEXT") (-3 ("AA_LINK")))) whole T))
+  (if (null ss)
+    (princ "\r\n[SXC] 本图没有带联动标记的文字，请先用 SX 标记原件端子排。")
+    (progn
+      ;; 只扫一遍选择集；原件先收集 (句柄 图元)，等数完副本再出条目。
+      ;; 全图模式下选择集就是全部标记文字，顺手收集本图副本指向的原件句柄用于计数。
+      (setq i 0 n-all (sslength ss) small (<= n-all 30)
+            n-none 0 n-root 0 n-copy 0 n-lost 0 n-other 0 roots '() hits '())
+      (while (< i n-all)
+        (setq en   (ssname ss i)
+              ed   (entget en '("AA_LINK"))
+              h    (cdr (assoc 5 ed))
+              info (aa:link-info ed))
+        (cond
+          ((null info)
+           (setq n-none (1+ n-none))
+           (if small
+             (aa:rep-item "info" "未标记" en (strcat "「" (aa:link-txt ed) "」没有联动标记（普通文字）")))
+          )
+          ((aa:link-root-p info dwg-id h)
+           (setq n-root (1+ n-root)
+                 roots  (cons (list h en) roots))
+          )
+          ((and dwg-id (= (car info) dwg-id))
+           (if whole (setq hits (cons (cadr info) hits)))
+           (cond
+             ((null (aa:link-root-ed info dwg-id))
+              (setq n-lost (1+ n-lost))
+              (aa:rep-item "err" "原件缺失" en
+                (strcat "「" (aa:link-txt ed) "」是副本，但原件（句柄 " (cadr info) "）已删除或不再带标记")))
+             (T
+              (setq n-copy (1+ n-copy))
+              (if (not whole)
+                (aa:rep-item "info" "副本" en
+                  (strcat "「" (aa:link-txt ed) "」是副本，原件句柄 " (cadr info)))))
+           )
+          )
+          (T
+           (setq n-other (1+ n-other))
+           (if (not whole)
+             (aa:rep-item "info" "他图副本" en
+               (strcat "「" (aa:link-txt ed) "」原件在图纸 " (aa:link-dwg-label (car info))
+                       "（句柄 " (cadr info) "），本图无原件，需总图 SX2 刷新")))
+          )
+        )
+        (setq i (1+ i))
+      )
+      ;; 选中了原件但不是全图模式：再扫一遍全图标记文字，只收集副本指向的原件句柄
+      (if (and roots (not whole) (setq all (ssget "_X" '((0 . "TEXT,MTEXT") (-3 ("AA_LINK"))))))
+        (progn
+          (setq i 0 n (sslength all))
+          (while (< i n)
+            (setq ed   (entget (ssname all i) '("AA_LINK"))
+                  info (aa:link-info ed))
+            (if (and info (= (car info) dwg-id)
+                     (/= (cadr info) (cdr (assoc 5 ed))))
+              (setq hits (cons (cadr info) hits)))
+            (setq i (1+ i))
+          )
+        )
+      )
+      ;; 原件和副本引用各排一次序后并行走一遍计数，避免逐个查表
+      (setq roots (aa:merge-sort roots '(lambda (a b) (< (car a) (car b))))
+            hits  (aa:merge-sort hits '<))
+      (foreach r roots
+        (setq cnt 0)
+        (while (and hits (< (car hits) (car r))) (setq hits (cdr hits)))
+        (while (and hits (= (car hits) (car r))) (setq cnt (1+ cnt) hits (cdr hits)))
+        (aa:rep-item "ok" "原件" (cadr r)
+          (strcat "「" (aa:link-txt (entget (cadr r))) "」是原件，本图副本 " (itoa cnt) " 个"))
+      )
+      (if whole
+        (aa:rep-info "全图模式只列原件和异常；副本及他图副本只计数，框选文字可查看每个副本的详情。"))
+      (setq short (strcat (if whole "本图已标记 " "已选 ") (itoa n-all) " 个文字："
+                          (aa:rep-counts (list (cons "原件" n-root) (cons "副本" n-copy) (cons "原件缺失" n-lost)
+                                               (cons "他图副本" n-other) (cons "未标记" n-none)))))
+      (aa:rep-end short short)
     )
   )
   (aa:cmd-end)
