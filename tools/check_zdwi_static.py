@@ -156,7 +156,8 @@ def expand(funcs, entities, seed):
         return result or None
 
     # Execute actual seed selection, border walking and expanded-selection code.
-    names = ('aa:zdwi-seed', 'aa:zdwi-border-range', 'aa:zdwi-expand-selection')
+    names = ('aa:zdwi-seed', 'aa:zdwi-in-boxes-p', 'aa:zdwi-seed-next',
+             'aa:zdwi-border-range', 'aa:zdwi-expand-selection', 'aa:zdwi-table-groups')
     env = {'__functions': {name: funcs[name] for name in names}, '__ssget': ssget,
            'aa:zdwi-tol': 0.5, 'selected': seed}
     return evaluate(['aa:zdwi-expand-selection', 'selected'], env)
@@ -322,6 +323,47 @@ def check():
         assert any(node[0] == 'aa:zz-center-texts' for node in walk(funcs[name][3:]))
     assert not any(node[0] in ('ssget', 'vla-startundomark', 'vla-endundomark',
                              'aa:cmd-begin', 'aa:cmd-end') for node in walk(helper[3:]))
+    # User QW3 2-table fixture (62X-B26009S-D0206-35kV系统二次线.dwg): two disconnected rectangles + texts.
+    r1 = {'type': 'LWPOLYLINE', 'flags': 1, 'layer': 'LY_Partlib2',
+          'pts': [[37515.7786, -650.6641], [37564.4948, -650.6641],
+                  [37564.4948, -659.6993], [37515.7786, -659.6993]]}
+    t1 = {'type': 'TEXT', 'layer': '0',
+          'bbox': [[37519.382, -656.6981], [37547.7182, -653.6745]]}
+    r2 = {'type': 'LWPOLYLINE', 'flags': 1, 'layer': 'LY_Partlib2',
+          'pts': [[37515.7786, -664.6018], [37564.4948, -664.6018],
+                  [37564.4948, -673.6369], [37515.7786, -673.6369]]}
+    t2 = {'type': 'TEXT', 'layer': '0',
+          'bbox': [[37519.382, -670.6358], [37548.4182, -667.6121]]}
+    two_all = [r1, t1, r2, t2]
+    assert expand(funcs, two_all, two_all) == two_all
+    assert expand(funcs, two_all, [r1, r2]) == two_all
+    mapped2, moved2, undo2, centered2 = [], [], [], []
+    env2 = {
+        '__functions': {name: form for name, form in affected.items()
+                        if name not in ('aa:zdwi-vertices', 'aa:zdwi-map-entity',
+                                        'aa:zdwi-expand-selection')},
+        'aa:doc': 'doc',
+        '__ssget': lambda *args: two_all,
+        '__builtins': {
+            'vl-load-com': lambda: None, 'princ': lambda *args: None,
+            'aa:zdwi-expand-selection': lambda ss: ss,
+            'aa:merge-sort': lambda values, comparator: sorted(values),
+            'aa:cmd-begin': lambda tag: undo2.append('begin'),
+            'aa:cmd-end': lambda: undo2.append('end'),
+            'aa:zdwi-map-entity': lambda en, old, new:
+                mapped2.append((en, old, new)) or True,
+            'aa:zz-center-texts': lambda doc, texts, lines:
+                centered2.append((texts, lines)) or [len(texts), 0],
+            'aa:zz-move-text': lambda en, x, y, target, target_y:
+                moved2.append((en, x, target)) or True,
+            'redraw': lambda: None, 'sssetfirst': lambda *args: None,
+        },
+    }
+    evaluate(['c:zdwi'], env2)
+    assert undo2 == ['begin', 'end'], undo2
+    assert len(mapped2) == 2 and len(moved2) == 2 and centered2 == [([t1], [r1]), ([t2], [r2])]
+    assert abs(mapped2[0][2][1] - (37515.7786 + (37547.7182 - 37519.382) + 6.0)) < 1e-6
+    assert abs(mapped2[1][2][1] - (37515.7786 + (37548.4182 - 37519.382) + 6.0)) < 1e-6
     print('PASS ZDWI/ZZ: shared centering, all table texts, updated lines, one undo group')
     print('PASS ZDWI: command structure, closed/open row borders, reversed vertices, '
           'LINE chains, disconnected frames, mixed-layer selection, overflow '

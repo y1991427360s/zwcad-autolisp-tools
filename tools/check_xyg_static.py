@@ -681,6 +681,38 @@ invoke('xyg:output-gtx-matrix', [cats, ['同步时钟柜'], [0.0, 0.0, 0.0], 'HZ
 assert [c for c, _ in made] == ['同步时钟柜', 'DS-01', '2', '101', '同步时钟柜', 'DS-03', '4', '107'], made
 assert made[5][1] == [link_a] and not made[1][1], made
 
+# Test 9: 竖直绿色电缆线（D0204 QW3 实例）：去重、右下侧 3 个电缆文字提取、下端新生成文字提取
+entities = {
+    'v_line_1': [(0, 'LINE'), (10, [68674.2242, 23664.4575, 0.0]), (11, [68674.2242, 23224.1392, 0.0])],
+    'v_line_dup': [(0, 'LINE'), (10, [68674.2242, 23664.4575, 0.0]), (11, [68674.2242, 23224.1392, 0.0])],
+    'v_line_2': [(0, 'LINE'), (10, [68700.0, 23664.4575, 0.0]), (11, [68700.0, 23224.1392, 0.0])],
+    'vt_num': text_ed('TEXT', 68675.0529, 23300.8849, 3.0, '1YYH-102B'),
+    'vt_dest': text_ed('TEXT', 68674.7242, 23275.1816, 4.0, '至110kV母线保护测控柜'),
+    'vt_spec': text_ed('TEXT', 68675.0529, 23236.0855, 3.0, '10×1.5'),
+}
+BBOX = {
+    'vt_num': [68675.0529, 68678.0529, 23284.4349, 23300.8849],
+    'vt_dest': [68674.7242, 68678.7242, 23240.4241, 23274.8509],
+    'vt_spec': [68675.0529, 68678.0529, 23227.3355, 23236.0855],
+}
+native['xy:window-wcs'] = lambda *a: None
+v_dedup = invoke('xyg:dedup-hlines', [['v_line_1', 'v_line_dup', 'v_line_2'], 0.5], {})
+assert len(v_dedup) == 2
+v_rect_idx = invoke('xyg:build-text-index', [['vt_num', 'vt_dest', 'vt_spec'], 'box'], {})
+v_rect_res = invoke('xyg:find-vrect-texts', [[68674.2242, 23224.1392, 0.0], v_rect_idx], {})
+assert v_rect_res == ['1YYH-102B', '至110kV母线保护测控柜', '10×1.5'], v_rect_res
+
+entities = {
+    'vn_core': text_ed('TEXT', 68674.7242, 23222.1392, 3.0, '4'),
+    'vn_p1': text_ed('TEXT', 68674.7242, 23214.1392, 3.0, '827'),
+    'vn_p2': text_ed('TEXT', 68674.7242, 23184.1392, 3.0, '829'),
+    'vn_p3': text_ed('TEXT', 68674.7242, 23154.1392, 3.0, '831'),
+    'vn_p4': text_ed('TEXT', 68674.7242, 23124.1392, 3.0, '833'),
+}
+v_new_idx = invoke('xyg:build-text-index', [list(entities), 'point'], {})
+v_down_res = invoke('xyg:find-down-new-texts', [[68674.2242, 23224.1392, 0.0], v_new_idx, 4, None], {})
+assert v_down_res == ['4', '827', '829', '831', '833'], v_down_res
+
 print(f'PASS: {len(targets)} XYG functions; prefix text detection; 3mm rect filtering & 3-text truncation; hline dedup; '
       f'right-text cluster/count isolation (no duplicate text across columns); AA_LINK info/root detection; matrix sort on (text . link) pairs; '
       f"indexed vs legacy identical ({stats['rect']} rect + {stats['right']} right queries, "

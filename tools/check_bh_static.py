@@ -7,7 +7,7 @@
      顺序号排到 130/131 时询问（跳过 130、照常使用 131）；
   3. 两位数起始号 01 → DS-01、DS-02；
   4. 记录文件写入失败时不改图。
-  5. BHG 以图为准改记录（原编号存为旧编号）、“未编号”删除记录、拒绝占用他人编号；
+  5. BHG 以图为准改记录（原编号存为旧编号）、“未编号”删除记录、编号原属选择外的电缆时删原记录改给这根；
   6. 另一端 BH2 把旧编号自动改为新编号；
   7. 旧版 6 列记录文件、旧编号累积、旧编号不再分配。
   8. 图上只改了某一端柜名（起点或终点）或原理号时，BHG 判定为同一根电缆并更正记录。
@@ -243,7 +243,10 @@ def wcmatch(s, pat):
         rx, i = '', 0
         while i < len(p):
             c = p[i]
-            if c == '#':
+            if c == '`' and i + 1 < len(p):
+                i += 1
+                rx += re.escape(p[i])
+            elif c == '#':
                 rx += '[0-9]'
             elif c == '@':
                 rx += '[A-Za-z]'
@@ -356,7 +359,7 @@ def sp_remove_if(args, env):
     return [x for x in (args[1] or []) if not lt(call(args[0], [x], env))] or None
 
 
-SPECIAL = {'vl-remove-if': sp_remove_if, 'aa:merge-sort': sp_merge_sort, 'mapcar': sp_mapcar, 'vl-every': sp_every,
+SPECIAL = {'apply': lambda args, env: call(args[0], args[1] or [], env), 'vl-remove-if': sp_remove_if, 'aa:merge-sort': sp_merge_sort, 'mapcar': sp_mapcar, 'vl-every': sp_every,
            'vl-some': sp_some, 'vl-catch-all-apply': sp_catch}
 
 
@@ -603,16 +606,19 @@ def rec_of(files, num):
 c = Cad(FILES)
 c.add_line('b2', 45, '1号主变保护柜', '1B-101C', ['107', '105'])   # 以图为准：正确的是 1B-101C
 c.add_line('b4', 35, '柜X', '未编号', ['133'])                      # 未编号 → 删除记录
-c.add_line('b5', 30, '柜Y', '1B-101A', ['135'])                     # 编号属于另一根 → 冲突，不改记录
+c.add_line('b5', 30, '柜Y', '1B-101A', ['135'])                     # 编号属于选择外的另一根 → 以本次选择为准，删原记录、改给这根
 c.install('主变测控柜1')
 c.ents['b2_num']['color'] = 1
 c.run('c:bhg')
 assert rec_of(FILES, '1B-101C') and rec_of(FILES, '1B-101C')[0][6] == '1B-101B', FILES[PATH]
 assert not rec_of(FILES, '1B-101B'), FILES[PATH]
-assert c.color('b2') == 7 and c.color('b5') == 1 and c.selected == ['b5_num'], (c.color('b2'), c.selected)
-assert any('编号已被另一根电缆使用' in t for _, t in c.markers), c.markers
+assert c.color('b2') == 7 and c.color('b5') == 7 and c.selected == ['b5_num'] and c.markers == [], (c.color('b2'), c.selected, c.markers)
+r = rec_of(FILES, '1B-101A')
+assert len(r) == 1 and sorted(r[0][1:3]) == ['主变测控柜1', '柜Y'] and r[0][3] == '135', FILES[PATH]
+assert any('原属 1号主变保护柜—主变测控柜1 的记录已删除' in o for o in c.out), c.out
+assert any('编号从别的电缆改过来 1 根' in o and '编号冲突 0 根' in o for o in c.out), c.out
 assert all(len(l.split('\t')) == 7 for l in FILES[PATH]), FILES[PATH]
-print('PASS: 场景5 BHG 改记录、存旧编号、删记录、拒绝占用他人编号')
+print('PASS: 场景5 BHG 改记录、存旧编号、删记录、以本次选择为准占用选择外电缆的编号')
 
 before = list(FILES[PATH])
 c = Cad(FILES)
@@ -648,12 +654,12 @@ GW = {PATH: ['电缆编号\t柜名1\t柜名2\t原理号\t图纸\t时间',
              'DS-06\tI区通信网关机柜\t同步时钟主机柜\tB+ B-\tg.dwg\t2026-10-24 15:02:57']}
 c = Cad(GW)
 c.add_line('g1', 50, '公用测控柜', 'SML-20', ['L1', 'N1'])        # 只改了终点柜名
-c.add_line('g2', 45, '公用测控柜2', 'DS-06', ['L2', 'N2'])        # 终点和原理号都变了 → 仍算冲突
+c.add_line('g2', 45, '公用测控柜2', 'DS-06', ['L2', 'N2'])        # 终点和原理号都变了 → 另一根电缆，按本次选择改给这根
 c.install('I区通信网关机柜')
 c.ents['g1_num']['color'] = 1
 c.run('c:bhg')
 assert rec_of(GW, 'SML-20') and rec_of(GW, 'SML-20')[0][2] == '公用测控柜' and rec_of(GW, 'SML-20')[0][6] == '', GW[PATH]
-assert len(rec_of(GW, 'SML-20')) == 1 and rec_of(GW, 'SML-21') and rec_of(GW, 'DS-06')[0][2] == '同步时钟主机柜', GW[PATH]
+assert len(rec_of(GW, 'SML-20')) == 1 and rec_of(GW, 'SML-21') and len(rec_of(GW, 'DS-06')) == 1     and sorted(rec_of(GW, 'DS-06')[0][1:3]) == ['I区通信网关机柜', '公用测控柜2'], GW[PATH]
 assert c.color('g1') == 7 and c.selected == ['g2_num'], (c.color('g1'), c.selected)
 assert any('按图更正柜名/原理号 1 根' in o for o in c.out), c.out
 c = Cad(GW)                                                        # 另一端：公用测控柜填入 SML-20
@@ -669,14 +675,14 @@ YG = {PATH: ['电缆编号\t柜名1\t柜名2\t原理号\t图纸\t时间\t旧编�
              'DS-08\t电能质量监测柜\t同步时钟主机柜\tB+ B-\tz.dwg\t2026-10-24 15:29:36\t']}
 c = Cad(YG)
 c.add_line('y1', 50, '电能质量监测柜', 'SML-25', ['L1', 'N1'])
-c.add_line('y2', 45, '同步时钟主机柜', 'DS-08', ['L2', 'N2'])    # 起点柜和原理号都不同 → 仍是冲突
+c.add_line('y2', 45, '同步时钟主机柜', 'DS-08', ['L2', 'N2'])    # 起点柜和原理号都不同 → 另一根电缆，按本次选择改给这根
 c.install('智能有功控制装置柜')
 c.ents['y1_num']['color'] = 1
 c.run('c:bhg')
 r = rec_of(YG, 'SML-25')
 assert len(r) == 1 and sorted(r[0][1:3]) == sorted(['智能有功控制装置柜', '电能质量监测柜']), YG[PATH]
-assert c.color('y1') == 7 and c.selected == ['y2_num'] and rec_of(YG, 'DS-08')[0][1] == '电能质量监测柜', (c.selected, YG[PATH])
-print('PASS: 场景8b 起点柜改名的同一根电缆由 BHG 更正记录；两样都变的仍报冲突')
+assert c.color('y1') == 7 and c.selected == ['y2_num'] and len(rec_of(YG, 'DS-08')) == 1     and sorted(rec_of(YG, 'DS-08')[0][1:3]) == ['同步时钟主机柜', '智能有功控制装置柜'], (c.selected, YG[PATH])
+print('PASS: 场景8b 起点柜改名的同一根电缆由 BHG 更正记录；两样都变的按本次选择改给新电缆')
 # ---- 场景 9：提速后的文字索引顺扫 / 旧标记清理，与原逐线窗口查询结果逐一对照（执行真实 LISP 源码）
 import random
 
@@ -1293,6 +1299,7 @@ c.run('c:bh2')
 assert (c.num('m1'), c.dest('m1'), c.num('m2')) == ('未编号', '至相邻屏柜', '未编号'), (c.num('m1'), c.num('m2'))
 assert sorted(c.selected) == ['m1_num', 'm2_num'], c.selected
 assert any('有 2 根，只有一根无法确定' in o for o in c.out) and any('记录里没有本柜的相邻屏柜电缆' in o for o in c.out), c.out
+assert any('（查记录用：柜名 电压转接柜，原理号 L1 N1，找到 *** SML-01）' in o for o in c.out) and not any('疑似' in o for o in c.out), c.out
 assert F18[PATH] == RING
 F18 = {PATH: ['电缆编号\t柜名1\t柜名2\t原理号\t图纸\t时间\t旧编号',
               '***\t低压柜\t风功率预测系统柜\tL1 N1\tz.dwg\tt\t',
@@ -1406,14 +1413,15 @@ c.install('宽频同步相量测量采集柜')
 c.run('c:bhg')
 assert F20[PATH] == SW and sorted(c.selected) == ['s1_num', 's2_num'], (c.selected, F20[PATH])
 F20 = {PATH: list(SW)}
-c = Cad(F20)                                   # 原主人的新编号属于选择外的电缆（冲突）→ 连锁撤回
+c = Cad(F20)                                   # 用户实例：原主人的新编号属于选择外的电缆 → 以本次选择为准，连锁都改成功
 c.add_line('t1', 50, '35kV 2#站用变进线柜', '2PMU-145', ['2ZYB-A442', '2ZYB-N441'])
 c.add_line('t2', 45, '35kV 2#SVG进线柜', '2PMU-147', ['2SVG-A442', '2SVG-N441'])
 c.install('宽频同步相量测量采集柜')
 c.run('c:bhg')
-assert F20[PATH] == SW and sorted(c.selected) == ['t1_num', 't2_num'], (c.selected, F20[PATH])
-assert any('那根电缆本次没有改用别的编号' in t for _, t in c.markers), c.markers
-assert any('记录改为图上编号 0 根' in o and '编号冲突 2 根' in o for o in c.out), c.out
+assert rec_of(F20, '2PMU-145')[0][2] == '35kV 2#站用变进线柜' and rec_of(F20, '2PMU-147')[0][2] == '35kV 2#SVG进线柜', F20[PATH]
+assert not any('2#主变进线柜' in l for l in F20[PATH]) and len(F20[PATH]) == 3, F20[PATH]
+assert c.selected == ['t2_num'] and c.markers == [], (c.selected, c.markers)
+assert any('记录改为图上编号 2 根' in o and '编号从别的电缆改过来 1 根' in o and '编号冲突 0 根' in o for o in c.out), c.out
 F20 = {PATH: list(SW)}
 c = Cad(F20)                                   # 用户实例：两根“至相邻屏柜”的未编号通讯线 → 未编号不核对，不报重复
 c.add_line('h1', 50, '相邻屏柜', '未编号', ['B+', 'B-'])
@@ -1435,7 +1443,7 @@ c.install('宽频同步相量测量采集柜')
 c.run('c:bhg')
 assert not rec_of(F20, '2PMU-145') and len(F20[PATH]) == 3 and c.selected == ['k4_num'], (F20[PATH], c.selected)
 assert any('未编号 2 根（不核对，其中有记录的已删除 1 根）' in o and '编号冲突 1 根' in o for o in c.out), c.out
-print('PASS: 场景20 BHG 同次框选互换/挪用编号：记录按图互换并存旧编号；原主人没改号时撤回并标冲突（含连锁）')
+print('PASS: 场景20 BHG 同次框选互换/挪用编号：记录按图互换并存旧编号；原主人没改号时撤回并标冲突；选择外的编号按本次选择改过来（含连锁）')
 # ---- 场景 21：JM 截面规则（jm:classify 也决定 BH 的专用号）与已填写截面核对
 JM_CASES = [
     (['L', 'N'], '2×4'), (['+KM', '-KM'], '2×4'), (['+BM', '-BM'], '2×4'), (['+HM', '-HM'], '2×4'), (['+ZM', '-ZM'], '2×4'),
@@ -1454,6 +1462,18 @@ for prins, want in JM_CASES:
     assert got and got[0] == want, (prins, got, want)
 for prins in (['33'], ['607A'], ['107', '701']):
     assert not call('jm:decide', [prins], GLOBAL)[0], prins
+# 合画柜合并写法拆开逐个判断（2026-10-27）
+for prins, want in ((['A63(4)0I', 'B63(4)0I', 'C63(4)0I', 'N600'], '4×4'), (['A630I(640I)', 'B630I（640I）'], '4×4'),
+                    (['107(8)', '133'], '4×2.5'), (['1(2)UBY-901', '701'], '4×1.5')):
+    got = call('jm:decide', [prins], GLOBAL)
+    assert got and got[0] == want, (prins, got, want)
+assert not call('jm:decide', [['1(5)01']], GLOBAL)[0]           # 拆开 101、501 类型不同时不判
+# DE / DE2 括号处理与 BH 拆分一致：括号里的数字只换括号前同样位数
+for s, de, de2 in (('DS-10(11)', 'DS-10', 'DS-11'), ('A630I(640I)', 'A630I', 'A640I'), ('A63(4)0I', 'A630I', 'A640I'),
+                   ('B63（4）0I', 'B630I', 'B640I'), ('DS-101(2)', 'DS-101', 'DS-102'), ('DS-9(10)', 'DS-9', 'DS-10'),
+                   ('1(2)#主变保护柜', '1#主变保护柜', '2#主变保护柜')):
+    assert call('de:strip', [s, 0], GLOBAL) == de, (s, call('de:strip', [s, 0], GLOBAL))
+    assert call('de:strip', [s, 1], GLOBAL) == de2, (s, call('de:strip', [s, 1], GLOBAL))
 for have, prins, ok in (('4x2.5', ['101', '103'], True), ('4×2.5', ['101', '103'], True), ('4 X 1.5', ['501'], True),
                         ('4×2.5', ['107', '107A'], False), ('4×1.5', ['101', '103', '105', '107'], False),
                         ('2×4', ['+BM', '-BM'], True), ('4×4', ['+KM', '-KM'], False)):
@@ -1495,6 +1515,20 @@ assert alts('DS-24(25)') == ['DS-24', 'DS-25'] and alts('1(2,3)#柜') == ['1#柜
 assert alts('35kV(Ⅰ段)柜') is None and alts('同步时钟主机柜') is None and alts('(2)#柜') is None
 assert join('DS-24', 'DS-25') == 'DS-24(25)' and join('1UBY-105', '2UBY-105') == '1(2)UBY-105'
 assert join('DS-24', 'DS-24') == 'DS-24' and join('1B-101A', '1B-101B') is None and join('DS-24', 'TX-25') is None
+assert join('1UYH-141A', '2UYH-140A') == '1(2)UYH-141(140)A' and alts('1(2)UYH-141(140)A') == ['1UYH-141A', '2UYH-140A']
+assert alts('1(2)UYH-141(140,139)A') is None and alts('1(2)#柜(备用)') == ['1#柜(备用)', '2#柜(备用)']
+F23 = {PATH: [H23, '1UYH-141A	1#主变保护柜	电压转接柜	A630I N600	x.dwg	t	',
+              '2UYH-140A	2#主变保护柜	电压转接柜	A640I N600	x.dwg	t	']}
+c = Cad(F23)                                   # 用户实例：两张图编号差两段数字 → 1(2)UYH-141(140)A；重跑核对一致
+c.add_line('k1', 50, '电压转接柜', '未编号', ['A63(4)0I', 'N600'])
+c.install('1(2)#主变保护柜')
+c.run('c:bh2')
+assert c.num('k1') == '1(2)UYH-141(140)A' and c.markers == [], (c.num('k1'), c.markers)
+c = Cad(F23)
+c.add_line('k1', 50, '电压转接柜', '1(2)UYH-141(140)A', ['A63(4)0I', 'N600'])
+c.install('1(2)#主变保护柜')
+c.run('c:bh2')
+assert c.markers == [] and any('已编号且与记录一致 1 根' in o for o in c.out), (c.markers, c.out)
 for start in ('35kV 1(2)#SVG控制柜', '35kV 1（2）#SVG控制柜'):      # 用户实例：两张记录都在 → 合成填入，记录不变
     F23 = {PATH: [H23, R24, R25]}
     c = Cad(F23)
@@ -1556,6 +1590,13 @@ c.add_line('k1', 50, '电压转接柜', '未编号', ['A630I(640I)', 'B630I(640I
 c.install('35kV 1(2)#SVG控制柜')
 c.run('c:bh2')
 assert c.num('k1') == '1(2)UYH-138' and c.markers == [], (c.num('k1'), c.markers)
+assert alts('A63(4)0I') == ['A630I', 'A640I'] and alts('B63（4）0I') == ['B630I', 'B640I']      # 括号在数字中间
+assert alts('DS-101(2)') == ['DS-101', 'DS-102'] and alts('DS-9(10)') == ['DS-9', 'DS-10'] and alts('A63(4,5)0') == ['A630', 'A640', 'A650']
+c = Cad(F23)                                   # 用户写法：A63(4)0I 等同 A630I(640I)
+c.add_line('k1', 50, '电压转接柜', '未编号', ['A63(4)0I', 'B63(4)0I', 'C63(4)0I', 'N600'])
+c.install('35kV 1(2)#SVG控制柜')
+c.run('c:bh2')
+assert c.num('k1') == '1(2)UYH-138' and c.markers == [], (c.num('k1'), c.markers)
 R103 = '1(2)ZYB-103	35kV 1(2)#站用变进线柜	35kV故障录波柜	1(2)ZYB-A421 1(2)ZYB-B421 1(2)ZYB-C421 1(2)ZYB-N421	D0206.dwg	t	'
 F23 = {PATH: [H23, R103, '1ZYB-130	35kV故障录波柜	35kV 1#站用变进线柜	1ZYB-503 501	D0202.dwg	t	']}
 REC23 = list(F23[PATH])
@@ -1575,5 +1616,302 @@ c.run('c:bh2')
 assert F23[PATH] == REC23 and c.color('k1') == 7 and c.color('k2') == 1, F23[PATH]
 assert c.markers == [(45, '[编号冲突] 与合画图记录 1(2)ZYB-103 拆开后的编号 2ZYB-103 不一致')], c.markers
 print('PASS: 场景23 BH2 合画柜 1(2)#：各张图记录合成 DS-24(25) 填入；只有部分记录时选中说明；已编号合并写法拆开记入/核对/旧号跟改；原理号合并写法（含 A630I(640I) 字母尾缀）；合并柜名的记录照常；反方向：合画图那端的记录拆开填 1ZYB-103 / 核对')
+# ---- 场景 24：合画柜上的“至相邻屏柜”环网线：拆成 1#、2# 分别定前后柜，再合成编号和去向
+H24 = '电缆编号	柜名1	柜名2	原理号	图纸	时间	旧编号'
+RING24 = [H24, 'SML-15	110kV母线保护测控柜	1#主变保护柜	L1 N1	h.dwg	t	',
+          'SML-16	1#主变保护柜	1#主变测控柜	L1 N1	h.dwg	t	',
+          'SML-17	1#主变测控柜	2#主变保护柜	L1 N1	h.dwg	t	',
+          'SML-18	2#主变保护柜	2#主变测控柜	L1 N1	h.dwg	t	']
+nalts = lambda s: call('bh:name-alts', [s], GLOBAL)
+assert nalts('110kV母线保护测控柜(1#主变测控柜)') == ['110kV母线保护测控柜', '1#主变测控柜']
+assert nalts('甲柜（乙柜、丙柜）') == ['甲柜', '乙柜', '丙柜'] and nalts('DS-24(25)') is None and nalts('同步时钟主机柜') is None
+F24 = {PATH: list(RING24)}
+c = Cad(F24)                                   # 用户实例：D0205 1(2)#主变保护柜，两根“至相邻屏柜”的 L1 N1
+c.add_line('a1', 50, '相邻屏柜', '未编号', ['L1', 'N1'], lead=20.0)
+c.add_line('a2', 45, '相邻屏柜', '未编号', ['L1', 'N1'], lead=25.0)
+c.install('1(2)#主变保护柜')
+c.run('c:bh2')
+assert (c.num('a1'), c.dest('a1'), c.num('a2'), c.dest('a2')) == \
+       ('SML-15(17)', '至110kV母线保护测控柜(1#主变测控柜)', 'SML-16(18)', '至1(2)#主变测控柜'), \
+       (c.num('a1'), c.dest('a1'), c.num('a2'), c.dest('a2'), c.out)
+assert F24[PATH] == RING24 and c.selected == [] and c.markers == [], (c.selected, c.markers)
+c = Cad(F24)                                   # 填好后重跑：拆开核对一致，记录不变
+c.add_line('a1', 50, '110kV母线保护测控柜(1#主变测控柜)', 'SML-15(17)', ['L1', 'N1'], lead=20.0)
+c.add_line('a2', 45, '1(2)#主变测控柜', 'SML-16(18)', ['L1', 'N1'], lead=25.0)
+c.install('1(2)#主变保护柜')
+c.run('c:bh2')
+assert F24[PATH] == RING24 and c.markers == [] and any('已编号且与记录一致 2 根' in o for o in c.out), (c.markers, c.out)
+F24 = {PATH: RING24[:3]}                       # 只有 1# 的环网记录：两根都不填，注明是哪一张定不了
+c = Cad(F24)
+c.add_line('a1', 50, '相邻屏柜', '未编号', ['L1', 'N1'], lead=20.0)
+c.add_line('a2', 45, '相邻屏柜', '未编号', ['L1', 'N1'], lead=25.0)
+c.install('1(2)#主变保护柜')
+c.run('c:bh2')
+assert (c.num('a1'), c.dest('a1'), c.num('a2')) == ('未编号', '至相邻屏柜', '未编号'), (c.num('a1'), c.num('a2'))
+assert sorted(c.selected) == ['a1_num', 'a2_num'] and any('合画柜拆开后 2#主变保护柜：记录里没有本柜的相邻屏柜电缆' in o for o in c.out), c.out
+F24 = {PATH: list(RING24)}
+c = Cad(F24)                                   # 用户实例：1(2)#主变测控柜图上原理号是 L N，环网清单登记的是 L1 N1 → 不填，提示疑似
+c.add_line('a1', 50, '相邻屏柜', '未编号', ['L', 'N'], lead=20.0)
+c.add_line('a2', 45, '相邻屏柜', '未编号', ['L', 'N'], lead=25.0)
+c.install('1(2)#主变测控柜')
+c.run('c:bh2')
+assert (c.num('a1'), c.num('a2')) == ('未编号', '未编号') and F24[PATH] == RING24, (c.num('a1'), c.num('a2'))
+assert any('合画柜拆开后 1#主变测控柜：记录里没有本柜的相邻屏柜电缆；疑似 SML-16 SML-17 原理号写的是 L1 N1，统一图上和清册（记录）的原理号后再运行 BH2（查记录用：柜名 1#主变测控柜，原理号 L N）' in o
+           for o in c.out), c.out
+c = Cad(F24)                                   # 原理号统一成 L1 N1 后：1# 前 SML-16 后 SML-17，2# 前 SML-18
+c.add_line('a1', 50, '相邻屏柜', '未编号', ['L1', 'N1'], lead=20.0)
+c.add_line('a2', 45, '相邻屏柜', '未编号', ['L1', 'N1'], lead=25.0)
+c.install('1(2)#主变测控柜')
+c.run('c:bh2')
+assert any('合画柜拆开后 2#主变测控柜：记录里本柜的相邻屏柜电缆有 1 根，应为 2 根，无法确定（查记录用：柜名 2#主变测控柜，原理号 L1 N1，找到 SML-18）' in o for o in c.out), c.out
+c = Cad({PATH: list(RING24)})                  # 非合画柜不认“甲柜(乙柜)”：普通电缆照常记入
+c.add_line('b1', 50, '主变测控柜(备用)', 'TX-101', ['101', '133'])
+c.install('公用测控柜')
+c.run('c:bh2')
+assert any('已编号新记入 1 根' in o for o in c.out), c.out
+# ---- 场景 25：BDL 补画电缆时，编号/截面文字照搬上下电缆同位置文字的对齐方式（纯函数部分）
+gt = call('zddl2:e-text', ['未编号', 80.0, 30.5, '电缆-文字', 0, 0, 3.0, 0.0, 7], GLOBAL)
+def dxf(g, code):
+    return next(e[1] for e in g if e[0] == code)
+left_ref = [(0, 'TEXT'), (72, 0), (73, 0), (10, [70.0, 35.6, 0.0]), (11, [0.0, 0.0, 0.0])]      # 左基线编号，所在电缆线 Y=35
+right_ref = [(0, 'TEXT'), (72, 2), (73, 0), (10, [120.0, 35.5, 0.0]), (11, [131.0, 35.5, 0.0])]  # 右对齐截面
+m = call('bdl:match-text', [gt, left_ref, -5.0], GLOBAL)
+assert (dxf(m, 72), dxf(m, 73), dxf(m, 10)[:2], dxf(m, 11)[:2]) == (0, 0, [70.0, 30.6], [70.0, 30.6]), m
+m = call('bdl:match-text', [gt, right_ref, -5.0], GLOBAL)
+assert (dxf(m, 72), dxf(m, 11)[:2], dxf(m, 1)) == (2, [131.0, 30.5], '未编号'), m
+assert call('bdl:match-text', [gt, [(72, 5), (73, 0)], 0.0], GLOBAL) == gt and call('bdl:match-text', [gt, None, 0.0], GLOBAL) == gt
+mref = [(0, 'MTEXT'), (71, 3), (10, [131.0, 38.0, 0.0])]                                     # 右上附着的多行文字
+m = call('bdl:match-text', [gt, mref, -5.0], GLOBAL)
+assert (dxf(m, 72), dxf(m, 73), dxf(m, 11)[:2]) == (2, 3, [131.0, 33.0]), m
+mref = [(0, 'MTEXT'), (71, 7), (10, [70.0, 35.5, 0.0])]                                      # 左下附着
+m = call('bdl:match-text', [gt, mref, 0.0], GLOBAL)
+assert (dxf(m, 72), dxf(m, 73), dxf(m, 11)[:2]) == (0, 1, [70.0, 35.5]), m
+# ZUO/YOU/SHANG/XIA 按视觉方向定对正：逆时针 90° 的竖排文字上对齐用“右中”(11)，改内容后顶端不动
+import math
+GLOBAL.vars['pi'] = math.pi
+NATIVE.setdefault('atan', lambda a, b=None: math.atan(a) if b is None else math.atan2(a, b))
+NATIVE.setdefault('fix', lambda x: int(x))
+q = lambda ed: call('aa:text-quadrant', [ed], GLOBAL)
+assert [q([(0, 'TEXT'), (50, a)]) for a in (0.0, math.pi / 2, math.pi, 3 * math.pi / 2, 2 * math.pi - 0.01, -math.pi / 2)] == [0, 1, 2, 3, 0, 3]
+assert q([(0, 'MTEXT'), (11, [0.0, 1.0, 0.0])]) == 1 and q([(0, 'MTEXT')]) == 0
+code = lambda typ, qq, d: call('aa:visual-align-code', [typ, qq, d], GLOBAL)
+assert [code('TEXT', 0, d) for d in 'TBLRC'] == [7, 13, 9, 11, 10]                           # 不旋转与原来相同
+assert [code('MTEXT', 0, d) for d in 'TBLRC'] == [2, 8, 4, 6, 5]
+assert [code('TEXT', 1, d) for d in 'TBLR'] == [11, 9, 7, 13]                                # 逆时针 90°
+assert [code('TEXT', 2, d) for d in 'TBLR'] == [13, 7, 11, 9] and [code('TEXT', 3, d) for d in 'TBLR'] == [9, 11, 13, 7]
+assert code('MTEXT', 1, 'T') == 6
+# ---- 场景 26：XZYL 修正原理号：对面已有的原地保留，其余按从左到右换成录入的
+plan = lambda src, dst: call('zyl:plan', [src, dst], GLOBAL)
+assert plan(['101', '133', '102'], ['101', '133', '102']) is None                        # 已一致
+assert plan(['101', '133'], ['133', '101']) is None                                      # 只是顺序不同，不动
+assert plan(['A630I', 'B630I', 'N600'], ['A631', 'B630I', 'N600']) == [[0, 'A630I']]     # 只改错的那个
+assert plan(['L1', 'N1'], ['L', 'N']) == [[0, 'L1'], [1, 'N1']]
+assert plan(['101', '101', '133'], ['101', '102', '103']) == [[1, '101'], [2, '133']]    # 重复原理号各用一次
+assert call('zyl:remove1', ['a', ['b', 'a', 'a']], GLOBAL) == ['b', 'a']
+# 替换后靠近电缆线的一端回到原位：竖排原理号在电缆线上方，下边不动；在下方，上边不动
+dy = lambda ob, nb, y: call('zyl:near-dy', [ob, nb, y], GLOBAL)
+assert abs(dy([[0, 50], [3, 80]], [[0, 47], [3, 80]], 0.0) - 3) < 1e-9                  # 往下长了 3 → 上移 3
+assert abs(dy([[0, 50], [3, 80]], [[0, 50], [3, 83]], 0.0)) < 1e-9                      # 往上长，下边没动
+assert abs(dy([[0, -80], [3, -50]], [[0, -80], [3, -47]], 0.0) + 3) < 1e-9              # 电缆线在上方，上边回原位
+assert calls(FUNCS['zyl:replace']).count('zyl:set-place') == 1 and 'jm:set-text' not in calls(FUNCS['zyl:replace'])
+# 替换后按 ZDDL 原理号放置：向上出线（芯线远端在电缆下方）右对齐、边线往下 2；向下出线左对齐、边线往上 2
+place = lambda side, pin: call('zyl:zddl-place', [Sym(side.lower()), pin], GLOBAL)
+assert place('DOWN', 175.0) == [2, 173.0] and place('UP', 100.0) == [0, 102.0]
+# 先选后执行与先运行后点选都可以：预选里有绿色电缆线就直接用它，不再提示点选
+def xzyl_run(pre, rec):
+    log, keep = [], {k: NATIVE.get(k) for k in ('ssget', 'sslength', 'ssname', 'sssetfirst', 'xy:is-green-hline-p',
+                                               'zyl:load', 'zyl:pick', 'zyl:record', 'zyl:replace', 'princ', 'vl-filename-base')}
+    NATIVE.update({'ssget': lambda *a: list(pre) if pre and a and a[0] == '_I' else None,
+                   'sslength': lambda ss: len(ss or []), 'ssname': lambda ss, i: ss[i],
+                   'sssetfirst': lambda *a: log.append('unselect'), 'xy:is-green-hline-p': lambda en: en.startswith('g'),
+                   'zyl:load': lambda: rec, 'zyl:pick': lambda *a: log.append('pick') or 'gpicked',
+                   'zyl:record': lambda en: log.append(('record', en)), 'zyl:replace': lambda en, r: log.append(('replace', en)),
+                   'princ': lambda *a: None, 'vl-filename-base': lambda f: f})
+    try:
+        call('zyl:work', [], GLOBAL)
+    finally:
+        for k, v in keep.items():
+            if v is None:
+                NATIVE.pop(k, None)
+            else:
+                NATIVE[k] = v
+    return log
+REC = [['L1', 'N1'], 'SML-16', 'x.dwg', 'A1']
+assert xzyl_run(['t1', 'g2', 'g3'], None) == ['unselect', ('record', 'g2')]           # 先选：录入预选的第一根绿色电缆线
+assert xzyl_run(['g5'], REC) == ['unselect', ('replace', 'g5')]                       # 先选：已录入时直接替换
+assert xzyl_run(None, None) == ['pick', ('record', 'gpicked')]                       # 先运行后点选：录入
+assert xzyl_run(None, REC) == ['pick', ('replace', 'gpicked')]                       # 先运行后点选：替换
+assert xzyl_run(['t1'], REC) == ['unselect', 'pick', ('replace', 'gpicked')]         # 预选里没有绿色电缆线：清预选后照常点选
+# 合画图那端录入（1(2)B-105、1(2)YB-A4161）：按对面电缆去向里的 1#/2# 拆成对应那一张，原理号取拆开的、“未编号”填拆开的编号；用后清除录入
+REC2 = [['1(2)YB-A4161', '1(2)YB-B4161', '1(2)YB-N4161a'], '1(2)B-105', 'D0205.dwg', 'A1']
+vt = call('zyl:variants', [REC2], GLOBAL)
+assert vt == [[['1B-105', ['1YB-A4161', '1YB-B4161', '1YB-N4161a']], ['2B-105', ['2YB-A4161', '2YB-B4161', '2YB-N4161a']]], ['1', '2']], vt
+assert call('zyl:variants', [[['L1', 'N1'], 'SML-16', 'x', 'h']], GLOBAL) is None
+assert call('zyl:variants', [[['1(2)YB-A4161', 'A4(5,6)'], '1(2)B-105', 'x', 'h']], GLOBAL) is None   # 拆开个数对不上
+has = lambda d, t: lt(call('zyl:dest-has-p', [d, t], GLOBAL))
+assert has('至110kV GIS1#主变汇控柜', '1') and not has('至110kV GIS1#主变汇控柜', '2') and not has('至11#柜', '1') and has('至2＃主变汇控柜', '2')
+def xzyl_replace(rec, dest, tnum, dst, ask=None):
+    log, keep = [], {k: NATIVE.get(k) for k in ('zyl:read', 'zyl:texts', 'zyl:dwg', 'entget', 'zyl:set-place', 'bh:set-num',
+                                               'princ', 'getint', 'getkword', 'zyl:clear')}
+    ents = ['p%d' % i for i in range(len(dst))]
+    NATIVE.update({'zyl:read': lambda en: [ents, 0, tnum, ['v'] * len(dst), 'numEnt', dest],
+                   'zyl:texts': lambda es: [dict(zip(ents, dst)).get(e, e) for e in es], 'zyl:dwg': lambda: 'other.dwg',
+                   'entget': lambda en: [[5, 'B2'], [10, [0.0, 0.0, 0.0]]],
+                   'zyl:set-place': lambda en, val, vrec, y: (log.append((en, val)), dst.__setitem__(ents.index(en), val)),
+                   'bh:set-num': lambda en, val: log.append(('num', val)), 'princ': lambda *a: None,
+                   'getint': lambda *a: log.append('ask') or ask, 'getkword': lambda *a: log.append('kw') or 'N',
+                   'zyl:clear': lambda: log.append('clear')})
+    try:
+        call('zyl:replace', ['en', rec], GLOBAL)
+    finally:
+        for k, v in keep.items():
+            if v is None:
+                NATIVE.pop(k, None)
+            else:
+                NATIVE[k] = v
+    return log
+# 1# 柜：去向含 1#，原理号换成括号外的，“未编号”填 1B-105，用后清除录入
+assert xzyl_replace(REC2, '至110kV GIS1#主变汇控柜', '未编号', ['1B-A4161', '1B-B4161', '1B-N4161']) == \
+    [('p0', '1YB-A4161'), ('p1', '1YB-B4161'), ('p2', '1YB-N4161a'), ('num', '1B-105'), 'clear']
+# 2# 柜：重新录入后拆成 2 开头
+assert xzyl_replace(REC2, '至110kV GIS2#主变汇控柜', '未编号', ['2B-A4161', '2B-B4161', '2B-N4161']) == \
+    [('p0', '2YB-A4161'), ('p1', '2YB-B4161'), ('p2', '2YB-N4161a'), ('num', '2B-105'), 'clear']
+# 去向看不出：已有正式编号 2B-105 → 第 2 张；原理号已一致只是没编号 → 只填编号
+assert xzyl_replace(REC2, '至主变电度表柜', '2B-105', ['2B-A4161', '2B-B4161', '2B-N4161'])[-2:] == [('p2', '2YB-N4161a'), 'clear']
+assert xzyl_replace(REC2, '至某柜', '未编号', ['1YB-A4161', '1YB-B4161', '1YB-N4161a']) == [('num', '1B-105'), 'clear']
+# 都判断不了时让用户选序号；取消则不改
+assert xzyl_replace(REC2, '至某柜', '未编号', ['L', 'N', 'X'], ask=2) == ['ask', ('p0', '2YB-A4161'), ('p1', '2YB-B4161'), ('p2', '2YB-N4161a'), ('num', '2B-105'), 'clear']
+assert xzyl_replace(REC2, '至某柜', '未编号', ['L', 'N', 'X'], ask=None) == ['ask']
+# 非合画录入：未编号也填录入的编号；对面已有不同正式编号仍先询问
+assert xzyl_replace([['L1', 'N1'], 'SML-16', 'x.dwg', 'A1'], '至甲柜', '未编号', ['L', 'N']) == [('p0', 'L1'), ('p1', 'N1'), ('num', 'SML-16'), 'clear']
+assert xzyl_replace([['L1', 'N1'], 'SML-16', 'x.dwg', 'A1'], '至甲柜', 'SML-17', ['L', 'N']) == ['kw']
+# BH2：编号相同、两端柜名相同、原理号不同 → 直接说明原理号不一致并写出两边原理号；柜名不同的仍按“编号已被另一根电缆使用”
+F26 = {PATH: [H23, 'SML-16\t1#主变测控柜\t公用测控柜\tL1 N1\tx.dwg\tt\t']}
+c = Cad(F26)
+c.add_line('m1', 50, '公用测控柜', 'SML-16', ['L', 'N'])
+c.add_line('m2', 45, '直流馈线柜', 'SML-16', ['L1', 'N1'])
+c.install('1#主变测控柜')
+c.run('c:bh2')
+assert c.color('m1') == 1 and c.color('m2') == 1 and F26[PATH][1:] == ['SML-16\t1#主变测控柜\t公用测控柜\tL1 N1\tx.dwg\tt\t'], (c.markers, F26)
+assert any('两端原理号不一致：记录里 1#主变测控柜—公用测控柜 的这根电缆原理号是 L1 N1，本图是 L N；统一两端原理号（可用 XZYL 修正）后再运行' in t for _, t in c.markers), c.markers
+assert any('编号已被另一根电缆使用（1#主变测控柜—公用测控柜）' in t for _, t in c.markers), c.markers
+print('PASS: 场景26 XZYL 修正原理号：一致不动、顺序不同不动、只换不一致的、重复原理号各用一次；先选后执行与先运行后点选都可用；合画图录入按去向 1#/2# 拆开替换并填编号、用后清除录入；BH2 编号相同、柜名相同、原理号不同时说明原理号不一致并提示 XZYL')
+print('PASS: 场景25 BDL 文字对齐：左基线照搬插入点、右对齐照搬对齐点并平移到新电缆高度；布满/无参考时保持默认')
+print('PASS: 场景24 BH2 合画柜相邻屏柜：拆成 1#、2# 分别定前后柜，合成 SML-15(17) 至甲柜(乙柜) / SML-16(18) 至 1(2)#柜；重跑核对一致；只有一张有记录时选中说明；非合画柜不误拆')
+# ---- 场景 27：竖直绿色电缆线（D0204 QW3 实例）JM / BH / XZYL 全链路支持
+for _k in ('xy:hline-info-ed', 'bh:line-texts', 'bh:text-index'):
+    NATIVE.pop(_k, None)
+NATIVE.update({'ssname': lambda ss, i: ss[i], 'sslength': lambda ss: len(ss or [])})
+vhinfo = call('xy:hline-info-ed', [[(0, 'LINE'), (10, [68674.2242, 23664.4575, 0.0]), (11, [68674.2242, 23224.1392, 0.0])]], GLOBAL)
+assert vhinfo == [23224.1392, 23664.4575, 68674.2242, [68674.2242, 23224.1392, 0.0], Sym('v')], vhinfo
+assert lt(call('xy:vline-hinfo-p', [vhinfo], GLOBAL))
+assert lt(call('bh:in-band-p', [68675.0529, 23300.8849, vhinfo], GLOBAL))  # 1YYH-102B
+assert lt(call('bh:in-band-p', [68674.7242, 23275.1816, vhinfo], GLOBAL))  # 至110kV母线保护测控柜
+assert lt(call('bh:in-band-p', [68675.0529, 23236.0855, vhinfo], GLOBAL))  # 10×1.5
+assert not lt(call('bh:in-band-p', [68690.2783, 23662.9575, vhinfo], GLOBAL))  # 端子排内原理号 827 不在线旁文字带内
+
+# bh:line-texts 在竖直电缆线上按 -Y 排序提取编号与去向，bh:texts-complete-p 判定完整
+v_ents = {
+    'vn': [(0, 'TEXT'), (8, '0'), (10, [68675.0529, 23300.8849, 0.0]), (1, '1YYH-102B')],
+    'vd': [(0, 'TEXT'), (8, '0'), (10, [68674.7242, 23275.1816, 0.0]), (1, '至110kV母线保护测控柜')],
+    'vs': [(0, 'TEXT'), (8, '0'), (10, [68675.0529, 23236.0855, 0.0]), (1, '10×1.5')],
+}
+NATIVE['entget'] = lambda en: v_ents[en]
+NATIVE['aa:ysdl-get-plain-text'] = lambda ed: dict(ed)[1]
+venv = Env(GLOBAL, ['*bh-tail*'])
+venv.vars['*bh-tail*'] = call('bh:text-index', [['vn', 'vd', 'vs']], venv)
+v_ltexts = call('bh:line-texts', [vhinfo], venv)
+assert [r[1] for r in v_ltexts] == ['vn', 'vd', 'vs'], v_ltexts
+assert lt(call('bh:texts-complete-p', [v_ltexts], venv))
+
+# XZYL 水平原理号替换后靠端子排边线一端保持原位
+dx = lambda ob, nb, x: call('zyl:near-dx', [ob, nb, x], GLOBAL)
+assert abs(dx([[68690.0, 23662.0], [68695.0, 23665.0]], [[68688.0, 23662.0], [68695.0, 23665.0]], 68684.2242) - 2.0) < 1e-9
+
+# BDL 竖向端子排方向判定与竖向电缆文字对齐参考（bdl:direction-v / bdl:match-vtext）
+vitems = [
+    [23664.4575, 68690.2783, 68695.8783, [[6.0541, 68684.2242], None]],
+    [23534.4575, 68690.6283, 68695.5283, [[6.4041, 68684.2242], None]],
+]
+assert call('bdl:direction-v', [vitems, [[68674.2242, 23224.1392, 23664.4575]]], GLOBAL) == -1
+# 原理号左端对齐（贴左边线）时向左，即使右侧 200 内有相邻端子排的绿色竖向电缆，也不被它带偏
+aligned = [
+    [23664.4575, 68690.2783, 68695.8783, [[6.0541, 68684.2242], None]],
+    [23534.4575, 68690.2783, 68695.5283, [[6.0541, 68684.2242], None]],
+]
+assert call('bdl:direction-v', [aligned, [[68780.0, 23224.1392, 23664.4575]]], GLOBAL) == -1
+# 挡位判断与横排 bdl:slot-line 一样只看 400 以内
+assert call('bdl:vslot-line', [[[100.0, 0.0, 500.0]], 100.0, 600.0], GLOBAL)
+assert not lt(call('bdl:vslot-line', [[[100.0, 0.0, 150.0]], 100.0, 600.0], GLOBAL))
+vgt = [[0, 'TEXT'], [1, '未编号'], [10, [68669.7242, 23296.5634, 0.0]], [11, [68669.7242, 23296.5634, 0.0]], [50, 4.712389], [72, 0], [73, 0]]
+vref = [(0, 'TEXT'), (1, '1YYH-102B'), (10, [68675.0529, 23300.8849, 0.0]), (11, [68675.0529, 23284.4349, 0.0]), (50, 4.712389), (72, 2), (73, 0)]
+vm = dict(call('bdl:match-vtext', [vgt, vref, -5.0], GLOBAL))
+assert vm[72] == 2 and vm[73] == 0 and abs(vm[11][0] - (68675.0529 - 5.0)) < 1e-6 and abs(vm[11][1] - 23284.4349) < 1e-6, vm
+
+# 端到端执行 bdl:work（选中 2 个水平原理号，模拟 D0204 竖排端子排补画竖向电缆）
+bdl_ents = {
+    'p1': [(0, 'TEXT'), (1, '827'), (8, '0'), (10, [68690.2783, 23662.9575, 0.0]), (50, 0.0)],
+    'p2': [(0, 'TEXT'), (1, '829'), (8, '0'), (10, [68690.2783, 23647.9575, 0.0]), (50, 0.0)],
+    'edgeL': [(0, 'LINE'), (8, '0'), (10, [68684.2242, 23700.0, 0.0]), (11, [68684.2242, 23500.0, 0.0])],
+    'g1': [(0, 'LINE'), (8, '0'), (62, 3), (10, [68674.2242, 23664.4575, 0.0]), (11, [68674.2242, 23224.1392, 0.0])],
+    'tip1': [(0, 'LWPOLYLINE'), (90, 3), [10, 68674.2242, 23276.5634], [10, 68676.7978, 23281.021], [10, 68671.6506, 23281.021]],
+    'vn': [(0, 'TEXT'), (1, '1YYH-102B'), (8, '0'), (10, [68675.0529, 23300.8849, 0.0]), (11, [68675.0529, 23284.4349, 0.0]), (50, 4.712389), (72, 2), (73, 0)],
+    'vs': [(0, 'TEXT'), (1, '10×1.5'), (8, '0'), (10, [68675.0529, 23236.0855, 0.0]), (11, [68675.0529, 23227.3355, 0.0]), (50, 4.712389), (72, 2), (73, 0)],
+}
+bdl_bboxes = {
+    'p1': [[68690.2783, 23662.9575, 0.0], [68695.8783, 23665.9575, 0.0]],
+    'p2': [[68690.2783, 23647.9575, 0.0], [68695.8783, 23650.9575, 0.0]],
+    'vn': [[68675.0529, 23284.4349, 0.0], [68678.0529, 23300.8849, 0.0]],
+    'vs': [[68675.0529, 23227.3355, 0.0], [68678.0529, 23236.0855, 0.0]],
+}
+made = []
+def mock_bdl_ssget(*args):
+    if len(args) == 1:
+        return ['p1', 'p2']
+    mode = args[0]
+    if mode == '_X':
+        flt = dict(args[1])
+        if flt.get(0) == 'LINE':
+            return ['g1']
+        if flt.get(0) == 'LWPOLYLINE':
+            return ['tip1']
+    if mode == '_C':
+        p1, p2, flt = args[1], args[2], dict(args[3])
+        if flt.get(0) == 'LINE':
+            xlo, xhi = min(p1[0], p2[0]), max(p1[0], p2[0])
+            if xlo <= 68684.2242 <= xhi:
+                return ['edgeL']
+            return []
+        if flt.get(0) == 'TEXT,MTEXT':
+            return ['vn', 'vs']
+    return []
+NATIVE.update({
+    'ssget': mock_bdl_ssget,
+    'entget': lambda en: bdl_ents[en],
+    'aa:safe-get-bbox': lambda doc, en: bdl_bboxes.get(en),
+    'aa:bbox-left-x': lambda bb: bb[0][0],
+    'aa:bbox-right-x': lambda bb: bb[1][0],
+    'aa:bbox-bottom-y': lambda bb: bb[0][1],
+    'aa:bbox-top-y': lambda bb: bb[1][1],
+    'aa:text-quadrant': lambda ed: 3 if abs(dict(ed).get(50, 0.0) - 4.712389) < 0.1 else 0,
+    'getvar': lambda k: 'Model',
+    'trans': lambda p, a, b: p,
+    'tblsearch': lambda t, n: True,
+    'aa:layer-locked-p': lambda l: None,
+    'zddl:ensure-layer': lambda l, c: None,
+    'entmake': lambda dxf: made.append({x[0]: (x[1] if isinstance(x, tuple) or len(x) == 2 else x[1:]) for x in dxf}) or True,
+    'redraw': lambda: None,
+    'sqrt': __import__('math').sqrt,
+    'rtos': lambda v, m=2, p=2: f'{v:.{p}f}',
+    'princ': lambda *a: None,
+})
+call('bdl:work', [], GLOBAL)
+# 应生成：2 根水平引线 + 2 根短斜线 + 1 根竖向绿色电缆线（X=68669.2242）+ 1 个箭头 + 3 个 270° 文字 = 9 个图元
+assert len(made) == 9, len(made)
+vgreen = [m for m in made if m.get(0) == 'LINE' and m.get(62) == 3]
+assert len(vgreen) == 1 and abs(vgreen[0][10][0] - 68669.2242) < 1e-4 and abs(vgreen[0][11][1] - 23224.1392) < 1e-4, vgreen
+vtxts = [m for m in made if m.get(0) == 'TEXT']
+assert [m[1] for m in vtxts] == ['未编号', '至未填写', '未填写'], vtxts
+print('PASS: 场景27 D0204 竖直绿色电缆线 QW3 实例（xy:hline-info-ed / bh:in-band-p / bh:line-texts / zyl:near-dx / bdl:work 竖向端到端）')
 print('ALL PASS: check_bh_static')
 

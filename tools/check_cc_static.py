@@ -73,5 +73,5 @@ def check(path):
 
 
 if __name__ == '__main__':
-    check(Path(sys.argv[1]) if len(sys.argv) > 1 else
+    check(Path(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else
           Path(__file__).resolve().parents[1] / 'AA整合版本.lsp')

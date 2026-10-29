@@ -1,4 +1,4 @@
-"""Static verification for ZDDL / ZDC command."""
+"""Static verification for ZDDLH / ZDDLS / ZDC command."""
 import re
 import sys
 from pathlib import Path
@@ -13,7 +13,9 @@ def test_syntax_and_locals():
     text = LSP_PATH.read_text(encoding='utf-8')
     forms = parse(text)
     funcs = {str(f[1]).lower(): f for f in defun_forms(forms) if isinstance(f[1], str)}
-    assert 'c:zddl' in funcs, 'c:zddl not found'
+    assert 'c:zddlh' in funcs, 'c:zddlh not found'
+    assert 'c:zddls' in funcs, 'c:zddls not found'
+    assert 'c:zddl' not in funcs, 'c:zddl was renamed to c:zddlh'
     assert 'c:zdc' in funcs, 'c:zdc not found'
     assert 'c:zddl2' in funcs, 'c:zddl2 not found'
     assert 'zddl:parse-strip' in funcs
@@ -23,7 +25,7 @@ def test_syntax_and_locals():
 
     # Verify locals in c:zddl
     required = {'*error*', 'aa:tag', 'aa:doc', 'aa:undo-open', 'aa:old-cmdecho'}
-    for command in ('c:zddl', 'c:zddl2'):
+    for command in ('c:zddlh', 'c:zddls', 'c:zddl2'):
         locals_list = funcs[command][2]
         assert '/' in locals_list
         declared_locals = set(locals_list[locals_list.index('/') + 1:])
@@ -269,6 +271,17 @@ def test_text_coordinates_and_strip():
     assert Counter(k.split(':')[0] for k in xt_mapping) == {
         'XT1': 33, 'XT2': 10, 'XT3': 18, 'XT4': 4, 'XT5': 10, 'XT6': 6, 'XT7': 6}
     assert len(xt_mapping) == len(xt_result[0]) == 87
+    # 用户 4 带端子排：端子号带在第 3 带，纯数字原理号带与端子号带关于排名格中线对称。
+    # 原理号（800、881…）不得被当成端子；各排上下外缘都应是整排最外缘。
+    band_fixture = json.loads((ROOT / 'tests/fixtures/zddl_4band_yuanlihao.json').read_text(encoding='utf-8'))
+    band_entities = [{int(k): v for k, v in item.items()} for item in band_fixture['entities']]
+    band_result = runner.call('zddl:parse-strip', [band_entities])
+    band_mapping = {item[0]: item[1:] for item in band_result[0]}
+    assert Counter(k.split(':')[0] for k in band_mapping) == {
+        'Q1D': 27, 'YD': 21, 'BSD': 14, 'TD': 29, 'XD': 5, 'JRD': 11, 'BD': 8, 'XMX': 20}
+    assert not any(k.split(':')[1] in ('800', '700', '881', '600') for k in band_mapping)
+    assert {(round(v[1], 1), round(v[2], 1)) for v in band_mapping.values()} == {(439.9, 499.9)}
+    print('PASS: 4-band strips -> 135 terminals; numeric principle band ignored; outer edges 439.9~499.9 for every strip')
     refs = ['XT3:11', 'XT3:12', 'XT3:4', 'XT3:7', 'XT3:8', 'XT3:9',
             'XT1:23', 'XT1:19', 'XT2:1', 'XT2:2', 'XT5:1', 'XT5:3',
             'XT5:5', 'XT5:8', 'XT7:1', 'XT7:2']

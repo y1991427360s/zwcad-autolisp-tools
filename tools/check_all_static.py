@@ -256,9 +256,14 @@ def run_command_checks(names, serial=False):
     tools = Path(__file__).resolve().parent
     if serial:
         import runpy
-        for name in names:
-            print(f'-- {name} --')
-            runpy.run_path(str(tools / name), run_name='__main__')
+        orig_argv = sys.argv
+        try:
+            for name in names:
+                print(f'-- {name} --')
+                sys.argv = [str(tools / name)]
+                runpy.run_path(str(tools / name), run_name='__main__')
+        finally:
+            sys.argv = orig_argv
     else:
         # 每个检查独立进程并行；耗时主要在 ZDDL / 电缆性能两个解释器回归，并行后总时长约等于最慢的那个
         failed = []

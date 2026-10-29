@@ -211,6 +211,7 @@ entities.update({
     'line_green_h': [(0, 'LINE'), (8, '0'), (62, 3), (10, [0, 10, 0]), (11, [100, 10, 0])],
     'line_red_h': [(0, 'LINE'), (8, '0'), (62, 1), (10, [0, 10, 0]), (11, [100, 10, 0])],
     'line_green_v': [(0, 'LINE'), (8, '0'), (62, 3), (10, [10, 0, 0]), (11, [10, 100, 0])],
+    'line_green_diag': [(0, 'LINE'), (8, '0'), (62, 3), (10, [0, 0, 0]), (11, [10, 100, 0])],
     'line_bylayer_green_h': [(0, 'LINE'), (8, 'LAYER_GREEN'), (10, [0, 20, 0]), (11, [50, 20, 0])],
     'line_bylayer_white_h': [(0, 'LINE'), (8, 'LAYER_WHITE'), (10, [0, 20, 0]), (11, [50, 20, 0])],
     'text_sample': [(0, 'TEXT'), (1, 'HELLO'), (10, [0, 0, 0]), (40, 3.0)],
@@ -218,12 +219,16 @@ entities.update({
 })
 assert invoke('xy:is-green-hline-p', ['line_green_h'], env)
 assert not invoke('xy:is-green-hline-p', ['line_red_h'], env)
-assert not invoke('xy:is-green-hline-p', ['line_green_v'], env)
+assert invoke('xy:is-green-hline-p', ['line_green_v'], env)
+assert not invoke('xy:is-green-hline-p', ['line_green_diag'], env)
 assert invoke('xy:is-green-hline-p', ['line_bylayer_green_h'], env)
 assert not invoke('xy:is-green-hline-p', ['line_bylayer_white_h'], env)
 assert not invoke('xy:is-green-hline-p', ['text_sample'], env)
-filtered = invoke('xy:filter-green-hlines', [['line_green_h', 'line_red_h', 'line_green_v', 'line_bylayer_green_h', 'text_sample']], env)
-assert filtered == ['line_green_h', 'line_bylayer_green_h']
+filtered = invoke('xy:filter-green-hlines', [['line_green_h', 'line_red_h', 'line_green_v', 'line_green_diag', 'line_bylayer_green_h', 'text_sample']], env)
+# 选区里有绿色水平线时按横排图处理，绿色竖线不算电缆；只有绿色竖线时才收竖向电缆
+assert filtered == ['line_green_h', 'line_bylayer_green_h'], filtered
+filtered = invoke('xy:filter-green-hlines', [['line_red_h', 'line_green_v', 'line_green_diag', 'text_sample']], env)
+assert filtered == ['line_green_v'], filtered
 
 print(f'PASS: whole-file parse; {len(targets)} XY functions; green horizontal line filter; single/multiple horizontal lines; '
       'remote UP/DOWN labels; deduplication; rotated UCS; red warning extends right endpoint by 200')
@@ -340,3 +345,54 @@ env.update({'*xy-out-offx*': 10, '*xy-out-offy*': 0.5, '*xy-step-x*': 30,
 assert invoke('xy:process-one-hline', [entities['h1'], cross_data, cross_labels], env) == [2, 0, 2]
 assert [x[0] for x in copied] == ['left_label', 'right_label']
 print('PASS: crossing far-end search order; output preserves connection-end order')
+
+# 竖向绿色电缆线（D0204-110kV系统二次线 QW3 实例）：水平引线 + 水平原理号识别与输出
+line('63934F', [68674.2242, 23664.4575, 0.0], [68674.2242, 23224.1392, 0.0])
+line('639302', [68684.2242, 23664.4575, 0.0], [68674.2242, 23664.4575, 0.0])
+line('639303', [68675.5897, 23664.4575, 0.0], [68674.2242, 23663.1426, 0.0])
+line('639304', [68684.2242, 23649.4575, 0.0], [68674.2242, 23649.4575, 0.0])
+line('639305', [68675.5897, 23649.4575, 0.0], [68674.2242, 23648.1426, 0.0])
+line('639306', [68684.2242, 23534.4575, 0.0], [68674.2242, 23534.4575, 0.0])
+line('639307', [68675.5897, 23534.4575, 0.0], [68674.2242, 23533.1426, 0.0])
+line('639308', [68684.2242, 23519.4575, 0.0], [68674.2242, 23519.4575, 0.0])
+line('639309', [68675.5897, 23519.4575, 0.0], [68674.2242, 23518.1426, 0.0])
+v_sel = ['639302', '639303', '639304', '639305', '639306', '639307', '639308', '639309']
+v_data = invoke('xy:filter-horizontal-lines', [v_sel], env)
+assert len(v_data) == 8  # 4 条水平引线各 2 个端点候选，短斜线全部排除
+env['*xy-last-vrec-map*'] = None
+invoke('xy:build-vline-buckets', [v_data], env)
+v_recs = invoke('xy:get-vrecs-for-hline-ed', [entities['63934F'], v_data], env)
+assert len(v_recs) == 4, v_recs
+assert [r[3] for r in v_recs] == ['639302', '639304', '639306', '639308']
+assert all(r[1] == 'right' for r in v_recs)
+v_labels = [
+    ['827', 68690.2783, 68695.8783, 23662.9575, 23665.9575, 6 * math.pi],
+    ['829', 68690.2783, 68695.8783, 23647.9575, 23650.9575, 6 * math.pi],
+    ['831', 68690.6283, 68695.5283, 23532.9575, 23535.9575, 6 * math.pi],
+    ['833', 68690.2783, 68695.8783, 23517.9575, 23520.9575, 6 * math.pi],
+]
+env['*xy-hit-half-width*'] = 1.0
+copied_v = []
+native['xy:copy-text-vertical'] = lambda en, pt: copied_v.append((en, pt)) or True
+assert invoke('xy:process-one-hline', [entities['63934F'], v_data, v_labels], env) == [4, 0, 4]
+assert [x[0] for x in copied_v] == ['827', '829', '831', '833']
+assert abs(copied_v[0][1][0] - (68674.2242 + 0.5)) < 1e-4
+assert abs(copied_v[0][1][1] - (23224.1392 - 10.0)) < 1e-4
+assert abs(copied_v[1][1][1] - (23224.1392 - 40.0)) < 1e-4
+print('PASS: D0204 vertical green cable line QW3 sample (horizontal core lines + horizontal principle labels)')
+
+# XY/XIN 选线：水平线不限颜色（原有行为）；竖直线只有绿色才当电缆，
+# 横向图里框选到的白色竖引线、端子排竖框不得被当成竖向电缆。
+native['xy:is-green-ed-p'] = lambda ed: dict((g[0], g[1]) for g in ed).get(62) == 3
+cases = [
+    ([(0, 'LINE'), (10, [0, 0, 0]), (11, [100, 0, 0]), (62, 7)], True),
+    ([(0, 'LINE'), (10, [0, 0, 0]), (11, [100, 0, 0]), (62, 3)], True),
+    ([(0, 'LINE'), (10, [0, 0, 0]), (11, [0, -100, 0]), (62, 3)], True),
+    ([(0, 'LINE'), (10, [0, 0, 0]), (11, [0, -100, 0]), (62, 7)], False),
+    ([(0, 'LINE'), (10, [0, 0, 0]), (11, [0, -100, 0])], False),
+    ([(0, 'LINE'), (10, [0, 0, 0]), (11, [60, 80, 0]), (62, 3)], False),
+    ([(0, 'TEXT'), (10, [0, 0, 0]), (11, [100, 0, 0]), (62, 3)], False),
+]
+for ed, expected in cases:
+    assert bool(lisp_true(invoke('xy:is-cable-line-ed-p', [ed, 0.0001], env))) == expected, ed
+print('PASS: XY cable line selection: horizontal any color, vertical green only')

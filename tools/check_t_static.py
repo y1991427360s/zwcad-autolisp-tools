@@ -120,7 +120,17 @@ def check():
     assert ['if', ['=', ['cdr', ['assoc', '0', 'edata']], '"ATTDEF"'], '74', '73'] in calls
     for code in (1, 2, 3, 70, 73, 74):
         assert not any(c[0] == 'txt:set-dxf' and c[1] == str(code) for c in calls)
-    print('PASS T: structure, bbox compensation, ATTDEF selection and group 74 anchors, attribute metadata preservation')
+
+    # T2 static checks
+    for name in ('c:t2', 'txt2:run', 'txt2:ensure-style', 'txt2:modify-text'):
+        assert name in funcs, name + ' must remain top-level'
+    command2 = funcs['c:t2']
+    assert command2[3:] == [['aa:cmd-begin', '"T2"'], ['txt2:run'], ['aa:cmd-end']]
+    assert ['member', 'etype', ['quote', ['"TEXT"', '"ATTDEF"']]] in list(walk(funcs['txt2:process-selection']))
+    calls2 = list(walk(funcs['txt2:modify-text']))
+    for code, value in ((7, '"宋体"'), (40, '3.0'), (41, '0.8')):
+        assert ['txt:set-dxf', str(code), value, 'edata'] in calls2
+    print('PASS T & T2: structure, bbox compensation, ATTDEF selection and group 74 anchors, attribute metadata preservation')
 
 
 if __name__ == '__main__':

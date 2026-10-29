@@ -1725,7 +1725,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 流程文档：`工作智能体/工作流程/二次接线-端子排与电缆清册.md` 的 SX 系列一节加入 SXC 的用途。
 - 检查：`python tools/check_all_static.py` ALL PASS（84.7s，37 项专项检查）；`gen_命令索引.py` 共 189 个命令；`scripts/audit_lsp.py --write` 0 structural findings。
 - 验证状态：未连接、加载或操作 CAD；SXC 和面板按钮都没有实机运行过。
-- AutoCAD 状态：待同步（AutoCAD 版需要移植 `c:SXC`、`aa:link-dwg-label`；面板按钮只针对中望）。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查；原记录：待同步（AutoCAD 版需要移植 `c:SXC`、`aa:link-dwg-label`；面板按钮只针对中望））。
 
 ## 2026-10-27 10:05:56 中望 SXC 提速
 
@@ -1738,4 +1738,308 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 面板改动：`src/cad-report-card.ahk` 的结果文件轮询间隔从 0.5 秒缩到 0.2 秒（只比较文件修改时间），卡片能更快弹出；已运行 `install.ps1` 重载。
 - 检查：第一次 `check_all_static.py` 只有 `check_zz_static.py` 的性能基准没过（这次没改 ZZ，属已知的负载抖动）；单独重跑 ZZ 通过（5.07x），再跑一次全量 ALL PASS（72.4s）。`audit_lsp.py --write` 0 structural findings。
 - 验证状态：未连接、加载或操作 CAD，提速效果没有实测。
-- AutoCAD 状态：待同步（同上一条，与 SXC 一起移植）。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查；原记录：待同步（同上一条，与 SXC 一起移植））。
+
+## 2026-10-27 13:47:09 中望 BDL 端子排边线查找范围放宽
+
+- 起因：用户在 `D0205-主变压器二次线(1).dwg` 手画端子排（高 50，原理号 `L`/`N` 底端离下边线约 6.56）上运行 BDL，提示“未找到端子排边线”。
+- 中望改动（`AA整合版本.lsp`）：`bdl:edge` 在原理号上下查找水平边线的范围由 4 放宽到 10；ZDDL 的原理号距边 2，不受影响，判断方向和取边线的逻辑不变。
+- 流程文档：`工作智能体/工作流程/二次接线-端子排与电缆清册.md` 3.4a 的“上下 4 以内”改为“上下 10 以内”。
+- 修改后 SHA-256 `b210948e8a2cf8661d7603a3f94e32de02ab43a1f941561294d158505e81d4fe`；备份 `backups/dated/2026-10-27/AA整合版本.lsp.bak-BDL边线范围-20261027-134548`。
+- 检查：check_all_static.py 全量 ALL PASS（100.0s）；`audit_lsp.py --write 0 structural findings；已重新生成命令索引和 CODE_MAP。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 14:17:44 中望 BH2 合画柜的“至相邻屏柜”环网线
+
+- 起因：用户在 `D0205-主变压器二次线(1).dwg`（柜名 `1(2)#主变保护柜`）上跑 BH2，两根“至相邻屏柜”的 L1 N1 报“记录里没有本柜的相邻屏柜电缆”。记录里是按 1#、2# 分开登记的 SML-15~18，相邻屏柜逻辑没有拆开合画柜名。
+- 中望改动（`AA整合版本.lsp`）：
+  - `bh:resolve-neighbors` 拆出 `bh:nb-pairs`（一张图按记录定前后柜，逻辑不变）；起点柜名是合画写法时改走新增的 `bh:nb-combo-pairs`，逐张定前后柜，同一位置合成去向（新增 `bh:combo-dest`）：能合成写 `1(2)#主变测控柜`，合不成按用户要求写 `110kV母线保护测控柜(1#主变测控柜)`；编号由已有的 `bh:combo-lookup` 合成 `SML-15(17)`。
+  - 新增 `bh:name-alts`，`bh:combo-variants` 在起点或原理号是合并写法时，认出终点“甲柜(乙柜)”写法，重跑 BH2/BHG 能拆开核对。
+- 文档：`docs/BH.md` 合画柜一节、流程文档 3.5 补充说明。
+- 检查：`check_bh_static.py` 新增场景 24（用户实例、重跑一致、只有一张记录、非合画柜不误拆）全部通过；`check_all_static.py` 全量 ALL PASS（91.6s）；`audit_lsp.py --write` 0 structural findings。
+- 修改后 SHA-256 `518c83450048c09055735b9a2ec182233a713484ed63711dafc5b31545fe3e3f`；改前状态为 `backups/dated/2026-10-27/AA整合版本.lsp.bak-BDL边线范围-20261027-134548` 再加上一条 BDL 的改动（本次改前没有另做备份）。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 14:22:40 中望 BH2 相邻屏柜无法确定时的原因更具体
+
+- 起因：用户在 `1(2)#主变测控柜` 上跑 BH2，提示“记录里没有本柜的相邻屏柜电缆”，但记录里有 SML-16/17；原因是图上原理号 `L N`、环网清单登记 `L1 N1`。原提示看不出用哪个柜名、原理号查的，用户要求输出能直接定位原因。
+- 中望改动（`AA整合版本.lsp`）：`bh:nb-pairs` 的无法确定原因末尾追加“（查记录用：柜名 …，原理号 …，找到 编号…）”；新增 `bh:prin-nodigit`、`bh:nb-similar`：本柜没有同原理号记录时，找只差末尾数字、且一边完全不带数字的记录（L ↔ L1，不含 L1 ↔ L2），提示“疑似 SML-16 SML-17 原理号写的是 L1 N1”，不自动填。
+- 文档：`docs/BH.md` 相邻屏柜一节。
+- 检查：`check_bh_static.py` 场景 18、24 补充断言（含 L2 N2 不误报疑似）通过；`check_all_static.py` 全量 ALL PASS（84.4s）；`audit_lsp.py --write` 0 structural findings。
+- 修改后 SHA-256 `7188b13b1bab54133c0bee5966a37e10e513db17c73a5efc5f41d03403126746`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 14:34:22 中望 BH 合画写法支持括号在数字中间
+
+- 起因：用户说明 `A63(4)0I、B63(4)0I、C63(4)0I` 等同于 `A630I(640I)` 等；原 `bh:combo-alts` 把括号前整段数字换掉，会拆成 `A630I`、`A40I`。
+- 中望改动（`AA整合版本.lsp`）：`bh:combo-alts` 改为括号里的数字只替换括号前同样位数的数字（位数多于括号前数字时整段换），括号后照抄：`A63(4)0I` → `A630I`、`A640I`；`DS-101(2)` → `DS-101`、`DS-102`。原有写法（`1(2)#`、`DS-24(25)`、`A630I(640I)`）结果不变。影响 BH2/BHG 合画柜的柜名、原理号、编号拆分。
+- 文档：`docs/BH.md`、流程文档 3.5。
+- 检查：`check_bh_static.py` 场景 23 补充 `A63(4)0I`、`DS-101(2)`、`DS-9(10)`、`A63(4,5)0` 及端到端填号断言通过；`check_all_static.py` 全量 ALL PASS（99.7s）；`audit_lsp.py --write` 0 structural findings。
+- 修改后 SHA-256 `a938e68ab5b43c385d1be832b9d38985406ad94dd2ce89e954b07104b1729d34`。
+- 验证状态：未连接、加载或操作 CAD。DE2 和 JM 没有改，它们对这种写法的处理未核对。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 14:40:21 中望 DE2 / JM 认合并写法；BH 合画编号可合多段
+
+- 起因：用户要求核对 DE2、JM 对 `A63(4)0I` 的处理；随后 BH2 报 `1UYH-141A 2UYH-140A` 合不成，用户要求合为 `1(2)UYH-141(140)A`。
+- 中望改动（`AA整合版本.lsp`）：
+  - DE2 `de:strip-replace-target`：括号里的数字位数少于括号前连续数字时只替换末尾同样位数，括号后照抄：`A63(4)0I` → `A640I`（原为 `A40I`），`DS-101(2)` → `DS-102`；`DS-10(11)`、`A630I(640I)` 结果不变。文件头 DE2 说明同步。
+  - JM `jm:classify`：先用 `bh:combo-alts` 拆合并写法逐个判断（新增 `jm:classify-1` 为原单个判断），类型全相同才算；`107(8)` 原来认不出，现为控制线。`A63(4)0I` 原来碰巧判成 4×4，结果不变。
+  - BH `bh:combo-alts` 支持多处括号按位置对应（`1(2)UYH-141(140)A` → `1UYH-141A`、`2UYH-140A`，个数不同返回 nil）；`bh:combo-join` 允许多段数字不同，每段后加括号。
+- 文档：`docs/BH.md`、流程文档 3.5。
+- 检查：`check_bh_static.py` 新增 JM 合并写法、DE/DE2 括号处理、多段编号合成与端到端填号/重跑核对断言，全部通过；`check_all_static.py` 全量 ALL PASS（94.5s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、CRLF 一致。
+- 修改后 SHA-256 `0ac0a231cf5b6a0148a6a2d774f058880271c1697379b991e2e150c18e466516`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 14:57:48 中望 BDL 编号/截面文字参考上下电缆对齐
+
+- 起因：用户反馈 BDL 补画的“未编号”（左）和“未填写”（右）与上下电缆的编号、截面对不齐；要求参考上下电缆，编号左对齐、截面右对齐。
+- 中望改动（`AA整合版本.lsp`）：新增 `bdl:texts-near`、`bdl:line-texts`（电缆线上方编号 = 尖端左侧最近的 TEXT，截面 = 尖端右侧最右、不以“至”开头的 TEXT，排除 BH_MARK/JM_MARK 红字）、`bdl:ref-text`（在电缆组里取离新电缆最近、不是占位文字的参考，都是占位时取最近）、`bdl:match-text`（照搬参考文字的 72/73 对齐方式和对齐点 X，Y 按两根电缆线高差平移；布满/两端对齐不参考）。`bdl:work` 写编号和截面时套用，找不到参考时保持 ZDDL 默认位置；“至未填写”不变。
+- 文档：流程文档 3.4a。
+- 检查：`check_bh_static.py` 场景 25（`bdl:match-text` 纯函数）通过；`check_all_static.py` 全量 ALL PASS（84.5s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、CRLF 一致。查找参考文字（`ssget "_C"`、包围盒）部分只能在 CAD 中验证。
+- 修改后 SHA-256 `a9dee4a79bed029a96a96efefcde612406aae79b8dfcfd1f945aa85883471855`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 15:14:28 中望 对齐命令按视觉方向对正；BDL 参考文字认 MTEXT 并输出诊断
+
+- 起因：① 用户用 SHANG 对齐逆时针 90° 的竖排原理号后修改文字内容，顶端又不齐了：原来统一设成“中上”对正，对竖排文字来说定位点在文字长度中点，改内容后两头伸缩。② BDL 补画后编号、截面仍在默认位置，判断为没找到参考文字（上下电缆文字可能是 MTEXT，原来只认 TEXT）。
+- 中望改动（`AA整合版本.lsp`）：
+  - 新增 `aa:text-quadrant`、`aa:visual-align-code`、`aa:set-text-visual-align`、`aa:normalize-text-visual-align`、`aa:normalize-visual-h`、`aa:normalize-visual-v`；ZUO/YOU/ZHONG/SHANG/XIA 改用它们：按文字方向（0/90/180/270°）把视觉上要对齐的一侧换算成对正方式，如逆时针 90° 上对齐用“右中”。不旋转的文字对正方式与原来相同。原 `aa:normalize-text-horizontal-align` / `-vertical-align` 未改，H、H2、HP2、UT、ZHENG、ZZ、ZZ2、ZDWI、JACC 不受影响。五个命令的说明同步更新。
+  - BDL：`bdl:texts-near` 选择 TEXT 和 MTEXT；新增 `bdl:plain`、`bdl:ref-desc`；`bdl:match-text` 支持 MTEXT 参考（附着点换算 72/73）；`bdl:work` 在命令行输出编号、截面各参考了哪段文字，或没找到时查了几根电缆线。
+- 文档：流程文档 3.4a。
+- 检查：`check_bh_static.py` 场景 25 补充 MTEXT 参考换算、文字方向判断、视觉对正映射断言，全部通过；`check_all_static.py` 全量 ALL PASS（83.7s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、CRLF 一致。
+- 修改后 SHA-256 `779f215801337e594352075dd06af335a006d0eb0906419a85b438f4f1308dec`。
+- 验证状态：未连接、加载或操作 CAD；BDL 没找到参考的真正原因待用户重跑后看命令行诊断确认。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 16:22:19 中望 新增 XZYL 修正原理号
+
+- 起因：同一根电缆两端编号一样、两张图上的原理号写得不一样时，用户希望先录入正确一端的原理号，再点对面一端直接替换。
+- 中望改动（`AA整合版本.lsp`）：新增命令 `XZYL` 及 `zyl:` 函数组（`zyl:plan`、`zyl:read`、`zyl:record`、`zyl:replace` 等）。第一次运行点原理号正确的绿色电缆线，按 BH1 同样的查找（先当前视图、没找全再全图）读出原理号存入全局 `*zyl-src*`；第二次运行点对面电缆线，对面已有的原理号原地保留，其余按芯线从左到右换成剩下的，逐个输出“旧 → 新”，一次 U 撤销，成功后清空录入。个数不同、有芯线缺原理号时不改；两端正式编号不同先询问；`R` 重新录入、`Q` 清除。`jm:line-principles` 拆出 `jm:line-principle-ents`（返回图元），原函数行为不变（JM、BH1/BH2/BHG 不受影响）。文件头命令清单已加 XZYL。
+- 文档：流程文档 3.5（及第 ③ 步概括）、`docs/BH.md`。
+- 检查：`check_bh_static.py` 新增场景 26（`zyl:plan` 纯函数）通过；`check_all_static.py` 全量 ALL PASS（80.0s）；`audit_lsp.py --write` 0 structural findings；命令索引已重新生成；UTF-8 无 BOM、CRLF 一致。
+- 修改后 SHA-256 `95f99d472bc542176a21e8c72a2ae39a6c5a4785d8e80305682fba94cca69fcb`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 16:33:30 中望 XZYL 录入改存文件，支持跨图纸
+
+- 起因：用户问两端不在同一个图纸文件能否使用。原实现把录入存在全局变量，中望各图纸的 LISP 变量互不相通，换图后读不到。
+- 中望改动（`AA整合版本.lsp`）：新增 `zyl:store-path`、`zyl:dwg`、`zyl:save`、`zyl:load`、`zyl:clear`，录入写到 `%TEMP%\AA-XZYL.txt`（编号、图纸全路径、电缆线句柄、原理号逐行），替换成功或原理号已一致时删除；“点的是录入那根”按图纸路径 + 句柄判断；提示里显示录自哪张图。去掉全局 `*zyl-src*`。
+- 文档：流程文档 3.5、`docs/BH.md`。
+- 检查：`check_all_static.py` 全量 ALL PASS（111.8s）；`audit_lsp.py --write` 0 structural findings；命令索引已重新生成；UTF-8 无 BOM、CRLF 一致。存取文件部分只能在 CAD 中验证。
+- 修改后 SHA-256 `89be9f28daee37f019e34ab45efcfdd1cfb6f56281df9c25ef1316f584980f3f`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 17:02:01 中望 BH2 编号冲突时识别“两端原理号不一致”
+
+- 起因：用户要求 BH2 遇到编号相同、两端柜名相同但原理号不同的情况，直接说明是原理号不一致，写出两边原理号，并提示用 XZYL 修正。
+- 中望改动（`AA整合版本.lsp`）：新增 `bh:conflict-msg`：记录里这个编号所属电缆的两端柜名与图上相同、只是原理号不同时，冲突原因写“两端原理号不一致：记录里 柜A—柜B 的这根电缆原理号是 …，本图是 …；统一两端原理号（可用 XZYL 修正）后再运行”，否则仍为“编号已被另一根电缆使用（柜A—柜B）”。`bh:numbered-action`（BH1/BH2，含合画柜拆开核对）和 BH2 普通已编号核对改用它；BHG、BH3 不变。
+- 文档：`docs/BH.md` 冲突表、流程文档 3.5。
+- 检查：`check_bh_static.py` 场景 26 新增 BH2 端到端断言（柜名相同原理号不同 → 新提示；柜名不同 → 原提示；记录不变）通过；`check_all_static.py` 全量 ALL PASS（109.7s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、CRLF 一致。
+- 修改后 SHA-256 `af20907fcec059146acb1869188af3f2b44cfc8446e5cecdf7e4ea55e56d442e`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+## 2026-10-27 18:35:02 中望 BHG 一律以本次框选为准（可占用选择外电缆的编号）
+
+- 起因：用户重画了 D0207 直流馈线柜，用 BHG 重新修正记录，但 11ZL-01、03~07 原属别的卷册（D0202/D0203）从对端登记的电缆，BHG 报“编号已被另一根电缆使用”拒绝，并连锁导致 11ZL-11、13、14 撤回。用户要求以本次选中的为最新。
+- 中望改动（`AA整合版本.lsp` `c:BHG`）：图上编号原属另一根不在本次框选里的电缆（且不是“只改了柜名或原理号”的同一根）时，不再报冲突，改为删掉那条记录、把编号按图改给这根（同 BH3），编号保持白色并选中，命令行“说明”逐条写“原属 柜A—柜B 的记录已删除，按图改给 …；那根电缆所在的图上如果还写着这个编号，请改号”；汇总新增“编号从别的电缆改过来”。仍保留为冲突的：本次框选里编号重复、同一起终点和原理号重复、编号原主人也在框选里但图上没改号。
+- 文档：`docs/BH.md` BHG 处理表；流程文档 3.5 BHG 段。
+- 检查：`check_bh_static.py` 场景 5、8、8b、20 改为断言占号成功（含用户实例的连锁情况）全部通过；`check_all_static.py` 全量 ALL PASS（81.8s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、CRLF 一致。
+- 修改后 SHA-256 `68d7a3bd81efe482935ef6d47c41e50dfb79f76b866d3e08bbad5e6d7eaa302c`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-27 18:56:37 XZYL 替换后原理号对齐
+
+- 起因：用户实测 XZYL 能改对原理号，但 `1Y-N4181` 改成 `1Y-N4181a` 后文字变长，竖排原理号向下伸出格子、压过下方横线，没和相邻原理号对齐。
+- 中望改动（`AA整合版本.lsp`）：新增 `zyl:near-dy`、`zyl:set-keep`；`zyl:replace` 改用 `zyl:set-keep` 替换内容，替换前后各取一次外框（`aw:bbox`），把靠近电缆线的那条上/下边用 `vla-Move` 移回原位，内容变长只向远离电缆的方向伸长；对正方式不变。
+- 文档：`docs/BH.md` XZYL 一节；流程文档 3.5 XZYL 第 2 步。
+- 检查：`check_bh_static.py` 场景 26 新增外框位移断言，ALL PASS；`check_all_static.py` 全量 ALL PASS（78.6s）；`audit_lsp.py --write` 0 structural findings；命令索引与 CODE_MAP 已重新生成。
+- 修改后 SHA-256 `c00dd4707529cc0a2df0124c4713917f1564ff6d0bc65073734128b44b7d42ed`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-27 19:06:10 XZYL 替换后按 ZDDL 原理号参数放置
+
+- 起因：用户要求 XZYL 改过的原理号，对齐方式和放置参数与 ZDDL 生成的原理号一致（取代上一条“靠电缆一端不动”的做法）。
+- 中望改动（`AA整合版本.lsp`）：`jm:line-principle-ents` 返回值增加第 3 项（各原理号对应芯线的 vrec，`jm:line-principles` 不受影响）；`zyl:read-pass` 返回值增加第 4 项；新增 `zyl:zddl-place`、`zyl:put`、`zyl:set-place`。单行文字改内容后设旋转 90°、73=2（中），向上出线（芯线远端在电缆线下方）72=2、Y=远端-2，向下出线 72=0、Y=远端+2，X=`bdl:cell-center` 端子格中心；字高、样式、图层不变；多行文字或无芯线时退回 `zyl:set-keep`。
+- 文档：`docs/BH.md` XZYL 一节；流程文档 3.5 XZYL 第 2 步。
+- 检查：`check_bh_static.py` 场景 26 新增 `zyl:zddl-place` 断言，ALL PASS；`check_all_static.py` 全量 ALL PASS（94.0s）；`audit_lsp.py --write` 0 structural findings；命令索引与 CODE_MAP 已重新生成。
+- 修改后 SHA-256 `8435db7078ffbab05bcfd94762adb5384a67d3201a68622703bd7401a786e3b6`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-27 21:47:31 XZYL 支持先选后执行
+
+- 起因：用户要求 XZYL 可以先选中电缆线再运行命令，同时保留先运行再点选。
+- 中望改动（`AA整合版本.lsp`）：新增 `zyl:pre`，用 `ssget "_I"` 取预选里第一根绿色电缆线，取完 `sssetfirst nil nil` 清预选；`zyl:work` 开头先取预选：未录入时直接录入它，已录入时直接替换它（不再出现点选提示，因此先选时无 `R`/`Q` 选项）；没有预选或预选里没有绿色电缆线时照常提示点选。文件头命令清单与 XZYL 功能说明已补“可先选电缆线再运行”。
+- 文档：`docs/BH.md` XZYL 一节；流程文档 3.5 XZYL 第 2 步后补充说明。
+- 检查：`check_bh_static.py` 场景 26 新增 5 个 `zyl:work` 打桩断言（先选录入、先选替换、点选录入、点选替换、预选无绿色线回退点选），ALL PASS；`check_all_static.py` 全量 ALL PASS（110.5s）；命令索引、CODE_MAP、`audit_lsp.py --write` 已重新生成。
+- 修改后 SHA-256 `e16085220379afd197414897cc95fbd92e0521f8383568a413e69e8f9d2737fe`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-27 21:57:52 XZYL 合画图录入按 1#/2# 拆开、补填未编号、录入可重复用
+
+- 起因：用户实测在合画图（GIS 1(2)#主变汇控柜）录入 `1(2)B-105` / `1(2)YB-A4161` 等，到电度表柜图里点“至110kV GIS1#主变汇控柜”那根（未编号），原理号被原样换成带括号的写法；希望自动取括号外那一张（`1YB-A4161`）、未编号填 `1B-105`，且录入用完不删，接着改 2# 主变汇控柜那根。
+- 中望改动（`AA整合版本.lsp`）：`zyl:read-pass` 返回值增加第 5、6 项（编号图元、去向文字）。新增 `zyl:alt-tokens`、`zyl:variants`（按 `bh:combo-alts` 拆编号和原理号，个数须一致）、`zyl:dest-has-p`（去向含“1#”，前一字符非数字，全角＃也认）、`zyl:count-same`、`zyl:range`、`zyl:choose`（去向 → 已有正式编号 → 已有原理号相同最多 → `getint` 让用户选，取消不改）。`zyl:replace` 重写：合画录入先选对应那张再替换；对面编号为占位（未编号）且录入有正式编号时用 `bh:set-num` 填编号；编号比较改用拆开后的编号；替换后不再 `zyl:clear`，原理号已一致时也不清；提示“录入仍保留，输入 Q 清除”。
+- 文档：`docs/BH.md` XZYL 一节补充；流程文档 3.5 XZYL 第 2 步。
+- 检查：`check_bh_static.py` 场景 26 新增 `zyl:variants`、`zyl:dest-has-p`、`zyl:replace` 打桩断言（1#/2# 两次用同一录入、按编号判断、仅填编号、让用户选/取消、非合画填编号、编号不同询问），模拟器补 `apply` 和 wcmatch 反引号转义；ALL PASS。`check_all_static.py` 全量 ALL PASS（111.5s）；命令索引、CODE_MAP、`audit_lsp.py --write` 已重新生成。
+- 修改后 SHA-256 `85041af0ca83f04d59df15b2f3b14e6633e3722791ac83a50400e640a2f3f09f`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-27 22:13:11 XZYL 恢复用后自动清除录入
+
+- 起因：用户要求一次录入只用一次，替换后自动清除，免得手动输入 Q；合画图拆开、补填未编号等其他改动保留。
+- 中望改动（`AA整合版本.lsp`）：`zyl:replace` 替换成功、原理号已一致两种情况恢复调用 `zyl:clear`，去掉“录入仍保留”提示；文件头命令清单、XZYL 功能说明、XZYL 段注释同步。
+- 文档：`docs/BH.md` XZYL 补充一节；流程文档 3.5 XZYL（2# 主变汇控柜那根需回合画图再录入一次）。
+- 检查：`check_bh_static.py` 场景 26 替换断言改为期望用后清除，ALL PASS；`check_all_static.py` 全量 ALL PASS（89.3s）；命令索引、CODE_MAP、`audit_lsp.py --write` 已重新生成。
+- 修改后 SHA-256 `b6071d2ceef282c6e7d9571161ad25d96546b20d144aee53c078b6a842e09f76`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 10:20:43 竖直绿色电缆线、水平引线与竖排端子排全链路支持（XIN/XY/XYG/JM/BH/XZYL/BDL/ZYI/YYI）
+
+- 起因：用户同事图纸（如 `D0204-110kV系统二次线(1).dwg` QW3 实例）采用竖排端子排（水平原理号）+ 水平引线（向左或向右）+ 竖直绿色电缆线（向下三角箭头、右侧 270° 旋转的编号/去向/规格文字）；用户确认除 `ZDDL`/`ZDDL2` 保持生成横向端子排外，识别统计编号及辅助生成调整命令均需支持竖向电缆与竖排端子排。
+- 中望改动（`AA整合版本.lsp`）：
+  1. **第一批（识别、统计、截面、编号、替换）**：
+     - `c:XIN`：支持竖直直线，统计水平引线数量并在底端右侧 `(x+0.5, bottomY-2)` 生成 270° 旋转芯数文字。
+     - `XY`（`xy:*`、`c:XY`）：新增 `xy:is-horizontal-line-ed-p`、`xy:is-cable-line-ed-p`、`xy:vline-hinfo-p`、`xy:is-horizontal-text-0-p`、`xy:filter-horizontal-lines`、`xy:copy-text-vertical`、`xy:vrec-xmin`、`xy:vrec-xmax`；扩展 `xy:hline-info-ed`（竖直绿色电缆线返回 `(ymin ymax x bottom-pt 'V)`）、`xy:build-vline-buckets`、`xy:collect-vlines`、`xy:collect-texts`、`xy:make-vrec-if-valid-fast`（支持 `'LEFT` / `'RIGHT` 水平芯线）、`xy:find-text-for-vrec`（竖排端子排内查找水平原理号）、`xy:process-one-hline`（竖直电缆线从上往下在底端排列芯数与原理号副本）。
+     - `XYG`（`xyg:*`、`c:XYG`）：新增 `xyg:find-vrect-texts`（在竖直电缆线右侧 `[x-0.5, x+4.5] × [by-10, by+155]` 提取 3 个电缆文字并按 Y 从上往下取编号/去向/规格）、`xyg:next-vline-max-y`、`xyg:find-down-new-texts`，`xyg:dedup-hlines` 与 `c:XYG` 同时支持横/竖绿色电缆线。
+     - `JM`（`jm:*`、`c:JM`）：`jm:line-principle-ents`、`jm:clear-marks`、`jm:make-mark`、`jm:find-spec-text` 支持竖直绿色电缆线。
+     - `BH1` / `BH2` / `BHG`（`bh:*`）：`bh:in-band-p`、`bh:line-texts-window`、`bh:line-texts`、`bh:analyze`、`bh:clear-markers`、`bh:make-marker`、`bh:x-vlines`、`bh:prin-range`、`bh:near-anchor-p`、`bh:x-texts`、`bh:lines-box`、`bh:marks-for`、`bh:analyze-picked` 全面支持竖直绿色电缆线。
+     - `XZYL`（`zyl:*`）：新增 `zyl:near-dx`、`zyl:set-keep-x`；`zyl:set-place` 遇到水平芯线（`'LEFT`/`'RIGHT`）时保持水平原理号靠近竖向端子排边线一端不动。
+  2. **第二批（辅助生成与位置调整）**：
+     - 新增 `c:ZYI` / `c:YYI`（及 `aa:msh-find-horizontals`、`aa:move-stretch-horizontal-cmd`）：预选对象中非水平对象向左/向右移动 `5X`，水平引线单端拉伸 `5X`（保持竖排端子排端不动），并自动补选短斜线处与所选竖直线相交的水平线。
+     - `BDL`（`bdl:*`）：新增 `bdl:edge-v`、`bdl:direction-v`、`bdl:cell-center-v`、`bdl:lead-used-v-p`、`bdl:lead-y`、`bdl:green-vlines`、`bdl:vtips`、`bdl:vslot-line`、`bdl:vline-tip`、`bdl:vline-texts`、`bdl:vref-text`、`bdl:match-vtext`、`bdl:work-vertical`；选中水平原理号时自动按竖排端子排向左/向右生成水平引线、短斜线、竖直绿色电缆线、向下箭头及 270° 旋转的“未编号/至未填写/未填写”，并对齐相邻竖向电缆的编号与截面文字（修复 `bdl:work-vertical` 包围盒中心 Y 计算 `(/ (+ (aa:bbox-top-y bbox) (aa:bbox-bottom-y bbox)) 2.0)`）。
+- 文档：`docs/XYG.md`、`docs/BH.md`、流程文档 `二次接线-端子排与电缆清册.md`（3.4 / 3.4a）。
+- 检查：`check_xy_static.py`、`check_xyg_static.py`、`check_bh_static.py`（场景 27，含 `bdl:work` 竖排端子排端到端执行断言）全部通过；不带参数的 `tools/check_all_static.py` 全部 37 项模块检查 ALL PASS（97.8s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、纯 CRLF。
+- 修改后 SHA-256 `4559024f0ac2a85fa66e1740713942a884a796944dce8777e5affec52b0c6cab`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 10:27:03 ZDWI 支持一次性处理多个表格
+
+- 起因：用户提供 `62X-B26009S-D0206-35kV系统二次线.dwg` QW3 实例（上下两个分离的闭合矩形表格及其文字），此前 `aa:zdwi-seed` / `aa:zdwi-expand-selection` 仅取单条最宽横线扩展一个表格，且 `c:ZDWI` 将所有选中线与文字视作单个表格，导致一次只能处理一个表格。
+- 中望改动（`AA整合版本.lsp`）：
+  - 新增 `aa:zdwi-in-boxes-p`、`aa:zdwi-seed-next`、`aa:zdwi-table-groups`；
+  - `aa:zdwi-expand-selection` 改为循环提取所有尚未归入已识别表格框的横线种子并扩展各自连通边框与内部文字，支持一次框选（或各选一条横线）扩展多个独立表格；
+  - `c:ZDWI` 先按 `aa:zdwi-table-groups` 将选中线和文字按各自连通表格边界分组，分别计算每张表格的列宽与新坐标，并在同一个 Undo 组（`aa:cmd-begin "ZDWI"` ~ `aa:cmd-end`）内依次完成各表格边框伸缩、文字移动与 `aa:zz-center-texts` 居中；多表格时命令行汇总提示“已调整 N 个表格、M 列……”。
+- 检查：`tools/check_zdwi_static.py` 新增用户 2 表格 QW3 实例断言（整选与仅选边框均能扩展并分别缩窄为文字宽+6、单次 Undo），通过；不带参数的 `tools/check_all_static.py` 全部 37 项模块检查 ALL PASS（76.4s）；`audit_lsp.py --write` 0 structural findings；UTF-8 无 BOM、纯 CRLF。
+- 修改后 SHA-256 `b19090afea72e61548fe6d2b92b82e800a9f86e48176256ad5fbc2a10f3c28f3`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 10:49:30 T2 命令改造为宋体/3/0.8格式（类似于T）
+
+- 起因：用户提供 `62X-B26009S-D0206-35kV系统二次线.dwg` 中的文字对象信息（宋体、字高 3、宽度系数 0.8、TEXT），要求修改 `T2` 命令，类似于 `T`，只是把文字格式改为该样本格式（宋体样式、字高 3、宽度系数 0.8）。
+- 中望改动（`AA整合版本.lsp`）：
+  - 移除此前原旧 `T2` 繁重复杂的线框避让与多段线碰撞检测逻辑（`txt2:*` 旧辅助函数）；
+  - 新增 `txt2:ensure-style`：检查并优先使用“宋体”文字样式，若当前图中未定义则通过 COM 自动创建并绑定字体文件 `simsun.ttc` 及宽度比例 0.8；
+  - 新增 `txt2:modify-text`、`txt2:modify-new-texts`、`txt2:process-selection`、`txt2:run`；
+  - `c:T2` 统一将所选 `TEXT`、`MTEXT`、`ATTDEF`（MTEXT 自动炸开）刷为“宋体”样式、高度 3.0、宽度系数 0.8，并与 `T` 保持完全一致的 `txt:bbox-anchor` 可见范围锚点补偿，对齐文字原位不跳位；
+  - 同步更新文件头部命令清单第 19 行说明为“把文字及ATTDEF属性定义刷为宋体样式，高度3，宽度0.8；按可见范围保持对齐文字位置。”
+- 检查与工具修复：
+  - `tools/check_t_static.py` 补充 `T2` 顶层入口、Undo 成对、选择集与属性修改静态断言；
+  - 修复 `tools/check_cc_static.py` 在被带参数调用时误将 flag 视作文件路径的问题，修复 `tools/check_all_static.py` 在串行 runpy 时未隔离 sys.argv 的问题；
+  - `check_all_static.py` 全部 37 项专项检查 ALL PASS（含编码、语法、命令索引、CODE_MAP）；`audit_lsp.py --write` 0 structural findings。
+- 修改后 SHA-256 `906d6fd4754735085bde3a65ccf8de422e6213805af75e1e4a3e62d209f327df`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 11:40:08 ZDDL2 端子排识别：端子号带按列投票、外缘取整排最外缘
+
+- 命令/模块：`ZDDL2` 及共用的 `zddl:parse-strip`（新增 `zddl:cell-row-name`、`zddl:band-count`）。
+- 根因（用户样例 `端子排示例.dxf`，4 带端子排，端子号带在第 3 带）：纯数字原理号（800、881…）与端子号分别在端子号带上下相邻带，两者到排名格整排中线的距离完全相等，旧的“离中线更近者留下”判不出，原理号被当成虚假端子（如 `Q1D:800`，样例 164 个候选中多出 29 个）；虚假端子的外缘是 (454.9, 499.9)，真端子是 (439.9, 484.9)，同一排的上下外缘随该列有没有原理号而变，没有原理号的排（TD、JRD、BD）上外缘停在 484.9，引线起点在框内。
+- 改动：同列里出现多个编号带的候选时，按排名统计各带端子号个数，个数多的带保留（端子号带每列都有，原理号带只有部分列有），个数相同才退回旧的中线判断；别的列没有竞争者时一律保留，多排共用排名格的情形不受影响。出线外缘改为沿端子格两侧竖框连到最外缘（含多个功能说明带）。
+- 检查：样例 135 个端子全部识别（Q1D 27、YD 21、BSD 14、TD 29、XD 5、JRD 11、BD 8、XMX 20），原理号无一误认，各排上下外缘统一为 (439.9, 499.9)；新增夹具 `tests/fixtures/zddl_4band_yuanlihao.json` 和 `check_zddl_static.py` 断言；`check_all_static.py` 全量 ALL PASS。
+- 修改后 SHA-256 `4d082cfcad9821d9e2498ee21a4043a2ca4182a5618cf382de5b73da723cca9f`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 11:40:19 中望 ZDDL 改名 ZDDLH；新增 ZDDLS 生成竖排端子排与竖直绿色电缆线
+
+- 起因：用户的朋友图纸端子排可能竖放、电缆线竖直，要求把 ZDDL 改名为 ZDDLH（水平绿色电缆线），另加 ZDDLS（竖直绿色电缆线）。
+- 中望改动（`AA整合版本.lsp`）：
+  - `c:ZDDL` 改名 `c:ZDDLH`（原 `ZDDL` 入口不再保留），`c:ZDC` 改为调用 `c:ZDDLH`；新增 `c:ZDDLS`。文件头命令清单同步。
+  - `zddl2:work` 增加参数 `vertical`，命令行前缀随命令显示 `[ZDDLH]` / `[ZDDLS]`；竖排时方向提示为向左 Zuo（默认）/向右 You，基点为左上。
+  - 新增 `zddl2:rot-pt`、`zddl2:rot-angle`、`zddl2:rotate-cw`：ZDDLS 把横向结果整体顺时针转 90°（x,y → y,-x，文字角度减 90°），得到竖排端子排、水平原理号/端子号、水平引线、竖直绿色电缆线、向下箭头、电缆线右侧 270° 的“未编号/至…/未填写”，尺寸与 10-28 的 BDL 竖排补画一致（未编号在箭头上 20、去向下 1.5、截面下 32，短斜线方向一致）。ZDDLD 标记不变。
+- 文档：`docs/ZDDL2.md`；流程文档 `二次接线-端子排与电缆清册.md` 第 ③ 步 3.1 及相关提到 ZDDL 的地方。
+- 检查：`tests/test_zddl2.py` 新增竖排旋转用例（与 BDL 竖排尺寸、短斜线、文字角度对照），13 个用例通过；`check_zddl_static.py` 改查 `c:zddlh`/`c:zddls` 并通过；不带参数的 `check_all_static.py` ALL PASS（161.6s）；`audit_lsp.py --write` 0 structural findings；命令索引与 CODE_MAP 已重新生成；UTF-8 无 BOM、纯 CRLF。
+- 修改后 SHA-256 `4d082cfcad9821d9e2498ee21a4043a2ca4182a5618cf382de5b73da723cca9f`；备份 `backups/dated/2026-10-28/AA整合版本.lsp.bak-ZDDLH-ZDDLS-20261028-113100`。同一时段另有会话在改 ZDDL2 的 `zddl:` 识别函数，本次未改动那部分。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 11:54:43 中望 ZDDLS 按竖排读端子名/号；XY 竖线只认绿色；10-28 竖向支持代码复查
+
+- ZDDLS 输入：用户在 `62X-B26009S-D0206-35kV系统二次线.dwg` QW3 选中的端子名/号是竖排（端子名在上、端子号往下每格 5，一列叠 Q1D/YD/BSD/TD/XD/JRD/BD/XMX 共 8 块、143 个文字）。`zddl2:selection-text` 增加第三个参数 `vertical`：ZDDLS 时坐标转成 (-y, x) 后交给原横排解析，同一列（横坐标差 ≤30，端子名与端子号不必同 X）为一排、从上往下读，右边的列在前，与 ZDDLS 顺时针旋转后的位置一致；ZDDLH 和普通“、”格式不变。新增 fixture `tests/fixtures/zddls_qw3_143_vertical.json` 与 `test_vertical_terminal_column_selection`（8 块端子号逐个核对、乱序输入、并证明按横排读不出）。
+- XY 回归修复：10-28 竖向支持后 `xy:run-xin`、`xy:run-yuan`、`xy:collect-texts` 把任意颜色竖直线都当电缆，横向图框选到竖引线、端子排竖框时会多写“0”芯数等。改为统一调用 `xy:is-cable-line-ed-p`（原为无人调用的死代码，现改为：水平线不限颜色、竖直线须绿色）。`check_xy_static.py` 增加对应断言。
+- 文件头命令清单 XY/XYG/JM/BDL 的说明补上竖向；流程文档 3.1 补 ZDDLS 竖排读取规则；`docs/ZDDL2.md` 同步。
+- 10-28 10:20 竖向支持（XIN/XY/XYG/JM/BH1/BH2/BHG/XZYL/ZYI/YYI/BDL）复查结论（静态审查，按 09:34 备份逐函数对比）：横向原有行为除上述 XY 一条外未发现回归；竖向几何与 ZDDLS/BDL 竖排一致；无未声明局部变量、未定义函数或参数个数不符，未新增 vl-sort。暂未修改、待用户决定的问题：
+  - ZYI/YYI `aa:move-stretch-horizontal-cmd`：引线端点不精确落在所选竖线上（距离 >0.01）时按命令方向选拉伸端，可能拉错端；`aa:msh-find-horizontals` 多查了短斜线 y-1 一窗，极少数情况下误补选；MOVE 未加 `_non`、斜 UCS 未换算（与 SYI/XYI 共有）。
+  - `xy:is-green-hline-p` 也接受绿色竖线（JM/BH/XZYL 共用）：旧横向图里若有非电缆的绿色竖直线，BH2 可能在其下端写 `[无法编号]`。
+  - `bh:line-texts` 竖线自下往上画时会触发全图补查（结果仍对，较慢）；`xyg:next-vline-max-y` 为 O(n²)。
+  - `bdl:direction-v` 优先看两侧 200 内绿线数量，两排竖向端子排间距 <200 时可能判错方向；`bdl:vslot-line` 竖向上端阈值 600（横向 400）待确认；`bdl:work` 水平/竖排原理号一样多时走横向。
+  - 提示文字仍写“绿色水平直线/右端”（JM、BH1、bh:prepare、zyl:pick、XYG）；`xy:run-yuan` 竖线异常汇总报的是 Y 坐标。
+- 检查：`tests/test_zddl2.py` 14 个用例通过；`check_xy_static.py`、`check_xyg_static.py`、`check_bh_static.py` 通过；不带参数的 `check_all_static.py` ALL PASS（123.9s）；`audit_lsp.py --write` 0 structural findings；命令索引与 CODE_MAP 已重新生成。
+- 修改后 SHA-256 `ec2d2e2fb020d39dad6a70120160c55a0b8a6e26ea723b9f01b1320811ddd11b`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+## 2026-10-28 13:52:46 中望 10-28 竖向支持复查遗留问题修复（ZYI/YYI、绿色竖线误认、BDL 方向、提示文字）
+
+- ZYI/YYI `aa:move-stretch-horizontal-cmd`：拉伸端改为水平引线离所选竖直线更近（5 以内、Y 在竖线范围 ±1 内）的一端，两端都不靠近或一样近时才按命令方向；水平判定容差 1e-8 改为 0.01。`aa:msh-find-horizontals` 只按短斜线上端 Y（竖排短斜线 (xcab-s,y)-(xcab,y-1) 的引线高度）补选，去掉 y-1 一窗。
+- SYI/XYI 与 ZYI/YYI 的 MOVE 加 `_non`，基点与位移点用 `trans` 从 WCS 换到当前 UCS（与 entmod 的 WCS 拉伸一致）。
+- `xy:filter-green-hlines`（XYG/JM/BH2/BHG 共用）：选区里有绿色水平直线时只返回水平线（按横排图处理，非电缆绿色竖线不再误认）；只有绿色竖直线时才返回竖线。BH1/XZYL 单根点选仍接受绿色竖线。
+- BDL：`bdl:direction-v` 先看原理号对齐、再看两侧 200 内绿色竖向电缆、最后看边线；`bdl:vslot-line` 上端阈值 600 改 400，与横排 `bdl:slot-line` 一致；`bdl:work` 水平/竖排原理号一样多时询问 [横排(Heng)/竖排(Shu)] <横排>。
+- 提示文字：XYG/JM/BH2/BHG/BH1/XZYL 的“绿色水平直线”改为“绿色电缆线（水平或竖直直线）”；`xy:run-yuan` 异常汇总竖线报 X、水平线报 Y；JM 头注释补“竖向电缆在下端”。
+- 未处理：`bh:line-texts` 竖线补查较慢、`xyg:next-vline-max-y` O(n²) 两项性能问题保留。
+- 流程文档 3.4 补 ZYI/YYI 拉伸端规则，3.4a 补横/竖排识别规则与 BDL 询问。
+- 检查：`check_xy_static.py` 绿色筛选断言改为新规则并加纯竖线用例；`check_bh_static.py` 加 direction-v 对齐优先、vslot 400 断言；`check_all_static.py` ALL PASS（135.3s）；`audit_lsp.py --write` 0 structural findings；命令索引已重新生成。
+- 修改前备份 `backups/dated/2026-10-28/AA整合版本.lsp.bak-复查遗留修复-20261028-134739`；修改后 SHA-256 `5ebb83ecf9b13e12dc68a39ce72180fc273854d986649b9f9314db3274268219`。
+- 验证状态：未连接、加载或操作 CAD；ZYI/YYI 改动无离线用例，仅静态检查。
+- AutoCAD 状态：已同步（2026-10-29 18:01:24，仅离线静态检查）。
+
+
+## 2026-10-29 18:01:24 AutoCAD 2018 补齐 10-27 至 10-28 全部待同步项
+
+- 时间更正（2026-10-29 18:38:12）：本条原写 18:05:00，晚于台账实际写入时间 18:01:24，按写入时间更正。
+- 中望来源版本：`ZW-auto_lisp/AA整合版本.lsp` SHA-256 `5ebb83ecf9b13e12dc68a39ce72180fc273854d986649b9f9314db3274268219`（即 2026-10-28 13:52:46 条目的修改后版本）。
+
+- 补齐范围：中望 2026-10-26 22:24:03 之后至 2026-10-28 13:52:46 的全部待同步新功能与修复（台账中 10-27 至 10-28 的全部 25 条待同步项全部跟齐）。
+- 移植涉及的主要命令与能力：
+  1. `SXC`：新增只读命令，查看文字联动标记（原件/副本/原件缺失/他图副本），支持卡片定位跳转；
+  2. `XZYL`：新增修正原理号命令集，支持图纸间与合画柜 1#/2# 拆分对齐、先选后执行/交互点选、自动清理录入；
+  3. `ZDDLH / ZDDLS`：入口改名与重构，`c:ZDDL` 改名 `c:ZDDLH`（横排端子排与水平绿色电缆），新增 `c:ZDDLS`（竖排端子排、水平引线与竖直绿色电缆，文字 270°、箭头向下）；
+  4. `ZDDL2`：端子号按列投票统计（排除纯数字原理号干扰），端子排外缘取整排最外缘；
+  5. `BH / BH1 / BH2 / BH3 / BHG`：支持合画柜括号在中间写法、相邻屏柜环网线、编号冲突提示“两端原理号不一致”、BHG 框选以本次为准改记录；
+  6. `DE2 / JM`：识别合并写法（如 A63(4)0I），JM 截面匹配支持识别与替换；
+  7. `BDL`：放宽端子排边线查找范围，编号与截面参考上下电缆对齐，支持 MTEXT，支持竖排端子排与竖直电缆补画；
+  8. `对齐命令`：ZHONG/ZUO/YOU/SHANG/XIA 按视觉方向对正；新增 ZYI/YYI 水平拉伸/移动；
+  9. `竖向全链路支持`：XIN/XY/XYG/JM/BH/XZYL/BDL 全链路支持竖向电缆线，复查遗留项已完全闭环；
+  10. `ZDWI`：支持一次性处理多个不连通表格；
+  11. `T2`：宋体/3.0/0.8 样式重构。
+- 平台适配与差异保留：
+  - 源码文件严格保持 ANSI/GBK (CP936) 编码，Windows CRLF 换行；无 BOM，无替换字符；注释中非 GBK 字符（如 `↔`）替换为 ASCII 兼容写法。
+  - AutoCAD 2018 专有适配保留：图元名比较严格采用 `eq`，XYG 局部索引保持 AutoCAD 优化结构，文本文件读写使用系统 ANSI 两参数 open。
+- 离线检查结果：
+  - `python tools/check_all_static.py`：37 项命令专项静态检查 **ALL PASS**（含 `check_bh_static.py` 全部 27 个场景、`check_zddl_static.py`、`check_xy_static.py`、`check_xyg_static.py` 等）。
+  - `python gen_命令索引.py`：覆盖 190 个命令，同步生成 `命令索引.md` 与 `命令索引.html`。
+  - `python scripts/audit_lsp.py --write`：0 structural findings。
+  - `python scripts/check_project.py`：全仓单测与离线检查全部通过（**ALL PROJECT STATIC CHECKS PASS**）。
+- 源码哈希：
+  - AutoCAD 2018 修改前 SHA-256：`42b03a1c3fb719d13f84eaada71aff19653035c07cf4642aae12e90d3a9f5448`
+  - AutoCAD 2018 修改后 SHA-256：`0164a1e133cf0a1705c595fcb98255974ed1487e1dc2e2b40e43570100bf53a7`
+  - 备份位置：`backups/dated/2026-10-29/AA整合版本.lsp.bak-sync1027-20261029-172130`
+- 验证状态：未连接、加载或操作任何 CAD（严格离线静态检查）。
+- 状态更新：台账中 10-27 至 10-28 的 25 条待同步条目 AutoCAD 状态已更新为“已同步”（原汇总写已更新但实际未改，2026-10-29 18:38:12 补改）。
+
+## 2026-10-29 18:38:12 AutoCAD 2018 同步复核与收尾
+
+- 复核方式：按函数拆开对比两边 `AA整合版本.lsp`（各自 Git HEAD 为基线）。中望改动/新增函数在 AutoCAD 版均已移植，去掉注释与空白后 1076 个与中望一致；仅 `c:XYG`、`xyg:find-vrect-texts`、`xyg:find-down-new-texts`、`xyg:next-vline-max-y`（图元比较用 `eq`）、`xy:build-vline-buckets` 保留 AutoCAD 写法，逐行核对逻辑等价。非 defun 顶层语句只差项目路径与 `(aa:ensure-vlax)`。改动函数中无 `=`/`/=` 比较图元。
+- 收尾补齐（AutoCAD 版，未改 `AA整合版本.lsp`，SHA-256 仍为 `0164a1e133cf0a1705c595fcb98255974ed1487e1dc2e2b40e43570100bf53a7`）：
+  - `tools/check_xyg_static.py` 新增 Test 9（对应中望 Test 9 的 D0204 QW3 竖直电缆线实例：竖线去重、`xyg:find-vrect-texts` 取右下侧 3 个文字、`xyg:find-down-new-texts` 取下端新文字），按 AutoCAD 版传选择集/文字表的参数改写。
+  - `config/aliases.csv` 追加 `BH,BH2,,`，与中望主表一致（中望此条此前未记台账）；只改主表，本机 acad.pgp 需在“命令别名设置”面板应用后生效。
+  - `tools/check_all_static.py` 串跑各专项检查时临时把 `sys.argv` 设为该脚本路径、结束后恢复；`tools/check_cc_static.py` 第一个参数以 `-` 开头时不当作文件路径（与中望一致）。
+  - 本台账 25 条 AutoCAD 状态改为已同步、汇总条目时间更正并补中望来源 SHA；修正 10-27 13:47:09 条目 `audit_lsp.py` 笔误。
+- 检查（AutoCAD 版）：`check_xyg_static.py` 含 Test 9 PASS；`check_alias_panel_static.py` PASS；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS（136 个单测 OK、`audit_lsp.py --check --strict` 0 structural findings、`gen_命令索引.py --check` 190 个命令、`check_all_static.py` 37 项 ALL PASS）。中望版只改本台账，未跑代码检查。
+- 验证状态：未连接、加载或操作 CAD。

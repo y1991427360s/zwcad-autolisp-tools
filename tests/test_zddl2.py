@@ -62,7 +62,7 @@ class ZDDL2Tests(unittest.TestCase):
             "regapp": lambda name: name,
             "zddl2:set-layer-lock": lambda name, lock: locks.append((name, bool(lock))),
         })
-        runner.call("zddl2:work", [])
+        runner.call("zddl2:work", [None])
         entities = [e for e in made if e[0] in [(0, "LINE"), (0, "TEXT"), (0, "LWPOLYLINE")]]
         self.assertEqual(4, len(entities))
         # 辅助层先解锁、生成后再锁定；只有辅助层图元带 AA_ZDDL 标记
@@ -84,7 +84,7 @@ class ZDDL2Tests(unittest.TestCase):
             self.assertEqual(expected, after)
 
     def test_actual_command_cleanup_on_success_and_error(self):
-        for fail in (False, True):
+        for command, fail in [(c, f) for c in ("c:zddlh", "c:zddls") for f in (False, True)]:
             runner, events = Runner(self.funcs), []
             def work():
                 if fail:
@@ -97,13 +97,118 @@ class ZDDL2Tests(unittest.TestCase):
             runner.mocks.update({
                 "aa:cmd-begin": lambda tag: events.append("begin"),
                 "aa:cmd-end": lambda: events.append("end"),
-                "zddl2:work": work, "princ": lambda *a: None,
+                "zddl2:work": lambda vertical=None: work(), "princ": lambda *a: None,
                 "sssetfirst": lambda *a: None,
                 "vl-catch-all-error-message": str,
                 "vl-catch-all-apply": caught,
             })
-            runner.call("c:zddl", [])
+            runner.call(command, [])
             self.assertEqual(["begin", "end"], events)
+
+    def test_vertical_layout_rotates_horizontal_result(self):
+        # ZDDLS：同一输入的横向结果顺时针转 90°；绿色电缆线竖直、箭头向下、电缆文字 270°、端子号水平。
+        class GeometryRunner(StringRunner):
+            def eval(self, expr, env):
+                if isinstance(expr, (int, float)):
+                    return expr
+                return super().eval(expr, env)
+        import math
+        runner = GeometryRunner(self.funcs)
+        runner.mocks["eq"] = lambda a, b: a is b
+        # 按 zddl2:draw-cables / draw-layout 的横向尺寸构造一根向上出线的电缆（ycab=60，箭头尖端 x=100）
+        tip, ycab, d = 100.0, 60.0, 2.5 * math.sqrt(3.0)
+        source = [
+            runner.call("zddl2:e-line", [[12.5, 50.0], [12.5, ycab], "电缆-接线", 7]),
+            runner.call("zddl2:e-line", [[13.5, ycab], [12.5, ycab - 1.0], "电缆-接线", 7]),
+            runner.call("zddl2:e-line", [[12.5, ycab], [tip + 40.0, ycab], "电缆-接线", 3]),
+            runner.call("zddl2:e-poly", [[[tip, ycab], [tip - d, ycab + 2.5], [tip - d, ycab - 2.5]], "电缆-接线", 7]),
+            runner.call("zddl2:e-text", ["未编号", tip - 20.0, ycab + 0.5, "电缆-文字", 0, 0, 3.0, 0.0, 7]),
+            runner.call("zddl2:e-text", ["至目标柜", tip + 1.5, ycab + 0.5, "电缆-文字", 0, 0, 3.0, 0.0, 7]),
+            runner.call("zddl2:e-text", ["未填写", tip + 32.0, ycab + 0.5, "电缆-文字", 0, 0, 3.0, 0.0, 7]),
+            runner.call("zddl2:e-text", ["1", 12.5, 37.5, "端子排-文字", 1, 2, 3.0, 1.5707963, 7]),
+            runner.call("zddl2:e-text", ["A", 12.5, 73.0, "接线-原理号", 2, 2, 3.0, 1.5707963, 4]),
+        ]
+        res = ["OK", "", source]
+        rotated = [runner.call("zddl2:rotate-cw", [e], {"pi": math.pi}) for e in res[2]]
+        def get(e, code):
+            return next((g[1] for g in e if g[0] == code), None)
+        greens = [e for e in rotated if get(e, 0) == "LINE" and get(e, 62) == 3]
+        self.assertEqual(1, len(greens))
+        p1, p2 = get(greens[0], 10), get(greens[0], 11)
+        self.assertAlmostEqual(p1[0], p2[0])
+        self.assertGreater(p1[1], p2[1])
+        arrow = next(e for e in rotated if get(e, 0) == "LWPOLYLINE")
+        pts = [g[1] for g in arrow if g[0] == 10]
+        self.assertTrue(all(pts[0][1] < q[1] for q in pts[1:]))
+        for e in rotated:
+            if get(e, 0) == "TEXT":
+                angle = get(e, 50)
+                if get(e, 8) == "电缆-文字":
+                    self.assertAlmostEqual(1.5 * math.pi, angle, places=5)
+                    self.assertAlmostEqual(p1[0] + 0.5, get(e, 10)[0])
+                else:
+                    self.assertAlmostEqual(0.0, angle, places=5)
+        texts = {get(e, 1): get(e, 10) for e in rotated if get(e, 0) == "TEXT"}
+        tip_y = pts[0][1]
+        self.assertAlmostEqual(tip_y + 20.0, texts["未编号"][1])
+        self.assertAlmostEqual(tip_y - 1.5, texts["至目标柜"][1])
+        self.assertAlmostEqual(tip_y - 32.0, texts["未填写"][1])
+        # 短斜线与 BDL 向右出线一致：(xcab-1, y) → (xcab, y-1)
+        slash = rotated[1]
+        self.assertEqual([[60.0, -13.5], [59.0, -12.5]], [list(get(slash, 10)[:2]), list(get(slash, 11)[:2])])
+        # 横向 → 竖向坐标映射 (x, y) → (y, -x)
+        for before, after in zip(res[2], rotated):
+            for g0, g1 in zip(before, after):
+                if g0[0] in (10, 11):
+                    self.assertEqual([g0[1][1], -g0[1][0]], list(g1[1][:2]))
+
+    def test_vertical_terminal_column_selection(self):
+        # 用户 QW3 竖排端子排：端子名在上、端子号往下每格 5，一列叠 8 块（143 个文字）。
+        # ZDDLS 把 (x, y) 转成 (-y, x) 后按横排解析：整列为一排，块和端子号按从上往下的顺序读出。
+        import json
+        data = json.loads((ROOT / "tests/fixtures/zddls_qw3_143_vertical.json").read_text(encoding="utf-8"))
+        ents = [{0: "TEXT", 1: t, 10: [x, y, 0.0], 11: [x, y, 0.0]} for x, y, t in data["items"]]
+        class NumberRunner(StringRunner):
+            def eval(self, expr, env):
+                if isinstance(expr, (int, float)):
+                    return expr
+                return super().eval(expr, env)
+        runner = NumberRunner(self.funcs)
+        sys.setrecursionlimit(max(sys.getrecursionlimit(), 20000))
+        runner.mocks.update({
+            "eq": lambda a, b: a is b,
+            "sslength": len, "ssname": lambda ss, i: ss[i], "entget": lambda en: en,
+            "zddl2:text": lambda en: en[1],
+            "zddl:text-point": lambda en, ed: ed[11],
+            "aa:dz-number-p": lambda t: t.rstrip("a").isdigit(),
+            "wcmatch": lambda t, pat: t.endswith(pat.lstrip("*")),
+            "rtos": lambda v, mode, prec: "%.*f" % (prec, v),
+        })
+        expected = [("Q1D", 27), ("YD", 21), ("BSD", 14), ("TD", 29), ("XD", 5), ("JRD", 11), ("BD", 8), ("XMX", 20)]
+        for shuffled in (ents, list(reversed(ents))):
+            text = runner.call("zddl2:selection-text", [shuffled, True, True])
+            rows = []
+            for line in text.splitlines():
+                xy, token = line.split(" ", 1)
+                marked = token.endswith("端子名")
+                rows.append([float(xy.split(",")[0]), float(xy.split(",")[1]),
+                             token[:-3].strip() if marked else token, True if marked else None])
+            blocks, errors = runner.call("zddl2:coord-horizontal", [rows])
+            self.assertFalse(errors)
+            self.assertEqual(expected, [(b[1], len(b[2])) for b in blocks])
+            for b in blocks:
+                self.assertEqual([str(i) for i in range(1, len(b[2]) + 1)], list(b[2]))
+            self.assertEqual(1, len({b[3] for b in blocks}))
+        # 同一份文字按横排读（ZDDLH）会把每个文字各算一排，读不出端子排，证明必须按竖排处理
+        text = runner.call("zddl2:selection-text", [ents, True, None])
+        rows = []
+        for line in text.splitlines():
+            xy, token = line.split(" ", 1)
+            marked = token.endswith("端子名")
+            rows.append([float(xy.split(",")[0]), float(xy.split(",")[1]),
+                         token[:-3].strip() if marked else token, True if marked else None])
+        blocks, errors = runner.call("zddl2:coord-horizontal", [rows])
+        self.assertNotEqual(expected, [(b[1], len(b[2])) for b in blocks])
 
     def test_actual_mtext_paragraphs_become_input_lines(self):
         runner = StringRunner(self.funcs)
@@ -125,7 +230,7 @@ class ZDDL2Tests(unittest.TestCase):
                 "getpoint": lambda *a: None,
                 "zddl2:run-process": lambda *a: calls.append(a),
             })
-            runner.call("zddl2:work", [], {"*zddl2-python*": "pythonw", "*zddl2-root*": "root"})
+            runner.call("zddl2:work", [None], {"*zddl2-python*": "pythonw", "*zddl2-root*": "root"})
             self.assertFalse(calls)
 
     def test_outer_alignment_and_roundtrip_data(self):
