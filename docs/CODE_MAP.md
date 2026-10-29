@@ -10,7 +10,7 @@
 3. 改共享函数前先跑 `python tools/code_map.py callers 函数名`，确认影响哪些命令。
 4. 改动过程中用 `python tools/check_all_static.py --quick` 只跑相关检查；交付前跑一次不带参数的全量检查。
 
-- 源文件：`AA整合版本.lsp`，26390 行，1119 个函数，其中 175 个 `c:` 命令。
+- 源文件：`AA整合版本.lsp`，26623 行，1129 个函数，其中 175 个 `c:` 命令。
 
 ## 命令
 
@@ -164,33 +164,33 @@
 | `485Y` | 19452-19454 | 3 | 选中至少两条水平线后向右生成短线、矩形并居中标注485+、485-及网络通信柜（青色虚线）。 | aa:km-ln-cmd:18928 |
 | `XX` | 19465-19493 | 29 | 将选中文字内容替换为 7×2.5。 | aa:cmd-begin:706, aa:cmd-end:719 |
 | `JM` | 19872-19947 | 76 | 按绿色电缆线（水平或竖直）所连原理号，把 ZDDLH/ZDDLS 生成的“未填写”替换为电缆截面；无法判断的保留并选中提示。 | aa:cmd-begin:706, aa:rep-begin:19505, xyg:dedup-hlines:8982, xy:ss->list:7632, xy:filter-green-hlines:8714, xy:collect-vlines:7913, xy:build-vline-buckets:7841, xy:build-text-meta-list:8170, xy:collect-texts:7938, xy:hline-info-ed:7728, jm:find-spec-text:19834, aa:ysdl-get-plain-text:1391 …共 24 个 |
-| `BH2` | 20833-20991 | 159 | 框选起点柜和绿色电缆线，把已编号但没记录的电缆记入共享记录，给有记录的“未编号”按记录填写；不分配新编号，两端不一致的标红注明原因。 | aa:cmd-begin:706, aa:rep-begin:19505, aa:link-clock:10071, bh:prepare:20236, bh:record-path:20061, bh:now:20065, bh:read-records:20092, bh:rec-key:20000, bh:kmap:20011, bh:nmap:20024, bh:split-map:20818, bh:resolve-neighbors:20530 …共 31 个 |
-| `BHG` | 20994-21106 | 113 | 以图为准修改电缆编号记录：记录编号改成图上的编号，原编号存为旧编号供另一端 BH1/BH2 自动跟改；“未编号”的删除其记录。 | aa:cmd-begin:706, aa:rep-begin:19505, aa:link-clock:10071, bh:prepare:20236, bh:record-path:20061, bh:now:20065, bh:read-records:20092, bh:rec-key:20000, bh:kmap:20011, bh:nmap:20024, bh:clean:19980, hddl:color:22264 …共 25 个 |
-| `BH1` | 21419-21624 | 206 | 逐根点选编号：先点起点柜名大字并输入前缀、起始号，再依次点绿色电缆线，回车后自动缩放一次识别并按点选顺序编号，同终点加 A/B/C，可撤销本批。 | aa:cmd-begin:706, bh:pick-start:21314, bh:ask-prefix:20310, bh:ask-start:20320, bh:record-path:20061, bh:read-records:20092, bh:rec-key:20000, bh:kmap:20011, bh:nmap:20024, bh:own-records:21271, bh:write-records:20112, bh:clean:19980 …共 39 个 |
-| `BH3` | 21677-21841 | 165 | 框选电缆清册文字（起点柜/编号/终点柜/规格/芯数/原理号），以清册为准写入共享记录：没有的记入，有的强制改成清册编号（同 BHG）。 | aa:cmd-begin:706, aa:rep-begin:19505, hddl:text:22261, hddl:point:22279, aa:merge-sort:794, hddl:sort-rows:22343, hddl:rows:22333, hddl:coord:22273, bh:record-path:20061, bh:now:20065, bh:read-records:20092, bh:rec-key:20000 …共 30 个 |
-| `ZDAO` | 21961-21965 | 5 | 将选中文字按垂直位置上下颠倒排列（最下面的文字放到最上面，原 DAO）。 | aa:cmd-begin:706, dao:run:21899, aa:cmd-end:719 |
-| `HDAO` | 21968-21972 | 5 | 将选中文字按水平位置左右颠倒排列（最左边的文字放到最右边）。 | aa:cmd-begin:706, dao:run:21899, aa:cmd-end:719 |
-| `QH` | 21977-22128 | 152 | 只选中已选文字所在行、且位于当前屏幕内、参考文字左右各 1000 内的所有文字（跨多行时逐行选择）。 | aa:merge-sort:794 |
-| `BK` | 22158-22201 | 44 | 选中文字后只保留最后一对括号内的内容，括号外有“至”时保留“至”。 | de:end-undo:18046, de:get-text:18030, bk:extract-inner:22139, de:set-text:18039 |
-| `HDDL` | 22489-22579 | 91 | 直接校核选中文字中的电缆编号、规格和原理号，问题行标红并在行首标注。 | aa:undo-mark-off:745, aa:undo-mark-on:737, hddl:ensure-layer:22210, hddl:clear-markers:22250, hddl:text:22261, hddl:point:22279, hddl:sort-rows:22343, hddl:rows:22333, hddl:group-rows:22348, hddl:mirror-p:22483, hddl:cell:22393, hddl:tail-count:22399 …共 20 个 |
-| `CU` | 22653-22654 | 2 | 将选中对象按 5 个单位的递增间距向上复制指定份数。 | cu:copy-direction:22585 |
-| `CD` | 22657-22658 | 2 | 将选中对象按 5 个单位的递增间距向下复制指定份数。 | cu:copy-direction:22585 |
-| `CZ` | 22661-22662 | 2 | 将选中对象按 5 个单位的递增间距向左复制指定份数。 | cu:copy-direction:22585 |
-| `CY` | 22665-22666 | 2 | 将选中对象按 5 个单位的递增间距向右复制指定份数。 | cu:copy-direction:22585 |
-| `HS` | 22719-22891 | 173 | 选中物体单向横向缩放，左右宽度改变，高度保持不变。 | aa:cmd-begin:706, aa:hs-filter-unlocked:22673, aa:cmd-end:719, aa:hs-get-ss-bbox:22693 |
-| `ZS` | 22900-23072 | 173 | 选中物体单向纵向缩放，上下高度改变，宽度保持不变。 | aa:cmd-begin:706, aa:hs-filter-unlocked:22673, aa:cmd-end:719, aa:hs-get-ss-bbox:22693 |
-| `SC3` | 23104-23171 | 68 | 将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。 | aa:cmd-begin:706, aa:sc3-layer-locked-p:23078, aa:sc3-entity-bbox:23086, aa:cmd-end:719 |
-| `Z0` | 23238-23281 | 44 | 将选中对象的 Z 坐标全部归零（压平到 XY 平面）。 | aa:cmd-begin:706, aa:z0-layer-locked-p:23177, aa:z0-data-flat-p:23195, aa:z0-polyline-flat-p:23228, aa:z0-one:23208, aa:z0-polyline-verts:23220, aa:cmd-end:719 |
-| `VPO1` | 23287-23292 | 6 | 切换到“单个”标准视口。 | aa:cmd-begin:706, aa:cmd-end:719 |
-| `VPO2` | 23295-23300 | 6 | 切换到“两个：垂直”标准视口。 | aa:cmd-begin:706, aa:cmd-end:719 |
-| `TONG` | 23306-23390 | 85 | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | aa:cmd-begin:706, aa:cmd-end:719, aa:merge-sort:794, aa:gtx-natural-less:6303 |
-| `ZDDL2` | 24051-24142 | 92 | 自动根据现有端子排与接线方格绘制电缆引线、干线与标注。 | aa:cmd-begin:706, aa:cmd-end:719, zddl:parse-strip:23582, zddl:parse-wiring-ss:23803, zddl:ensure-layer:23863, zddl:plan-cables:23940, zddl:lookup-terminal:23491, zddl:label-layout:23965, zddl:draw-one-cable:23972, zddl:format-cable-no:23930 |
-| `ZDC` | 24144-24146 | 3 | ZDDLH 命令的简写别名。 | c:zddlh:26369 |
-| `ZDDLD` | 25236-25264 | 29 | 删除 ZDDL 生成的端子排框线与端子名/号，保留原理号、电缆接线和电缆文字。 | aa:cmd-begin:706, zddl2:xdata-app:25219, aa:layer-locked-p:4749, zddl2:set-layer-lock:25222, aa:cmd-end:719 |
-| `XZYL` | 26345-26351 | 7 | 修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。 | aa:cmd-begin:706, zyl:work:26313, aa:cmd-end:719 |
-| `BDL` | 26357-26363 | 7 | 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行；选水平原理号时按竖排端子排补画竖直电缆线。 | aa:cmd-begin:706, bdl:work:25791, aa:cmd-end:719 |
-| `ZDDLH` | 26369-26376 | 8 | 两次选择文字并指定左下基点，生成横排端子排与水平绿色电缆线（原 ZDDL）。 | aa:cmd-begin:706, zddl2:work:25133, aa:cmd-end:719 |
-| `ZDDLS` | 26382-26389 | 8 | 两次选择文字并指定左上基点，生成竖排端子排、水平引线与竖直绿色电缆线（向下箭头、文字 270°）。 | aa:cmd-begin:706, zddl2:work:25133, aa:cmd-end:719 |
+| `BH2` | 20957-21132 | 176 | 框选起点柜和绿色电缆线，把已编号但没记录的电缆记入共享记录，给有记录的“未编号”按记录填写；不分配新编号，两端不一致的标红注明原因。 | aa:cmd-begin:706, aa:rep-begin:19505, aa:link-clock:10071, bh:prepare:20351, bh:record-path:20063, bh:now:20067, bh:fold-joins:20303, bh:read-records:20094, bh:rec-key:20002, bh:kmap:20013, bh:nmap:20026, bh:split-map:20942 …共 34 个 |
+| `BHG` | 21135-21250 | 116 | 以图为准修改电缆编号记录：记录编号改成图上的编号，原编号存为旧编号供另一端 BH1/BH2 自动跟改；“未编号”的删除其记录。 | aa:cmd-begin:706, aa:rep-begin:19505, aa:link-clock:10071, bh:prepare:20351, bh:record-path:20063, bh:now:20067, bh:fold-joins:20303, bh:read-records:20094, bh:rec-key:20002, bh:kmap:20013, bh:nmap:20026, bh:clean:19982 …共 26 个 |
+| `BH1` | 21563-21774 | 212 | 逐根点选编号：先点起点柜名大字并输入前缀、起始号，再依次点绿色电缆线，回车后自动缩放一次识别并按点选顺序编号，同终点加 A/B/C，可撤销本批。 | aa:cmd-begin:706, bh:pick-start:21458, bh:ask-prefix:20431, bh:ask-start:20441, bh:record-path:20063, bh:fold-joins:20303, bh:read-records:20094, bh:rec-key:20002, bh:kmap:20013, bh:nmap:20026, bh:own-records:21415, bh:write-records:20114 …共 42 个 |
+| `BH3` | 21853-22029 | 177 | 框选电缆清册文字（起点柜/编号/终点柜/规格/芯数/原理号），以清册为准写入共享记录：没有的记入，有的强制改成清册编号（同 BHG）。 | aa:cmd-begin:706, aa:rep-begin:19505, hddl:text:22449, hddl:point:22467, aa:merge-sort:794, hddl:sort-rows:22531, hddl:rows:22521, hddl:coord:22461, bh:record-path:20063, bh:now:20067, bh:fold-joins:20303, bh:read-records:20094 …共 32 个 |
+| `ZDAO` | 22149-22153 | 5 | 将选中文字按垂直位置上下颠倒排列（最下面的文字放到最上面，原 DAO）。 | aa:cmd-begin:706, dao:run:22087, aa:cmd-end:719 |
+| `HDAO` | 22156-22160 | 5 | 将选中文字按水平位置左右颠倒排列（最左边的文字放到最右边）。 | aa:cmd-begin:706, dao:run:22087, aa:cmd-end:719 |
+| `QH` | 22165-22316 | 152 | 只选中已选文字所在行、且位于当前屏幕内、参考文字左右各 1000 内的所有文字（跨多行时逐行选择）。 | aa:merge-sort:794 |
+| `BK` | 22346-22389 | 44 | 选中文字后只保留最后一对括号内的内容，括号外有“至”时保留“至”。 | de:end-undo:18046, de:get-text:18030, bk:extract-inner:22327, de:set-text:18039 |
+| `HDDL` | 22677-22767 | 91 | 直接校核选中文字中的电缆编号、规格和原理号，问题行标红并在行首标注。 | aa:undo-mark-off:745, aa:undo-mark-on:737, hddl:ensure-layer:22398, hddl:clear-markers:22438, hddl:text:22449, hddl:point:22467, hddl:sort-rows:22531, hddl:rows:22521, hddl:group-rows:22536, hddl:mirror-p:22671, hddl:cell:22581, hddl:tail-count:22587 …共 20 个 |
+| `CU` | 22841-22842 | 2 | 将选中对象按 5 个单位的递增间距向上复制指定份数。 | cu:copy-direction:22773 |
+| `CD` | 22845-22846 | 2 | 将选中对象按 5 个单位的递增间距向下复制指定份数。 | cu:copy-direction:22773 |
+| `CZ` | 22849-22850 | 2 | 将选中对象按 5 个单位的递增间距向左复制指定份数。 | cu:copy-direction:22773 |
+| `CY` | 22853-22854 | 2 | 将选中对象按 5 个单位的递增间距向右复制指定份数。 | cu:copy-direction:22773 |
+| `HS` | 22907-23079 | 173 | 选中物体单向横向缩放，左右宽度改变，高度保持不变。 | aa:cmd-begin:706, aa:hs-filter-unlocked:22861, aa:cmd-end:719, aa:hs-get-ss-bbox:22881 |
+| `ZS` | 23088-23260 | 173 | 选中物体单向纵向缩放，上下高度改变，宽度保持不变。 | aa:cmd-begin:706, aa:hs-filter-unlocked:22861, aa:cmd-end:719, aa:hs-get-ss-bbox:22881 |
+| `SC3` | 23292-23359 | 68 | 将选中对象整体等比例缩小，使四周距 A3 外框至少 5mm。 | aa:cmd-begin:706, aa:sc3-layer-locked-p:23266, aa:sc3-entity-bbox:23274, aa:cmd-end:719 |
+| `Z0` | 23426-23469 | 44 | 将选中对象的 Z 坐标全部归零（压平到 XY 平面）。 | aa:cmd-begin:706, aa:z0-layer-locked-p:23365, aa:z0-data-flat-p:23383, aa:z0-polyline-flat-p:23416, aa:z0-one:23396, aa:z0-polyline-verts:23408, aa:cmd-end:719 |
+| `VPO1` | 23475-23480 | 6 | 切换到“单个”标准视口。 | aa:cmd-begin:706, aa:cmd-end:719 |
+| `VPO2` | 23483-23488 | 6 | 切换到“两个：垂直”标准视口。 | aa:cmd-begin:706, aa:cmd-end:719 |
+| `TONG` | 23494-23578 | 85 | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | aa:cmd-begin:706, aa:cmd-end:719, aa:merge-sort:794, aa:gtx-natural-less:6303 |
+| `ZDDL2` | 24239-24330 | 92 | 自动根据现有端子排与接线方格绘制电缆引线、干线与标注。 | aa:cmd-begin:706, aa:cmd-end:719, zddl:parse-strip:23770, zddl:parse-wiring-ss:23991, zddl:ensure-layer:24051, zddl:plan-cables:24128, zddl:lookup-terminal:23679, zddl:label-layout:24153, zddl:draw-one-cable:24160, zddl:format-cable-no:24118 |
+| `ZDC` | 24332-24334 | 3 | ZDDLH 命令的简写别名。 | c:zddlh:26602 |
+| `ZDDLD` | 25424-25452 | 29 | 删除 ZDDL 生成的端子排框线与端子名/号，保留原理号、电缆接线和电缆文字。 | aa:cmd-begin:706, zddl2:xdata-app:25407, aa:layer-locked-p:4749, zddl2:set-layer-lock:25410, aa:cmd-end:719 |
+| `XZYL` | 26578-26584 | 7 | 修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。 | aa:cmd-begin:706, zyl:work:26546, aa:cmd-end:719 |
+| `BDL` | 26590-26596 | 7 | 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行；选水平原理号时按竖排端子排补画竖直电缆线。 | aa:cmd-begin:706, bdl:work:26024, aa:cmd-end:719 |
+| `ZDDLH` | 26602-26609 | 8 | 两次选择文字并指定左下基点，生成横排端子排与水平绿色电缆线（原 ZDDL）。 | aa:cmd-begin:706, zddl2:work:25321, aa:cmd-end:719 |
+| `ZDDLS` | 26615-26622 | 8 | 两次选择文字并指定左上基点，生成竖排端子排、水平引线与竖直绿色电缆线（向下箭头、文字 270°）。 | aa:cmd-begin:706, zddl2:work:25321, aa:cmd-end:719 |
 
 ## 辅助函数分组（按前缀）
 
@@ -231,12 +231,12 @@
 | `ut:` | 10 | 18294-18396 | UT |
 | `dl1:` | 1 | 18692-18706 | DL1 |
 | `jm:` | 20 | 19624-19869 | BH1, BH2, BH3, BHG, JM, XZYL |
-| `bh:` | 93 | 19972-20830, 21111-21416, 21625-21674 | BH1, BH2, BH3, BHG, JM, XZYL |
-| `dao:` | 4 | 21851-21958 | HDAO, ZDAO |
-| `bk:` | 1 | 22139-22156 | BK |
-| `hddl:` | 29 | 22210-22487 | BH1, BH2, BH3, BHG, HDDL, XZYL |
-| `cu:` | 1 | 22585-22650 | CD, CU, CY, CZ |
-| `zddl:` | 27 | 23399-24049 | BDL, ZDC, ZDDL2, ZDDLH, ZDDLS |
-| `zddl2:` | 96 | 24154-25230 | BDL, ZDC, ZDDLD, ZDDLH, ZDDLS |
-| `bdl:` | 32 | 25270-25951 | BDL, XZYL |
-| `zyl:` | 31 | 25960-26339 | XZYL |
+| `bh:` | 101 | 19974-20954, 21255-21560, 21775-21850 | BDL, BH1, BH2, BH3, BHG, JM, XZYL |
+| `dao:` | 4 | 22039-22146 | HDAO, ZDAO |
+| `bk:` | 1 | 22327-22344 | BK |
+| `hddl:` | 29 | 22398-22675 | BH1, BH2, BH3, BHG, HDDL, XZYL |
+| `cu:` | 1 | 22773-22838 | CD, CU, CY, CZ |
+| `zddl:` | 27 | 23587-24237 | BDL, ZDC, ZDDL2, ZDDLH, ZDDLS |
+| `zddl2:` | 96 | 24342-25418 | BDL, ZDC, ZDDLD, ZDDLH, ZDDLS |
+| `bdl:` | 34 | 25459-26184 | BDL, XZYL |
+| `zyl:` | 31 | 26193-26572 | XZYL |

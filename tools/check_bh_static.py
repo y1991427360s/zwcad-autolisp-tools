@@ -302,6 +302,7 @@ NATIVE = {
     'caddr': lambda a: a[2] if a and len(a) > 2 else None,
     'cadddr': lambda a: a[3] if a and len(a) > 3 else None,
     'cddr': lambda a: (a[2:] or None) if a else None,
+    'cdddr': lambda a: (a[3:] or None) if a else None,
     'nth': lambda i, a: a[i] if a and 0 <= i < len(a) else None,
     'list': lambda *a: list(a) or None, 'cons': lcons,
     'append': lambda *a: [x for p in a for x in (p or [])] or None,
@@ -1912,6 +1913,199 @@ vgreen = [m for m in made if m.get(0) == 'LINE' and m.get(62) == 3]
 assert len(vgreen) == 1 and abs(vgreen[0][10][0] - 68669.2242) < 1e-4 and abs(vgreen[0][11][1] - 23224.1392) < 1e-4, vgreen
 vtxts = [m for m in made if m.get(0) == 'TEXT']
 assert [m[1] for m in vtxts] == ['未编号', '至未填写', '未填写'], vtxts
+# BDL 绿线与箭头只在当前视图内交叉选择；视图扭转/非世界 UCS 时退回全图
+view_calls = []
+old_ssget, old_getvar = NATIVE['ssget'], NATIVE['getvar']
+view_vars = {'WORLDUCS': 1, 'VIEWTWIST': 0.0, 'VIEWCTR': [100.0, 50.0, 0.0], 'VIEWSIZE': 40.0,
+             'SCREENSIZE': [800.0, 400.0], 'CTAB': 'Model'}
+NATIVE['getvar'] = lambda k: view_vars[k]
+NATIVE['ssget'] = lambda *a: view_calls.append(a) or None
+call('bdl:view-ss', [[(0, 'LINE'), (62, 3)]], GLOBAL)
+mode, c1, c2, flt = view_calls[-1]
+assert mode == '_C' and list(c1)[:2] == [60.0, 30.0] and list(c2)[:2] == [140.0, 70.0], view_calls[-1]
+assert dict(flt).get(62) == 3 and dict(flt).get(410) == 'Model', flt
+view_vars['VIEWTWIST'] = 0.5
+call('bdl:view-ss', [[(0, 'LWPOLYLINE'), (90, 3)]], GLOBAL)
+assert view_calls[-1][0] == '_X' and dict(view_calls[-1][1]).get(90) == 3, view_calls[-1]
+NATIVE['ssget'], NATIVE['getvar'] = old_ssget, old_getvar
+print('PASS: 场景27b BDL 绿线与箭头只在当前视图内查找，视图扭转时退回全图')
 print('PASS: 场景27 D0204 竖直绿色电缆线 QW3 实例（xy:hline-info-ed / bh:in-band-p / bh:line-texts / zyl:near-dx / bdl:work 竖向端到端）')
+# 场景31：原理号居中（D0206 UA3 实例：文字左端 36465.8196，端子排边线 X=36455.6653，相距 10.15）
+# 边线查找范围放宽到 30 后两侧都能找到，各取最近一根；更远的绿色电缆线 X=36445.6653 不会被当成边线
+old_cross = NATIVE.get('bdl:cross-lines')
+cross_calls = []
+d0206_lines = [
+    [[36455.6653, 513.9077, 0.0], [36455.6653, 508.9077, 0.0]],   # 端子排左边线（白色短段）
+    [[36445.6653, 616.4077, 0.0], [36445.6653, 93.8785, 0.0]],    # 已有绿色竖向电缆线
+    [[36481.4196, 513.9077, 0.0], [36481.4196, 508.9077, 0.0]],   # 端子格右边线
+]
+def mock_cross(p1, p2):
+    cross_calls.append((p1, p2))
+    xlo, xhi = min(p1[0], p2[0]), max(p1[0], p2[0])
+    return [ln for ln in d0206_lines if xlo <= ln[0][0] <= xhi]
+NATIVE['bdl:cross-lines'] = mock_cross
+ev = call('bdl:edge-v', [511.4077, 36465.8196, 36471.4196], GLOBAL)
+assert abs(cross_calls[-1][0][0] - (36465.8196 - 30.0)) < 1e-6 and abs(cross_calls[-1][1][0] - (36471.4196 + 30.0)) < 1e-6, cross_calls[-1]
+assert abs(ev[0][1] - 36455.6653) < 1e-6 and abs(ev[0][0] - 10.1543) < 1e-3, ev
+assert abs(ev[1][1] - 36481.4196) < 1e-6, ev
+# 居中：两侧边线都有、距离相同，靠左侧已有绿色竖向电缆定为向左
+items_c = [[511.4077, 36465.8196, 36471.4196, ev], [501.4077, 36465.8196, 36471.4196, ev]]
+assert call('bdl:direction-v', [items_c, [[36445.6653, 93.8785, 616.4077]]], GLOBAL) == -1
+# 横排同样放宽到 30
+d0206_lines = [[[0.0, 10.0, 0.0], [20.0, 10.0, 0.0]], [[0.0, 44.0, 0.0], [20.0, 44.0, 0.0]]]
+def mock_cross_h(p1, p2):
+    cross_calls.append((p1, p2))
+    ylo, yhi = min(p1[1], p2[1]), max(p1[1], p2[1])
+    return [ln for ln in d0206_lines if ylo <= ln[0][1] <= yhi]
+NATIVE['bdl:cross-lines'] = mock_cross_h
+eh = call('bdl:edge', [10.0, 22.0, 32.0], GLOBAL)
+assert abs(cross_calls[-1][0][1] - (22.0 - 30.0)) < 1e-6 and abs(cross_calls[-1][1][1] - (32.0 + 30.0)) < 1e-6, cross_calls[-1]
+assert abs(eh[0][0] - 12.0) < 1e-6 and abs(eh[1][0] - 12.0) < 1e-6, eh
+# 横排居中：上下距离相同，靠已有绿色电缆的一侧定方向；没有绿色电缆时同旧规则默认向下
+items_h = [[10.0, 22.0, 32.0, eh], [15.0, 22.0, 32.0, eh]]
+assert call('bdl:direction', [items_h, [[60.0, -50.0, 300.0]]], GLOBAL) == 1
+assert call('bdl:direction', [items_h, [[0.0, -50.0, 300.0]]], GLOBAL) == -1
+assert call('bdl:direction', [items_h, []], GLOBAL) == -1
+# 原理号对齐方式仍优先于已有电缆
+items_al = [[10.0, 22.0, 32.0, eh], [15.0, 22.0, 30.0, eh]]
+assert call('bdl:direction', [items_al, [[60.0, -50.0, 300.0]]], GLOBAL) == -1
+if old_cross is None: NATIVE.pop('bdl:cross-lines', None)
+else: NATIVE['bdl:cross-lines'] = old_cross
+# 场景31b：D0206 实机反馈——视图内取到 5 根绿竖线，右侧 200 内也有别列的绿线，左右边线距离只差 1e-4。
+# 应看“哪侧边线外的电缆位上有绿线”：左边线外 10 有 36445.6653，右侧 36500 不在右边线 36481.5738 的电缆位上 → 向左
+ev2 = [[10.1543, 36455.6653], [10.1542, 36481.5738]]
+items_d = [[511.4077, 36465.8196, 36471.4196, ev2], [501.4077, 36465.8196, 36471.4196, ev2]]
+greens_d = [[36445.6653, 93.8785, 616.4077], [36500.0, 93.8785, 616.4077]]
+assert call('bdl:direction-v', [items_d, greens_d], GLOBAL) == -1
+# 右侧绿线若正好在右边线外 15 的电缆位上、左侧没有 → 向右
+assert call('bdl:direction-v', [items_d, [[36496.5738, 93.8785, 616.4077], [36302.5, 93.8785, 616.4077]]], GLOBAL) == 1
+# 没有绿线、两侧边线只差 1e-4 时算一样近，默认向左（原先会因 1e-4 判成向右）
+assert call('bdl:direction-v', [items_d, []], GLOBAL) == -1
+assert call('bdl:slot-hits', [[36445.6653, 36440.6653, 36500.0, 36446.9], 36455.6653, -1], GLOBAL) == 2
+assert call('bdl:slot-hits', [[36445.6653], None, -1], GLOBAL) == 0
+# 实机反馈：右侧距边线 10 有电缆，左侧远处另一列的绿线距左边线 160 碰巧在 5 的网格上，不应算作左侧电缆组 → 向右
+assert call('bdl:slot-hits', [[36295.6653], 36455.6653, -1], GLOBAL) == 0
+assert call('bdl:direction-v', [items_d, [[36295.6653, 93.8785, 616.4077], [36491.5738, 93.8785, 616.4077]]], GLOBAL) == 1
+# 横排同理：下边线外 10 有绿线，上方 120 内另有不在电缆位上的绿线 → 向下
+eh2 = [[12.0001, 10.0], [12.0, 44.0]]
+items_h2 = [[10.0, 22.0, 32.0, eh2], [15.0, 22.0, 32.0, eh2]]
+assert call('bdl:direction', [items_h2, [[0.0, -50.0, 300.0], [100.0, -50.0, 300.0]]], GLOBAL) == -1
+assert call('bdl:direction', [items_h2, [[59.0, -50.0, 300.0], [-147.5, -50.0, 300.0]]], GLOBAL) == 1
+assert call('bdl:direction', [items_h2, []], GLOBAL) == -1
+print('PASS: 场景31b BDL 居中原理号按边线外电缆位上的绿线定方向，边线远近相差 0.5 内算一样近')
+print('PASS: 场景31 BDL 原理号居中：边线查找放宽到 30 取最近一根，横/竖排靠已有绿色电缆定方向')
+# ---- 场景32：并入（一根电缆分画两处，另一根编号写“并入X”）：与主电缆算同一根，原理号合并后核对、记录
+H32 = '电缆编号	柜名1	柜名2	原理号	图纸	时间	旧编号'
+assert call('bh:join-target', ['并入1(2)B-208'], GLOBAL) == '1(2)B-208' and call('bh:join-target', ['1B-208'], GLOBAL) is None
+assert call('bh:join-target', ['并入：1B-208'], GLOBAL) == '1B-208' and call('bh:join-target', ['并入'], GLOBAL) is None
+# 用户实例 1：主电缆 1B-208（1YB-801 1YB-803）+ 并入1B-208（BS01 BS03）= 记录里另一端的 4 芯；以前误记的“并入1B-208”并掉
+F32 = {PATH: [H32, '1B-208	1#35kV接地电阻柜	110kV GIS1#主变汇控柜	1YB-801 1YB-803 BS01 BS03	d.dwg	t	',
+              '并入1B-208	110kV GIS1#主变汇控柜	1#35kV接地电阻柜	BS01 BS03	a.dwg	t	']}
+c = Cad(F32)
+c.add_line('m1', 50, '1#35kV接地电阻柜', '1B-208', ['1YB-801', '1YB-803'])
+c.add_line('j1', 45, '1#35kV接地电阻柜', '并入1B-208', ['BS01', 'BS03'])
+c.install('110kV GIS1#主变汇控柜')
+c.ents['m1_num']['color'] = 1
+c.ents['j1_num']['color'] = 1
+c.run('c:bh2')
+assert c.markers == [] and c.selected == [] and c.color('m1') == 7 and c.color('j1') == 7, (c.markers, c.selected)
+assert [l.split('	')[0] for l in F32[PATH][1:]] == ['1B-208'], F32[PATH]
+assert any('已编号且与记录一致 1 根' in o and '编号冲突 0 根' in o for o in c.out), c.out
+assert any('“并入”电缆 1 根已和主电缆算作同一根' in o for o in c.out) and any('“并入”记录 1 条已并到主电缆记录' in o for o in c.out), c.out
+# 合画柜写法（用户图纸原样）：1(2)B-208 / 并入1(2)B-208，记录在分开画的两端
+F32 = {PATH: [H32, '1B-208	1#35kV接地电阻柜	110kV GIS1#主变汇控柜	1YB-801 1YB-803 BS01 BS03	d.dwg	t	',
+              '2B-208	2#35kV接地电阻柜	110kV GIS2#主变汇控柜	2YB-801 2YB-803 BS01 BS03	d.dwg	t	']}
+REC32 = list(F32[PATH])
+c = Cad(F32)
+c.add_line('m1', 50, '1(2)#35kV接地电阻柜', '1(2)B-208', ['1(2)YB-801', '1(2)YB-803'])
+c.add_line('j1', 45, '1(2)#35kV接地电阻柜', '并入1(2)B-208', ['BS01', 'BS03'])
+c.install('110kV GIS1(2)#主变汇控柜')
+c.run('c:bh2')
+assert c.markers == [] and F32[PATH] == REC32 and any('已编号且与记录一致 1 根' in o for o in c.out), (c.markers, F32[PATH])
+# 用户实例 2：两端分芯不同，另一端以前把“并入1B-102D”单独记了；并到主记录后两端一致
+F32 = {PATH: [H32, '1B-102D	1#主变测控柜	110kV GIS1#主变汇控柜	851 853 855 857	c.dwg	t	',
+              '并入1B-102D	1#主变测控柜	110kV GIS1#主变汇控柜	843 845 847 849 859 861	c.dwg	t	']}
+c = Cad(F32)
+c.add_line('m1', 50, '1#主变测控柜', '1B-102D', ['843', '845', '847', '849', '859', '861'])
+c.add_line('j1', 45, '1#主变测控柜', '并入1B-102D', ['851', '853', '855', '857'])
+c.install('110kV GIS1#主变汇控柜')
+c.run('c:bh2')
+assert c.markers == [] and [l.split('	')[:4] for l in F32[PATH][1:]] == [
+    ['1B-102D', '1#主变测控柜', '110kV GIS1#主变汇控柜', '843 845 847 849 851 853 855 857 859 861']], F32[PATH]
+# 主电缆记录是画并入线之前登记的（原理号正好是主电缆自己的）：改成合并后的原理号；重跑一致
+F32 = {PATH: [H32, '1B-300	甲柜	乙柜	101 103	a.dwg	t	']}
+c = Cad(F32)
+c.add_line('m1', 50, '乙柜', '1B-300', ['101', '103'])
+c.add_line('j1', 45, '乙柜', '并入1B-300', ['105'])
+c.install('甲柜')
+c.run('c:bh2')
+assert c.markers == [] and rec_of(F32, '1B-300')[0][3] == '101 103 105' and len(F32[PATH]) == 2, F32[PATH]
+REC32 = list(F32[PATH])
+c = Cad(F32)
+c.add_line('m1', 50, '乙柜', '1B-300', ['101', '103'])
+c.add_line('j1', 45, '乙柜', '并入1B-300', ['105'])
+c.install('甲柜')
+c.run('c:bh2')
+assert F32[PATH] == REC32 and c.markers == [], F32[PATH]
+# 另一端记录少芯（不是主电缆自己的原理号）：仍报两端原理号不一致
+F32 = {PATH: [H32, '1B-301	甲柜	乙柜	101	a.dwg	t	']}
+c = Cad(F32)
+c.add_line('m1', 50, '乙柜', '1B-301', ['101', '103'])
+c.add_line('j1', 45, '乙柜', '并入1B-301', ['105'])
+c.install('甲柜')
+c.run('c:bh2')
+assert c.color('m1') == 1 and any('两端原理号不一致' in t and '101 103 105' in t for _, t in c.markers), c.markers
+# 主电缆不在本次选择 / 去向不同 / 并入后面写的是“未编号”：无法编号，不记录
+F32 = {PATH: [H32]}
+c = Cad(F32)
+c.add_line('j1', 50, '乙柜', '并入1B-400', ['105'])
+c.add_line('m2', 45, '丙柜', '1B-401', ['101'])
+c.add_line('j2', 40, '丁柜', '并入1B-401', ['103'])
+c.add_line('j3', 35, '丙柜', '并入未编号', ['107'])
+c.install('甲柜')
+c.run('c:bh2')
+assert [l.split('	')[0] for l in F32[PATH][1:]] == ['1B-401'] and rec_of(F32, '1B-401')[0][3] == '101', F32[PATH]
+assert sorted(c.selected) == ['j1_num', 'j2_num', 'j3_num'], c.selected
+assert any('并入的主电缆 1B-400 不在本次选择里' in t for _, t in c.markers), c.markers
+assert any('主电缆 1B-401 去向是 丙柜，这根是 丁柜，不能并入' in t for _, t in c.markers), c.markers
+assert any('“并入”后面要写主电缆的编号' in t for _, t in c.markers), c.markers
+# 主电缆旧编号改新编号时，并入线跟着改
+F32 = {PATH: [H32, '1B-500	甲柜	乙柜	101 103	a.dwg	t	1B-499']}
+c = Cad(F32)
+c.add_line('m1', 50, '乙柜', '1B-499', ['101'])
+c.add_line('j1', 45, '乙柜', '并入1B-499', ['103'])
+c.install('甲柜')
+c.run('c:bh2')
+assert (c.num('m1'), c.num('j1')) == ('1B-500', '并入1B-500'), (c.num('m1'), c.num('j1'))
+# BHG：画并入线前登记的主记录按图更正为合并后的原理号，旧“并入”记录并掉
+F32 = {PATH: [H32, '1B-600	甲柜	乙柜	101	a.dwg	t	', '并入1B-600	甲柜	乙柜	109	a.dwg	t	']}
+c = Cad(F32)
+c.add_line('m1', 50, '乙柜', '1B-600', ['101'])
+c.add_line('j1', 45, '乙柜', '并入1B-600', ['103'])
+c.install('甲柜')
+c.run('c:bhg')
+assert [l.split('	')[:4] for l in F32[PATH][1:]] == [['1B-600', '甲柜', '乙柜', '101 103']], F32[PATH]
+# BH3 清册：并入行并到主电缆行（原理号接在后面），找不到主行的不记入并说明
+trs = [['1B-208', '110kV GIS1#主变汇控柜', '1#35kV接地电阻柜', ['1YB-801', '1YB-803'], 'e1', None],
+       ['并入1B-208', '110kV GIS1#主变汇控柜', '1#35kV接地电阻柜', ['BS01', 'BS03'], 'e2', None],
+       ['并入1B-209', '甲柜', '乙柜', ['101'], 'e3', None]]
+r32 = call('bh:merge-table-joins', [trs], GLOBAL)
+assert [list(x[:4]) for x in r32[0]] == [['1B-208', '110kV GIS1#主变汇控柜', '1#35kV接地电阻柜', ['1YB-801', '1YB-803', 'BS01', 'BS03']]], r32
+assert len(r32[1]) == 1 and r32[1][0][0] == 'e3' and '找不到同两端柜名的主电缆行 1B-209' in r32[1][0][1] and list(r32[2]) == ['e2'], r32
+# BH1：点选里的并入线并到主电缆一起记录；没有主电缆可并的不单独编号、记录
+F32 = {}
+Cad.ed = _ed                                   # BH1 要读起点柜名字高
+c = bh2_cad(F32, '甲柜')
+c.add_line('m1', 50, '乙柜', '1B-700', ['101'])
+c.add_line('j1', 45, '乙柜', '并入1B-700', ['103'])
+c.add_line('j2', 40, '乙柜', '并入1B-701', ['105'])
+c.answers = ['1B', '101', '', '']
+c.picks = ['start', 'm1', 'j1', 'j2', None, None]
+c.run('c:bh1')
+Cad.ed = _ed_orig
+assert [l.split('	')[:4] for l in F32[PATH][1:]] == [['1B-700', '甲柜', '乙柜', '101 103']], F32[PATH]
+assert any('并入 1B-700' in o and '不单独编号' in o for o in c.out), c.out
+assert any('并入的主电缆 1B-701 不在本批点选里' in o for o in c.out), c.out
+print('PASS: 场景32 并入：与主电缆算同一根，原理号合并核对/记录；旧“并入”记录并到主记录；画并入线前的主记录改为合并原理号；找不到主电缆时无法编号；旧号改新时并入线跟改；BH1/BHG/BH3 同样合并')
 print('ALL PASS: check_bh_static')
 

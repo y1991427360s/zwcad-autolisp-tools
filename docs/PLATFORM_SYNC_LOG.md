@@ -2043,3 +2043,113 @@ l-position；docs/BH.md 与工作流程文档同步。
   - 本台账 25 条 AutoCAD 状态改为已同步、汇总条目时间更正并补中望来源 SHA；修正 10-27 13:47:09 条目 `audit_lsp.py` 笔误。
 - 检查（AutoCAD 版）：`check_xyg_static.py` 含 Test 9 PASS；`check_alias_panel_static.py` PASS；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS（136 个单测 OK、`audit_lsp.py --check --strict` 0 structural findings、`gen_命令索引.py --check` 190 个命令、`check_all_static.py` 37 项 ALL PASS）。中望版只改本台账，未跑代码检查。
 - 验证状态：未连接、加载或操作 CAD。
+# 2026-10-29 19:23:18 中望 BDL 扩展非绿色电缆识别
+
+- 命令/模块：BDL（`bdl:horizontal-lines`、`bdl:vertical-lines`、`bdl:cable-lines`、`bdl:cable-vlines`）。横向/竖向候选改为当前空间所有颜色的 LINE；只有对应方向端部能配对三角箭头、编号和截面文字时才参与空位、方向/参考电缆计算。“未编号”“未填写”等占位文字有效。
+- 测试：`tools/check_bh_static.py` 新增横/竖配对场景，缺箭头、缺编号、缺截面被排除；白色竖线端到端补画通过。`python gen_命令索引.py` 覆盖 193 个命令并更新命令索引与 CODE_MAP；`python scripts/audit_lsp.py --write` 为 0 structural findings；`python tools/check_all_static.py` 37/37 专项 ALL PASS，源码 UTF-8 无 BOM、CRLF、整文件解析与命令结构检查通过。
+- 工作流程：更新 `工作智能体/工作流程/二次接线-端子排与电缆清册.md` 的 BDL 识别条件。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `D0AC123189CC1D8A78CFBC60D72C0F767BD611DB8374AED8B6CBBB9ABA436726`；修改前字节备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL非绿色识别-20261029-191430`。
+- AutoCAD 状态：代码未修改，待用户明确要求后同步；保留其旧版绿色线筛选。两边 `docs/DUAL_PLATFORM.md` 已注明此差异并保持一致。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机图纸效果待用户验收。
+
+# 2026-10-29 20:41:10 中望 BDL 卡顿修复（候选线预筛）
+
+- 命令/模块：BDL（新增 `bdl:slot-candidates`、`bdl:vslot-candidates`、`bdl:vdir-candidates`；`bdl:work`、`bdl:work-vertical` 调整候选线流程）。
+- 问题：19:23 改为不限颜色后，`bdl:cable-lines`/`bdl:cable-vlines` 对全图所有 LINE 逐根遍历全部三角箭头配对，并对配上的线逐根 `ssget "_C"` + COM 取文字包围盒，线数×箭头数达上亿次比较，命令严重卡顿。
+- 修复：先按查位/方向判断实际用到的范围做纯数值预筛（距端子排 9~1032、左端不远于 400 / 竖向下端低于最上引线 0.5 内、上端不低于 400；方向判断取端子排两侧 200 内且跨过原理号中部 ±150），只对少量候选线做箭头、编号、截面配对。识别规则和结果不变。
+- 测试：`tools/check_bh_static.py` 新增场景30（预筛范围），ALL PASS；`python gen_命令索引.py` 193 个命令、CODE_MAP 已更新；`python scripts/audit_lsp.py --write` 0 structural findings；`python tools/check_all_static.py` ALL PASS（37 项专项）。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `97FE63ADC9F41440167FD6043D6CA807BA60C62009C9D56D8275F6FE70D45C6A`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL提速-20261029-203738`。
+- AutoCAD 状态：代码未修改；与 19:23 条目一并待用户要求后同步（AutoCAD 仍为绿色线筛选，无此卡顿）。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机速度待用户验收。
+
+# 2026-10-29 20:47:00 中望 BDL 取线改为坐标带过滤
+
+- 命令/模块：BDL（新增 `bdl:line-band`；`bdl:horizontal-lines`、`bdl:vertical-lines` 增加范围参数；`bdl:work`、`bdl:work-vertical` 调用处传入范围）。
+- 问题：20:41 预筛后仍用 `ssget "_X"` 取全图所有 LINE 并逐根 `entget`，比原先只取绿色线慢。
+- 修复：`ssget "_X"` 加 `-4` 坐标关系过滤（写法同本文件 XY 系列已有用法），只返回起点 Y（横向）或 X（竖向）在查位带内的 LINE：横向/竖向查空位取距端子排 9~1032，竖向方向判断取原理号左右 200。仍不限颜色，绿色、白/黑色电缆线照常识别，后续箭头/编号/截面配对规则不变。
+- 测试：`tools/check_bh_static.py` 场景27 断言竖向两次取线都带坐标过滤，场景30 断言 `bdl:line-band` 过滤表；ALL PASS。`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS（首轮 ZZ 基准偶发失败，单独与全量重跑均通过）。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `EA860FE212FF5C075158A3F561DADDD8515FAD1D74B609FD50B1C5ACEB597270`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL范围过滤-20261029-204409`。
+- AutoCAD 状态：代码未修改；与 19:23、20:41 条目一并待同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机速度待用户验收。
+
+# 2026-10-29 20:56:19 中望 BDL 撤回非绿色识别，恢复只认绿色线
+
+- 命令/模块：BDL。用户实测 19:23（不限颜色）、20:41（候选预筛）、20:47（坐标带过滤）三版仍明显慢于原版，决定接受只识别绿色线。
+- 改动：`AA整合版本.lsp` 按 Git HEAD `f267fa8` 恢复（工作区相对 HEAD 已无差异），即恢复 `bdl:green-lines`/`bdl:green-vlines` 的 `(62 . 3)` 过滤，删除 `bdl:cable-lines`、`bdl:cable-vlines`、`bdl:slot-candidates`、`bdl:vslot-candidates`、`bdl:vdir-candidates`、`bdl:line-band`。`tools/check_bh_static.py` 同样恢复 HEAD；两边 `docs/DUAL_PLATFORM.md` 撤销 BDL 非绿色识别差异行（恢复 HEAD，两份一致）。上述 19:23、20:41、20:47 三条台账作废，AutoCAD 无需同步。
+- 工作流程：`工作智能体/工作流程/二次接线-端子排与电缆清册.md` 改回“BDL 只认绿色（颜色 3）电缆线，其他颜色需先改绿”，并注明曾试过不限颜色因速度撤回。
+- 检查：`gen_命令索引.py`（193 个命令）、`audit_lsp.py --write`（0 structural findings）重新生成后与 HEAD 一致；`check_all_static.py` ALL PASS。
+- AutoCAD 状态：无需同步（两版均为绿色线识别）。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD。
+
+# 2026-10-29 21:02:56 中望 BDL 绿线与箭头按坐标带取数（提速）
+
+- 命令/模块：BDL（新增 `bdl:band`；`bdl:green-lines`、`bdl:tips`、`bdl:green-vlines`、`bdl:vtips` 增加范围参数；`bdl:work`、`bdl:work-vertical` 调用处传入范围）。仍只识别绿色（颜色 3）电缆线，识别结果不变。
+- 改动：原先每次 `ssget "_X"` 取全图绿色 LINE 和全图三点闭合多段线再逐个 `entget`；改为过滤表追加 `-4` 坐标关系（写法同本文件 XY 系列已有用法），只取端子排外 9~1032 带内的绿线（横排按 Y、竖排按 X），竖排方向判断另取原理号左右 200 内的绿色竖线；箭头带放宽为 -1~1042，避免多段线按其他顶点参与过滤时漏掉。
+- 测试：`tools/check_bh_static.py` 新增场景27b（竖向端到端三次取数均带坐标带、范围正确，`bdl:band` 过滤表正确），场景27 仍生成相同 9 个图元，ALL PASS；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `A4959E5423215B7EF2EE638D0E637DC086B0F5F094A3ED2F38EFF675FB701212`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL绿线范围过滤-20261029-205941`。
+- AutoCAD 状态：代码未修改，待用户明确要求后同步（纯性能优化，行为不变）。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；中望对多顶点多段线坐标过滤的具体判定未实机确认，实机速度待用户验收。
+
+# 2026-10-29 21:09:38 中望 BDL 撤回坐标带过滤，恢复原版
+
+- 命令/模块：BDL。21:02:56 条目作废。
+- 现象（用户实机）：图纸 `62X-B26009S-D0206-35kV系统二次线.dwg`，竖排端子排边线 X=36455.6653，已有绿色竖向电缆线（句柄 C7378，ACI 3）X=36445.6653、Y 93.88~616.41，正好在端子排外 10，原版应能识别；加坐标带后 BDL 提示“附近没有已有竖向电缆，指定箭头尖端位置”，即带过滤的 `ssget "_X"` 一根绿线都没取到。
+- 结论：中望 2026 对 `ssget "_X"` 组码 10 的 `-4` 坐标关系过滤（`*,>=,*` / `>=,*,*` 等）行为与 AutoCAD 预期不符，不可依赖（第 1199 行早有“中望实际行为未实测”记录，21:02 条目误称“已有用法可用”）。
+- 改动：`AA整合版本.lsp`、`tools/check_bh_static.py` 按 Git HEAD `f267fa8` 恢复（与 HEAD 无差异），BDL 仍只认绿色线、全图取绿线和箭头；索引与审计重新生成后与 HEAD 一致；`check_all_static.py` ALL PASS。修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL撤坐标过滤-20261029-210725`。
+- AutoCAD 状态：无需同步。
+- 验证状态：仅离线静态检查；原版 BDL 行为由用户此前实机使用确认。
+
+# 2026-10-29 21:14:47 中望 BDL 绿线与箭头只在当前视图内查找（提速）
+
+- 命令/模块：BDL（新增 `bdl:view-ss`；`bdl:green-lines`、`bdl:tips`、`bdl:green-vlines`、`bdl:vtips` 改用它）。仍只识别绿色（颜色 3）电缆线。
+- 改动：按用户要求，已有绿色电缆线和三点闭合多段线箭头不再 `ssget "_X"` 全图取出，改为用 BH 系列已在用的 `bh:view-rect` 算当前视图范围后 `ssget "_C"` 交叉选择；UCS 非世界坐标或视图有扭转时退回全图 `_X`。不使用 `-4` 坐标关系过滤。
+- 行为变化：参照的已有电缆及其箭头需在屏幕内可见；视图外的电缆视为不存在（可能被当成空位，或提示手动指定箭头尖端）。
+- 测试：`tools/check_bh_static.py` 新增场景27b（视图范围换算为 `_C` 两角点、带颜色过滤；视图扭转退回 `_X`），场景27 端到端不变，ALL PASS；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
+- 工作流程：`工作智能体/工作流程/二次接线-端子排与电缆清册.md` BDL 注意事项补充“运行前把端子排和旁边已有电缆（含箭头）缩放到屏幕内”。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `90EC3A0C7FEA8011B474F2AD33473748F0D47AB299957CF90E8AF77A77481570`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL视图内搜索-20261029-211140`。
+- AutoCAD 状态：代码未修改，待用户明确要求后同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机速度与识别待用户验收。
+
+# 2026-10-29 21:27:00 中望 BDL 端子排边线查找放宽到 30，横排方向补看已有绿色电缆
+
+- 命令/模块：BDL（`bdl:edge`、`bdl:edge-v`、`bdl:direction`、`bdl:work`）。
+- 问题：用户反馈原理号必须靠近出线一侧才行，居中不行。原因是 `bdl:edge`/`bdl:edge-v` 只在原理号两侧 10 以内找端子排边线；D0206 实例 UA3 左端 36465.8196 离边线 36455.6653 为 10.15，两侧都找不到，退而按“文字左端减 2”定引线起点，查空位的列与已有绿线 36445.6653 对不上，于是提示“附近没有已有竖向电缆，指定箭头尖端位置”。
+- 更正：21:09:38 条目把同一提示归因为 `-4` 坐标过滤失效，结论不成立；那次更可能就是上述 10 的范围所致，坐标过滤在中望里是否可用仍未验证（撤回该过滤本身不影响现行行为）。
+- 改动：边线查找范围 10 → 30（横排上下、竖排左右），每侧仍取最近一根，更远的绿色电缆线不会被当成边线。`bdl:direction` 增加 greens 参数，与竖排 `bdl:direction-v` 一致：原理号对齐方式判断不了时，先看哪侧（原理号外 200 内、横跨原理号中部 ±150）已有绿色电缆，再看边线远近；`bdl:work` 先取视图内绿线再定方向，查空位复用同一份。
+- 测试：`tools/check_bh_static.py` 新增场景31（D0206 UA3 真实坐标居中找到两侧边线、竖排靠已有绿线定向左；横排 30 范围、居中按已有绿线定上/下、无绿线默认向下、对齐方式仍优先），ALL PASS；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
+- 工作流程：`二次接线-端子排与电缆清册.md` BDL 识别规则补充方向判断顺序和 30 范围说明。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `0722E0A82254C46C1C56BBD261305261010492793EF9EB738BCFA680DF24A986`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL边线30-20261029-212349`。
+- AutoCAD 状态：代码未修改，与 21:14:47 条目一并待用户明确要求后同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机效果待用户验收。
+
+# 2026-10-29 21:38:22 中望 BH1/BH2/BHG/BH3 “并入X”电缆与主电缆算同一根
+
+- 命令/模块：BH1、BH2、BHG、BH3（新增 `bh:join-target`、`bh:prins-union`、`bh:same-ends-p`、`bh:merge-joins`、`bh:fold-joins`、`bh:apply-ups`、`bh:join-upgrade-p`、`bh:merge-table-joins`；改 `bh:prepare`、`bh:finish`、`c:BH1`、`c:BH2`、`c:BHG`、`c:BH3`）。
+- 问题（用户实机）：D0204 主变压器二次线，`1(2)B-208` 与 `并入1(2)B-208` 是一根电缆分画两处，BH2 把两根线当成两根电缆，主电缆报“两端原理号不一致”（本图 1YB-801 1YB-803，记录 4 芯），并入线被单独记成 `并入1B-208` 等记录；`并入1(2)B-102D` 同样报冲突（另一端以前把 `并入1B-102D` 单独记了）。
+- 改动：识别后把编号为“并入X”的线并到本次选择里编号 X、终点柜相同的主电缆，原理号合并后按一根核对、记录，并入线不单独记录（红色恢复白色）；找不到主电缆、去向不同或“并入未编号”的按无法编号选中写原因。主电缆旧号改新号时并入线跟改为“并入新号”。画并入线前登记的主记录（原理号正好是主电缆自己的）BH2 改为合并原理号。读记录时以前单独登记的“并入X”记录并到同两端柜名的 X 记录。BH1 同批点选同样合并，单独点到的并入线不编号；BH3 清册并入行并到主行（同 HBDL）。
+- 测试：`tools/check_bh_static.py` 新增场景32（两个用户实例原样、合画柜写法、旧并入记录并掉、主记录升级与重跑不变、另一端少芯仍报冲突、三种无法并入、旧号改新跟改、BHG、BH3、BH1），测试解释器补 `cdddr`；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
+- 文档：`docs/BH.md` 新增“并入”一节；`工作智能体/工作流程/二次接线-端子排与电缆清册.md` 3.5 节补充并入说明。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `DFB81C93D9BDFCD2451D6471BB6C71039A041468456A3B27C40C58316833A64F`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BH并入-20261029-213017`。
+- AutoCAD 状态：代码未修改，待用户明确要求后同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机效果待用户验收。
+
+# 2026-10-29 21:46:58 中望 BDL 居中原理号按边线外电缆位上的绿线定方向
+
+- 命令/模块：BDL（新增 `bdl:slot-hits`；`bdl:direction`、`bdl:direction-v`）。
+- 问题（用户实机 D0206，重载 21:27 版后仍失败）：只读诊断确认绿线 C7378 自身颜色 `(62 . 3)`、`bh:view-rect` 正常、视图内取到 5 根绿竖线且含 X=36445.7。原因在方向判断：UA3/UB3 等宽居中，对齐判断不了；右侧 200 内另有别列绿线，“只有一侧有绿线”规则失效；两侧边线距离 10.1543 与 10.1542 只差 1e-4，判成向右，右侧没有电缆于是提示指定箭头，并画到右侧。
+- 改动：对齐判断之后，先看哪侧边线外的电缆位（距边线 10、15、20…，误差 1 以内）上已有绿色电缆，只有一侧有时取该侧；再看原有“附近哪侧有绿线”；边线远近相差 0.5 以内算一样近（竖排默认向左、横排默认向下）。横排、竖排一致。
+- 测试：`tools/check_bh_static.py` 新增场景31b（D0206 坐标，右侧有非电缆位绿线时向左、右侧电缆位有绿线时向右、无绿线差 1e-4 时默认向左、横排对应三例、`bdl:slot-hits` 计数），ALL PASS；用 D0206 六个对象加一根右侧干扰绿线离线端到端模拟 `bdl:work`：向左、接在已有电缆外侧距端子排 15。`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
+- 并行改动提示：21:30 起另一工具在同一 `AA整合版本.lsp` 的 BH 部分新增约 190 行（备份 `bak-BH并入-20261029-213017`，`check_bh_static.py` 场景32），本条未改动其内容，上述 SHA 含其改动。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `32DDD67F223539829B581575FDFD6D0A3BC7E3307ECCB764D36A3E4082186F69`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL方向电缆位-20261029-214046`。
+- AutoCAD 状态：代码未修改，与 21:14:47、21:27:00 条目一并待同步。
+- 验证状态：仅离线静态检查与模拟；用户仅执行只读诊断表达式，未由智能体连接或操作 CAD；实机效果待用户验收。
+
+# 2026-10-29 21:54:22 中望 BDL 电缆位计数只数紧挨边线的电缆组
+
+- 命令/模块：BDL（`bdl:slot-hits`）。
+- 问题（用户实机）：21:46 版后左侧出线的居中原理号正常，右侧出线的又提示“附近没有已有竖向电缆”。按代码分析：`bdl:slot-hits` 统计距边线 9~1032 内落在 5 的网格上（±1）的所有绿线，约 40% 的随意位置都会命中，另一侧远处别列的电缆被误算成该侧电缆组，两侧都有时又退回比边线远近、判成向左。此分析未在实机图纸上逐项核对。
+- 改动：改为与查空位相同的数法——从距边线 10 起每 5 一格往外数（误差 1 以内），连续 4 格空就停，只统计紧挨边线的那组电缆。
+- 测试：`tools/check_bh_static.py` 场景31b 增加“左侧远处 160 处网格上的绿线不计入、右侧 10 有电缆 → 向右”；ALL PASS。`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `EEC30A4AB552F3148DFAE30D5D96134D1A065611F481621F467402A6F04406D9`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL电缆组计数-20261029-215156`。
+- AutoCAD 状态：代码未修改，与 21:14:47 起的 BDL 条目一并待同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。

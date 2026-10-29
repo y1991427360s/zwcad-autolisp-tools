@@ -2,13 +2,13 @@
 
 > 自动生成，可用 `python scripts/audit_lsp.py --check` 检查是否过期。扫描结果与源码绑定，不包含 CAD 实机验收。
 
-扫描 5 个 LSP、1258 个顶层函数、188 个命令入口。
+扫描 5 个 LSP、1268 个顶层函数、188 个命令入口。
 
 ## 文件清单
 
 | 文件 | 字节 | 顶层表达式 | 函数 | 命令 |
 | --- | ---: | ---: | ---: | ---: |
-| AA整合版本.lsp | 1118762 | 1212 | 1119 | 175 |
+| AA整合版本.lsp | 1132872 | 1222 | 1129 | 175 |
 | common/aicad_pure.lsp | 483 | 3 | 3 | 0 |
 | V6/aicad_aa_loader.lsp | 9914 | 32 | 24 | 3 |
 | V6/aicad_extension.lsp | 60953 | 142 | 112 | 10 |
@@ -46,12 +46,12 @@
 | 级别 | 检查 | 文件:行 | 函数 / 变量 | 证据 |
 | --- | --- | --- | --- | --- |
 | review | error-binding | AA整合版本.lsp:706 | aa:cmd-begin | *error* 赋值未局部声明；可能为动态作用域框架 |
-| review | error-binding | AA整合版本.lsp:22489 | c:hddl | *error* 赋值未局部声明；可能为动态作用域框架 |
-| review | error-binding | AA整合版本.lsp:22489 | c:hddl | 局部错误处理定义缺少 *error* 局部绑定 |
+| review | error-binding | AA整合版本.lsp:22677 | c:hddl | *error* 赋值未局部声明；可能为动态作用域框架 |
+| review | error-binding | AA整合版本.lsp:22677 | c:hddl | 局部错误处理定义缺少 *error* 局部绑定 |
 | review | error-cleanup | AA整合版本.lsp:18052 | de:run | 专属 *error* 未见标准恢复调用；需核对间接清理 |
 | review | error-cleanup | AA整合版本.lsp:18185 | c:ge | 专属 *error* 未见标准恢复调用；需核对间接清理 |
-| review | error-cleanup | AA整合版本.lsp:21977 | c:qh | 专属 *error* 未见标准恢复调用；需核对间接清理 |
-| review | error-cleanup | AA整合版本.lsp:22158 | c:bk | 专属 *error* 未见标准恢复调用；需核对间接清理 |
+| review | error-cleanup | AA整合版本.lsp:22165 | c:qh | 专属 *error* 未见标准恢复调用；需核对间接清理 |
+| review | error-cleanup | AA整合版本.lsp:22346 | c:bk | 专属 *error* 未见标准恢复调用；需核对间接清理 |
 | review | implicit-global | AA整合版本.lsp:2081 | zhu:sort-nums | 写入未声明变量 n；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:2089 | zhu:classify | 写入未声明变量 s；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:2099 | zhu:build-note | 写入未声明变量 n；动态调用方局部绑定需人工确认 |
@@ -116,12 +116,12 @@
 | review | implicit-global | AA整合版本.lsp:18708 | c:dl1 | 写入未声明变量 lay；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:19509 | aa:rep-text | 写入未声明变量 c；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:19555 | aa:rep-end | 写入未声明变量 r；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26006 | zyl:remove1 | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26013 | zyl:plan | 写入未声明变量 d；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26013 | zyl:plan | 写入未声明变量 k；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26062 | zyl:join | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26200 | zyl:count-same | 写入未声明变量 x；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26206 | zyl:choose | 写入未声明变量 v；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26239 | zyl:remove1 | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26246 | zyl:plan | 写入未声明变量 d；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26246 | zyl:plan | 写入未声明变量 k；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26295 | zyl:join | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26433 | zyl:count-same | 写入未声明变量 x；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26439 | zyl:choose | 写入未声明变量 v；动态调用方局部绑定需人工确认 |
 | review | shared-global | V6/aicad_aa_loader.lsp:264 | *aicad_basedirectory* | 跨文件写入: V6/aicad_aa_loader.lsp:264 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (&lt;load>) |
 | review | sysvar-restore | AA整合版本.lsp:5292 | c:ll | "AUTOSNAP": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:5292 | c:ll | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
@@ -147,20 +147,20 @@
 | review | sysvar-restore | AA整合版本.lsp:5629 | c:sw | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:12712 | c:five | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:18562 | aa:rotate-90-run | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:21314 | bh:pick-start | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:21419 | c:bh1 | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:22719 | c:hs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:22900 | c:zs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:23104 | c:sc3 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:23287 | c:vpo1 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:23295 | c:vpo2 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:26071 | zyl:pick | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:21458 | bh:pick-start | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:21563 | c:bh1 | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:22907 | c:hs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:23088 | c:zs | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:23292 | c:sc3 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:23475 | c:vpo1 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:23483 | c:vpo2 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:26304 | zyl:pick | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
 | review | undo-close | AA整合版本.lsp:706 | aa:cmd-begin | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:737 | aa:undo-mark-on | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:17826 | c1c2:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:18052 | de:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:18185 | c:ge | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
-| review | undo-close | AA整合版本.lsp:22158 | c:bk | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
+| review | undo-close | AA整合版本.lsp:22346 | c:bk | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-error-path | V6/aicad_extension.lsp:971 | aicad:apply-zuo | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
 | review | undo-error-path | V6/aicad_extension.lsp:1012 | aicad:apply-you | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |
 | review | undo-error-path | V6/aicad_extension.lsp:1069 | aicad:apply-shang | 正常关闭调用存在，但未局部绑定 *error*；需核对外层捕获异常后的关闭保证 |

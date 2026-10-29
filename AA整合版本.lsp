@@ -19966,6 +19966,8 @@
 ;;;       另一端再运行 BH1/BH2 时自动跟着改；选中的“未编号”电缆删除其记录。
 ;;; 记录文件先写成功才改图；一次 U 撤销图面修改，但不会撤销已写入的记录。
 ;;; 记录列：电缆编号 柜名1 柜名2 原理号 图纸 时间 旧编号（旧编号可空，多个用空格分隔；旧 6 列文件照常读取）。
+;;; 并入：编号写成“并入X”的线（一处画不下分画两处）与同终点的主电缆 X 算一根，原理号合并后核对、记录，并入线不单独记录；
+;;;       BH1/BH2/BHG 要连主电缆一起选，BH3 清册里的并入行并到主行；记录里以前单独登记的“并入X”自动并到主记录。
 
 (setq *bh-record-name* "电缆编号记录.txt")
 
@@ -20233,6 +20235,119 @@
               (cadr dest) (if lead lead 0.0))))))
 )
 
+;;; ---- 并入：一根电缆在图上一处画不下，分画成两根绿线，另一根编号写成“并入1(2)B-208”。
+;;; 并入线与主电缆（同编号、同终点柜）算同一根：原理号合在一起按一根核对、记录，并入线不单独编号、不单独记录。
+
+(defun bh:join-target (num / s z)
+  ;; “并入1(2)B-208” → “1(2)B-208”；不是并入写法返回 nil
+  (setq s (vl-string-trim " \t" (if num num "")) z (strlen "并入"))
+  (if (and (> (strlen s) z) (= (substr s 1 z) "并入"))
+    (progn
+      (setq s (vl-string-trim " \t:-：" (substr s (1+ z))))
+      (if (/= s "") s)))
+)
+
+(defun bh:prins-union (a b / out p)
+  ;; 两组原理号合在一起，按比较用写法去重，保持先后顺序
+  (foreach p (append a b)
+    (if (and (/= (jm:norm p) "") (not (member (jm:norm p) (mapcar 'jm:norm out))))
+      (setq out (cons p out))))
+  (reverse out)
+)
+
+(defun bh:same-ends-p (a1 a2 b1 b2 / x1 x2 y1 y2)
+  ;; 两端柜名相同（不分先后）
+  (setq x1 (hddl:cabinet a1) x2 (hddl:cabinet a2) y1 (hddl:cabinet b1) y2 (hddl:cabinet b2))
+  (or (and (= x1 y1) (= x2 y2)) (and (= x1 y2) (= x2 y1)))
+)
+
+(defun bh:merge-joins (items start / it tg tc m cands main ex extras out p)
+  ;; 识别结果里的并入线并到主电缆：主电缆原理号加上并入线的，键和“全是信号线”重算，第 11 项存主电缆自己的原理号；
+  ;; 并入线换成 (JOIN 说明 编号图元 hinfo 主电缆编号图元)，后面的核对、记录都跳过它。
+  ;; 找不到主电缆（不在本次选择里、去向不同、并入后面没写编号）的换成 (ERR 原因 编号图元 hinfo)
+  (foreach it items
+    (if (and (eq (car it) 'OK) (setq tg (bh:join-target (nth 3 it))))
+      (progn
+        (setq tc (bh:clean tg) cands nil main nil)
+        (foreach m items
+          (if (and (eq (car m) 'OK) (not (bh:join-target (nth 3 m))) (= (bh:clean (nth 3 m)) tc))
+            (setq cands (cons m cands))))
+        (foreach m cands
+          (if (and (null main) (= (hddl:cabinet (nth 4 m)) (hddl:cabinet (nth 4 it)))) (setq main m)))
+        (cond
+          ((or (= tc (bh:clean "未编号")) (bh:placeholder-p tc))
+           (setq out (cons (cons it (list 'ERR (strcat "“并入”后面要写主电缆的编号（现在是 " tg "）") (nth 2 it) (nth 1 it))) out)))
+          (main
+           (setq ex (assoc (nth 2 main) extras)
+                 extras (cons (cons (nth 2 main) (append (cdr ex) (nth 5 it))) (vl-remove ex extras))
+                 out (cons (cons it (list 'JOIN (strcat "并入 " (nth 3 main) "，原理号合并核对") (nth 2 it) (nth 1 it) (nth 2 main))) out)))
+          (cands
+           (setq out (cons (cons it (list 'ERR (strcat "主电缆 " (nth 3 (car cands)) " 去向是 " (nth 4 (car cands))
+                                                     "，这根是 " (nth 4 it) "，不能并入")
+                                          (nth 2 it) (nth 1 it)))
+                           out)))
+          (T
+           (setq out (cons (cons it (list 'ERR (strcat "并入的主电缆 " tg " 不在本次选择里，请连主电缆一起选") (nth 2 it) (nth 1 it))) out)))))))
+  (foreach it items
+    (if (and (eq (car it) 'OK) (setq ex (assoc (nth 2 it) extras)))
+      (progn
+        (setq p (bh:prins-union (nth 5 it) (cdr ex)))
+        (setq out (cons (cons it (list 'OK (nth 1 it) (nth 2 it) (nth 3 it) (nth 4 it) p
+                                       (bh:key start (nth 4 it) (bh:prins-str p))
+                                       (vl-every '(lambda (x) (eq (jm:classify x) 'SIG)) p)
+                                       (nth 8 it) (nth 9 it) (nth 5 it)))
+                        out)))))
+  (mapcar '(lambda (it) (if (assoc it out) (cdr (assoc it out)) it)) items)
+)
+
+(defun bh:fold-joins (recs / i r tg j m extras joined out e)
+  ;; 记录里以前单独登记的“并入X”：并到同两端柜名、编号 X 的记录（原理号合并），并入记录删掉；
+  ;; 找不到主记录的留着。返回 (新记录表 . 并掉的条数)
+  (setq i 0)
+  (foreach r recs
+    (if (setq tg (bh:join-target (car r)))
+      (progn
+        (setq j 0 m nil)
+        (foreach e recs
+          (if (and (null m) (not (bh:join-target (car e))) (= (bh:clean (car e)) (bh:clean tg))
+                   (bh:same-ends-p (nth 1 e) (nth 2 e) (nth 1 r) (nth 2 r)))
+            (setq m j))
+          (setq j (1+ j)))
+        (if m
+          (setq joined (cons i joined)
+                e (assoc m extras)
+                extras (cons (cons m (append (cdr e) (bh:split (nth 3 r) " "))) (vl-remove e extras))))))
+    (setq i (1+ i)))
+  (setq i 0)
+  (foreach r recs
+    (cond
+      ((member i joined) nil)
+      ((setq e (assoc i extras))
+       (setq out (cons (append (list (car r) (cadr r) (caddr r)
+                                     (bh:prins-str (bh:prins-union (bh:split (nth 3 r) " ") (cdr e))))
+                               (cdr (cdddr r)))
+                       out)))
+      (T (setq out (cons r out))))
+    (setq i (1+ i)))
+  (cons (reverse out) (length joined))
+)
+
+(defun bh:apply-ups (recs rkeys ups dwg now / out r k u)
+  ;; ups ((原键 合并后原理号 编号) ...)：把这些记录的原理号改成合并后的，图纸、时间改为本次
+  (foreach r recs
+    (setq k (car rkeys) rkeys (cdr rkeys))
+    (if (setq u (assoc k ups))
+      (setq r (append (list (car r) (cadr r) (caddr r) (cadr u) dwg now) (if (nth 6 r) (list (nth 6 r))))))
+    (setq out (cons r out)))
+  (reverse out)
+)
+
+(defun bh:join-upgrade-p (k hit own / o n)
+  ;; 编号相同的记录两端柜名也相同，原理号正好是主电缆自己的（画并入线之前登记的）：可直接改成合并后的原理号
+  (setq o (bh:split (cadr hit) (chr 1)) n (bh:split k (chr 1)))
+  (and own (= (car o) (car n)) (= (cadr o) (cadr n)) (= (caddr o) (bh:prins-str own)))
+)
+
 (defun bh:prepare (tag / ss lines start-en start-name vlineDataList textMetaList en ed hinfo items it nskip *bh-tail*)
   ;; BH2 / BHG 共用：检查已保存 → 框选 → 起点柜名 → 逐根识别（从上到下）
   ;; 成功返回 (起点柜名 items)；失败打印原因返回 nil
@@ -20275,7 +20390,13 @@
        (if (eq (car it) 'SKIP) (setq nskip (1+ nskip))))
      (if (> nskip 0)
        (aa:rep-info (strcat "跳过没有“至…”去向文字的绿色直线 " (itoa nskip) " 根（不是电缆）。")))
-     (list start-name (reverse items))))
+     ;; “并入X”的线并到主电缆 X，按一根电缆核对、记录
+     (setq items (bh:merge-joins (reverse items) start-name) nskip 0)
+     (foreach it items
+       (if (eq (car it) 'JOIN) (setq nskip (1+ nskip))))
+     (if (> nskip 0)
+       (aa:rep-info (strcat "“并入”电缆 " (itoa nskip) " 根已和主电缆算作同一根，原理号合并后核对、记录（并入线不单独记录）。")))
+     (list start-name items)))
 )
 
 (defun bh:special (endname sig / n)
@@ -20381,6 +20502,9 @@
   (bh:clear-markers (mapcar '(lambda (it) (if (eq (car it) 'OK) (cadr it) (cadddr it))) items))
   (foreach en oks
     (if (= (cdr (assoc 62 (entget en))) 1) (hddl:color en 7)))
+  ;; 并入线上次单独核对时标的红色恢复白色
+  (foreach it items
+    (if (and (eq (car it) 'JOIN) (= (cdr (assoc 62 (entget (caddr it)))) 1)) (hddl:color (caddr it) 7)))
   (foreach r conflicts
     (hddl:color (car r) 1)
     (ssadd (car r) bad-ss)
@@ -20833,7 +20957,7 @@
 (defun c:BH2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                 prep path start-name items recs newrecs kmap nmap r k nc it hit seen
                 fills nonum conflicts errs oks now dwg bad-ss nfill nold nrec nok rkeys t0 nb dests nbad sim sims
-                cm a kk combos ncombo nadd smap nsplit)
+                cm a kk combos ncombo nadd smap nsplit fold ups)
   (aa:cmd-begin "BH2")
   (aa:rep-begin "BH2")
   (setq bad-ss (ssadd) t0 (aa:link-clock) nonum 0 ncombo 0 nadd 0 nsplit 0)
@@ -20844,7 +20968,9 @@
            path (bh:record-path)
            dwg (getvar "DWGNAME")
            now (bh:now)
-           recs (bh:read-records path)
+           ;; 以前单独登记的“并入X”记录先并到主记录
+           fold (bh:fold-joins (bh:read-records path))
+           recs (car fold)
            rkeys (mapcar 'bh:rec-key recs)
            kmap (bh:kmap recs rkeys)
            nmap (bh:nmap recs rkeys)
@@ -20918,6 +21044,12 @@
                    (setq conflicts (cons (list (nth 2 it) (cadr it)
                                                (strcat "与合画图记录 " (caddr hit) " 拆开后的编号 " (cadr hit) " 不一致"))
                                          conflicts))))
+                ;; 画并入线之前登记的主电缆记录（原理号正好是主电缆自己的）：改成合并后的原理号
+                ((and (setq hit (assoc nc nmap)) (bh:join-upgrade-p k hit (nth 10 it)))
+                 (setq ups (cons (list (cadr hit) (bh:prins-str (nth 5 it)) (nth 3 it)) ups)
+                       kmap (cons (list k (nth 3 it) nil) kmap)
+                       nmap (cons (list nc k start-name (nth 4 it)) nmap)
+                       oks (cons (nth 2 it) oks)))
                 ((setq hit (assoc nc nmap))
                  (setq conflicts (cons (list (nth 2 it) (cadr it) (bh:conflict-msg k hit)) conflicts)))
                 (T
@@ -20928,8 +21060,9 @@
                        oks (cons (nth 2 it) oks)
                        nadd (1+ nadd)))))))))
      (setq fills (reverse fills) newrecs (reverse newrecs))
-     ;; 先写记录文件，写不进去就不改图
-     (if (and newrecs (not (bh:write-records path (append recs newrecs))))
+     ;; 先写记录文件，写不进去就不改图（有新记入、并掉的旧“并入”记录或要改原理号的主记录时才写）
+     (if (and (or newrecs ups (> (cdr fold) 0))
+              (not (bh:write-records path (append (bh:apply-ups recs rkeys ups dwg now) newrecs))))
        (bh:write-failed path)
        (progn
          (setq nfill 0 nold 0)
@@ -20937,7 +21070,15 @@
            (jm:set-text (car r) (cadr r))
            (if (= (cdr (assoc 62 (entget (car r)))) 1) (hddl:color (car r) 7))
            (if (caddr r) (setq nold (1+ nold)) (setq nfill (1+ nfill))))
+         ;; 主电缆旧编号改成新编号时，并入线跟着改成“并入新编号”
+         (foreach it items
+           (if (and (eq (car it) 'JOIN) (setq r (assoc (nth 4 it) fills)))
+             (jm:set-text (caddr it) (strcat "并入" (cadr r)))))
          (bh:finish "BH2" items oks conflicts errs bad-ss)
+         (if (> (cdr fold) 0)
+           (aa:rep-info (strcat "记录里以前单独登记的“并入”记录 " (itoa (cdr fold)) " 条已并到主电缆记录（原理号合并）。")))
+         (foreach r (reverse ups)
+           (aa:rep-info (strcat (caddr r) "：记录是画并入线之前登记的，原理号已改为合并后的 " (cadr r) "。")))
          (foreach r (reverse sims)
            (ssadd (car r) bad-ss)
            (bh:make-marker (cadr r) (strcat "[疑似 " (caddr r) "] " (cadddr r)))
@@ -20994,7 +21135,7 @@
 (defun c:BHG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                  prep path start-name items recs kmap nmap r k nc it hit seen upd del
                  conflicts errs oks keep oldmap olds o dwg now bad-ss nadd nchg ren k2 rkeys ks t0 selkeys used borrows b chg nnum
-                 steals sdel)
+                 steals sdel fold)
   (aa:cmd-begin "BHG")
   (aa:rep-begin "BHG")
   (setq bad-ss (ssadd) t0 (aa:link-clock))
@@ -21005,7 +21146,8 @@
            path (bh:record-path)
            dwg (getvar "DWGNAME")
            now (bh:now)
-           recs (bh:read-records path)
+           fold (bh:fold-joins (bh:read-records path))
+           recs (car fold)
            rkeys (mapcar 'bh:rec-key recs)
            kmap (bh:kmap recs rkeys)
            nmap (bh:nmap recs rkeys)
@@ -21073,13 +21215,15 @@
      (foreach b steals
        (if (not (member (cadr b) sdel)) (setq sdel (cons (cadr b) sdel))))
      ;; 2. 生成新记录表：删掉的不要；改掉的收集原编号和旧编号，统一追加到末尾
-     (if (or upd del)
+     (if (or upd del (> (cdr fold) 0))
        (setq keep (bh:rebuild recs rkeys upd (append del sdel) ren)))
      ;; 3. 先写记录文件，写不进去就不改图
-     (if (and (or upd del) (not (bh:write-records path keep)))
+     (if (and (or upd del (> (cdr fold) 0)) (not (bh:write-records path keep)))
        (bh:write-failed path)
        (progn
          (bh:finish "BHG" items oks conflicts errs bad-ss)
+         (if (> (cdr fold) 0)
+           (aa:rep-info (strcat "记录里以前单独登记的“并入”记录 " (itoa (cdr fold)) " 条已并到主电缆记录（原理号合并）。")))
          ;; 占用了别的电缆编号的逐条说明并选中，便于到那根电缆所在的图上核对
          (foreach b (reverse steals)
            (ssadd (car b) bad-ss)
@@ -21435,7 +21579,7 @@
            width (strlen start)
            path (bh:record-path)
            dwg (getvar "DWGNAME")
-           recs (bh:read-records path)
+           recs (car (bh:fold-joins (bh:read-records path)))
            rkeys (mapcar 'bh:rec-key recs)
            kmap (bh:kmap recs rkeys)
            nmap (bh:nmap recs rkeys)
@@ -21490,7 +21634,7 @@
          (progn
            ;; ---- 第 2 步：缩放识别，再恢复原来的视图
            (setq t1 (aa:link-clock) view (bh:view-save)
-                 items (bh:analyze-picked picks start-name))
+                 items (bh:merge-joins (bh:analyze-picked picks start-name) start-name))
            (bh:view-restore view)
            (foreach en picks (redraw en 4))
            (setq t2 (aa:link-clock) marks (bh:mark-list) i 0 nb 0)
@@ -21501,7 +21645,13 @@
              ;; 屏幕内没认出（如个别原理号仍在范围外）时，这一根改用全图查询再识别一次
              (if (eq (car it) 'ERR)
                (setq it (bh:analyze-one (nth (1- i) picks) start-name)))
+             ;; 单根补查出来的并入线没有主电缆可并，不单独编号、记录
+             (if (and (eq (car it) 'OK) (bh:join-target (nth 3 it)))
+               (setq it (list 'ERR (strcat "并入的主电缆 " (bh:join-target (nth 3 it)) " 不在本批点选里，请连主电缆一起点选或用 BH2")
+                              (nth 2 it) (nth 1 it))))
              (cond
+               ((eq (car it) 'JOIN)
+                (aa:rep-item "info" "并入" (nth 2 it) (strcat "第 " (itoa i) " 根：" (cadr it) "，与主电缆算同一根，不单独编号")))
                ((eq (car it) 'SKIP)
                 (aa:rep-item "info" "跳过" (nth (1- i) picks) (strcat "第 " (itoa i) " 根：上方没有“至…”去向文字，不是电缆")))
                ((eq (car it) 'ERR)
@@ -21650,6 +21800,32 @@
   (list (hddl:cell row 1) (hddl:cell row 0) (hddl:cell row 2) (reverse prins) (car (hddl:item row 1)) nospec)
 )
 
+(defun bh:merge-table-joins (trs / tr tg m main extras out notes joined e)
+  ;; 清册各行（bh:table-row 结果）里的“并入X”行：并到同两端柜名、编号 X 的行，原理号接在主行后面（同 HBDL）。
+  ;; 返回 (新行列表 说明 ((编号图元 原因) ...) 并掉的并入行编号图元列表)；找不到主行的并入行不记入，写说明
+  (foreach tr trs
+    (if (setq tg (bh:join-target (car tr)))
+      (progn
+        (setq main nil)
+        (foreach m trs
+          (if (and (null main) (not (bh:join-target (car m))) (= (bh:clean (car m)) (bh:clean tg))
+                   (bh:same-ends-p (cadr m) (caddr m) (cadr tr) (caddr tr)))
+            (setq main m)))
+        (if main
+          (setq e (assoc main extras)
+                extras (cons (cons main (append (cdr e) (cadddr tr))) (vl-remove e extras))
+                joined (cons (nth 4 tr) joined))
+          (setq notes (cons (list (nth 4 tr) (strcat (car tr) "：本次选择中找不到同两端柜名的主电缆行 " tg "，这一行未记入"))
+                            notes))))))
+  (foreach tr trs
+    (cond
+      ((bh:join-target (car tr)) nil)
+      ((setq e (assoc tr extras))
+       (setq out (cons (list (car tr) (cadr tr) (caddr tr) (bh:prins-union (cadddr tr) (cdr e)) (nth 4 tr) (nth 5 tr)) out)))
+      (T (setq out (cons tr out)))))
+  (list (reverse out) (reverse notes) (reverse joined))
+)
+
 (defun bh:stale-keys (recs rkeys dwg sel hold / sides k p ks r other cand)
   ;; BH3 重跑同一张清册：找出清册里已经没有的旧记录，返回 (删除键列表 . 保留键列表)
   ;;   条件：本图登记、一端“柜名 + 原理号”在本次清册里出现、这根电缆（键）不在本次清册里。
@@ -21677,7 +21853,7 @@
 (defun c:BH3 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                 ss i e d items rows row tr num k nc hit r path dwg now recs rkeys kmap nmap
                 upd ren del keep notes nok nadd nchg nskip nsteal nmul bad-ss selk seln dk dn act same pairs nospec
-                hold stale ndrop keepold)
+                hold stale ndrop keepold trs jn fold)
   (aa:cmd-begin "BH3")
   (aa:rep-begin "BH3")
   (setq bad-ss (ssadd) nok 0 nadd 0 nchg 0 nskip 0 nsteal 0 nmul 0 ndrop 0 nospec nil)
@@ -21699,14 +21875,19 @@
            path (bh:record-path)
            dwg (getvar "DWGNAME")
            now (bh:now)
-           recs (bh:read-records path)
+           fold (bh:fold-joins (bh:read-records path))
+           recs (car fold)
            rkeys (mapcar 'bh:rec-key recs)
            kmap (bh:kmap recs rkeys)
            nmap (bh:nmap recs rkeys)
+           ;; 清册里的“并入”行并到主电缆行（原理号接在后面），不单独记录
+           jn (bh:merge-table-joins (mapcar 'bh:table-row rows))
+           trs (car jn)
+           notes (cadr jn)
            ;; 记录里已有的（键 . 比较用编号）：清册内重复的电缆重跑时据此认作一致，不重复记入
            pairs (mapcar '(lambda (r k) (cons k (bh:clean (car r)))) recs rkeys))
-     (foreach row rows
-       (setq tr (bh:table-row row) num (car tr))
+     (foreach tr trs
+       (setq num (car tr))
        (cond
          ;; 编号为空或“未编号”、柜名不全、没有原理号的行（含表头）跳过；*** 等占位编号照常记录
          ((or (= num "") (= (bh:clean num) (bh:clean "未编号"))
@@ -21800,11 +21981,18 @@
           (setq notes (cons (list nil (strcat "清册里已经没有 " (car r) " " (cadr r) "—" (caddr r) " " (cadddr r)
                                               "，但别的图纸也登记过这根电缆，未删除，请核对"))
                             notes)))))
-     (if (or upd del) (setq keep (bh:rebuild recs rkeys upd del ren)))
+     (if (or upd del (> (cdr fold) 0)) (setq keep (bh:rebuild recs rkeys upd del ren)))
      ;; 先写记录文件，写不进去就不改图
-     (if (and (or upd del) (not (bh:write-records path keep)))
+     (if (and (or upd del (> (cdr fold) 0)) (not (bh:write-records path keep)))
        (bh:write-failed path)
        (progn
+         ;; 并到主电缆行的“并入”行：上一版标红的恢复白色
+         (foreach e (caddr jn)
+           (if (and e (= (cdr (assoc 62 (entget e))) 1)) (hddl:color e 7)))
+         (if (caddr jn)
+           (aa:rep-info (strcat "“并入”行 " (itoa (length (caddr jn))) " 行已并到主电缆行，原理号合并后记入（不单独记录）。")))
+         (if (> (cdr fold) 0)
+           (aa:rep-info (strcat "记录里以前单独登记的“并入”记录 " (itoa (cdr fold)) " 条已并到主电缆记录（原理号合并）。")))
          (foreach e (reverse notes)
            (if (car e) (ssadd (car e) bad-ss))
            (aa:rep-item "warn" "说明" (car e) (cadr e)))
@@ -25266,6 +25454,7 @@
 ;;; --- BDL：给后补的原理号补画一根 ZDDL 样式的电缆 ---
 ;; 尺寸沿用 zddl2:draw-cables：第 1 根电缆距端子排 10，之后每根错开 5；箭头尖端左 20 写编号、右 1.5 写去向、右 32 写截面，电缆线到尖端右 40。
 ;; 端子排边线、端子格竖线、已有引线用小窗口 ssget "_C" 查找（原理号附近需在当前视图内）。
+;; 已有绿色电缆线和三角箭头只在当前视图内查找（bdl:view-ss）：要参照的已有电缆及其箭头需在屏幕上可见。
 
 (defun bdl:cross-lines (p1 p2 / ss i ed out)
   ;; 小窗口交叉选择 LINE，返回 ((起点 终点) ...)；p1/p2 为 WCS
@@ -25286,10 +25475,11 @@
        (> (abs (- (cadr (car ln)) (cadr (cadr ln)))) 1.0)))
 
 (defun bdl:edge (cx ylo yhi / below above d y ln)
-  ;; 原理号上下 10 以内、跨过 cx 的水平线：返回 (下方最近 上方最近)，各为 (距离 Y) 或 nil。
-  ;; 手画端子排的原理号离边线常有 6~7（ZDDL 为 2），故放宽到 10；文字两端允许压线 0.5（手工补的原理号常比格子略长）
+  ;; 原理号上下 30 以内、跨过 cx 的水平线：返回 (下方最近 上方最近)，各为 (距离 Y) 或 nil。
+  ;; 手画端子排的原理号离边线常有 6~7（ZDDL 为 2），居中的原理号离边线约 10~13，故放宽到 30（各侧取最近一根）；
+  ;; 文字两端允许压线 0.5（手工补的原理号常比格子略长）
   (setq below nil above nil)
-  (foreach ln (bdl:cross-lines (list (- cx 0.05) (- ylo 10.0) 0.0) (list (+ cx 0.05) (+ yhi 10.0) 0.0))
+  (foreach ln (bdl:cross-lines (list (- cx 0.05) (- ylo 30.0) 0.0) (list (+ cx 0.05) (+ yhi 30.0) 0.0))
     (if (bdl:horizontal-p ln)
       (progn
         (setq y (cadr (car ln)))
@@ -25303,23 +25493,51 @@
             (if (or (null above) (< d (car above))) (setq above (list d y))))))))
   (list below above))
 
-(defun bdl:direction (items / los his lo-sp hi-sp nb na db da e)
+(defun bdl:slot-hits (vals ex s / n k run hit v)
+  ;; 紧挨边线 ex 外侧 s 方向的那组电缆有几根：同查空位，从距边线 10 起每 5 一格往外数（误差 1 以内），
+  ;; 连续 4 格空就停；离得远的别列电缆即使碰巧落在 5 的网格上也不计入
+  (setq n 0 k 0 run 0)
+  (if ex
+    (while (and (<= k 200) (<= run 3))
+      (setq hit nil)
+      (foreach v vals
+        (if (< (abs (- (* s (- v ex)) (+ 10.0 (* 5.0 k)))) 1.0) (setq hit T)))
+      (if hit (setq n (1+ n) run 0) (setq run (1+ run)))
+      (setq k (1+ k))))
+  n)
+
+(defun bdl:direction (items greens / los his lo-sp hi-sp nb na db da e ylo yhi xc gb ga g near eb ea hb ha)
   ;; 整组判断出线方向：1 向上、-1 向下、nil 判断不了。
-  ;; ZDDL 向下出线的原理号底端对齐（贴下边线），向上出线顶端对齐；长短不一时据此判断，否则看哪侧边线更近
+  ;; ZDDL 向下出线的原理号底端对齐（贴下边线），向上出线顶端对齐；长短不一时据此判断；
+  ;; 原理号居中时先看哪侧边线外的电缆位（10、15、20…）上已有绿色电缆，再看哪侧附近有绿色电缆，
+  ;; 最后看哪侧边线更近（相差 0.5 以内算一样近，默认向下）
   (setq los (mapcar 'cadr items) his (mapcar 'caddr items)
-        lo-sp (- (apply 'max los) (apply 'min los))
-        hi-sp (- (apply 'max his) (apply 'min his))
-        nb 0 na 0 db 0.0 da 0.0)
+        ylo (apply 'min los) yhi (apply 'max his)
+        xc (/ (+ (apply 'min (mapcar 'car items)) (apply 'max (mapcar 'car items))) 2.0)
+        lo-sp (- (apply 'max los) ylo)
+        hi-sp (- yhi (apply 'min his))
+        nb 0 na 0 db 0.0 da 0.0 gb 0 ga 0)
   (foreach e (mapcar 'cadddr items)
-    (if (car e) (setq nb (1+ nb) db (+ db (car (car e)))))
-    (if (cadr e) (setq na (1+ na) da (+ da (car (cadr e))))))
+    (if (car e) (setq nb (1+ nb) db (+ db (car (car e))) eb (cond (eb) ((cadr (car e))))))
+    (if (cadr e) (setq na (1+ na) da (+ da (car (cadr e))) ea (cond (ea) ((cadr (cadr e)))))))
+  (foreach g greens
+    (if (<= (- (cadr g) 150.0) xc (+ (caddr g) 150.0))
+      (progn
+        (setq near (cons (car g) near))
+        (if (< (- ylo 200.0) (car g) ylo) (setq gb (1+ gb)))
+        (if (< yhi (car g) (+ yhi 200.0)) (setq ga (1+ ga))))))
+  (setq hb (bdl:slot-hits near eb -1) ha (bdl:slot-hits near ea 1))
   (cond
     ((and (< lo-sp 0.2) (> hi-sp 0.2)) -1)
     ((and (< hi-sp 0.2) (> lo-sp 0.2)) 1)
+    ((and (> hb 0) (= ha 0)) -1)
+    ((and (> ha 0) (= hb 0)) 1)
+    ((and (> gb 0) (= ga 0)) -1)
+    ((and (> ga 0) (= gb 0)) 1)
     ((> nb na) -1)
     ((> na nb) 1)
     ((= nb 0) nil)
-    ((<= db da) -1)
+    ((<= db (+ da (* 0.5 nb))) -1)
     (T 1)))
 
 (defun bdl:cell-center (cx yin / left right x ln)
@@ -25352,9 +25570,18 @@
       (setq x c)))
   (if x x cen))
 
+(defun bdl:view-ss (flt / vr)
+  ;; 只在当前视图内交叉选择（用 BH 系列的 bh:view-rect 算视图范围），不再全图取出逐个 entget；
+  ;; UCS 不是世界坐标或视图有扭转、算不出视图范围时退回全图
+  (setq flt (append flt (list (cons 410 (getvar "CTAB")))))
+  (if (setq vr (bh:view-rect))
+    (ssget "_C" (list (car vr) (cadr vr)) (list (caddr vr) (cadddr vr)) flt)
+    (ssget "_X" flt))
+)
+
 (defun bdl:green-lines (/ ss i ed p1 p2 out)
-  ;; 当前空间全部绿色水平 LINE：((Y 左X 右X) ...)
-  (setq ss (ssget "_X" (list '(0 . "LINE") '(62 . 3) (cons 410 (getvar "CTAB"))))
+  ;; 当前视图内的绿色水平 LINE：((Y 左X 右X) ...)
+  (setq ss (bdl:view-ss '((0 . "LINE") (62 . 3)))
         i 0 out nil)
   (if ss
     (repeat (sslength ss)
@@ -25365,8 +25592,8 @@
   out)
 
 (defun bdl:tips (/ ss i ed pts best p out)
-  ;; 当前空间全部三点闭合多段线的尖端（X 最大的顶点）：((X Y) ...)
-  (setq ss (ssget "_X" (list '(0 . "LWPOLYLINE") '(90 . 3) (cons 410 (getvar "CTAB"))))
+  ;; 当前视图内三点闭合多段线的尖端（X 最大的顶点）：((X Y) ...)
+  (setq ss (bdl:view-ss '((0 . "LWPOLYLINE") (90 . 3)))
         i 0 out nil)
   (if ss
     (repeat (sslength ss)
@@ -25476,9 +25703,9 @@
     gt))
 
 (defun bdl:edge-v (cy xlo xhi / left right d x ln)
-  ;; 竖排端子排：水平原理号左右 10 以内、跨过 cy 的竖直线：返回 (左侧最近 右侧最近)，各为 (距离 X) 或 nil
+  ;; 竖排端子排：水平原理号左右 30 以内、跨过 cy 的竖直线：返回 (左侧最近 右侧最近)，各为 (距离 X) 或 nil（居中原理号也能找到）
   (setq left nil right nil)
-  (foreach ln (bdl:cross-lines (list (- xlo 10.0) (- cy 0.05) 0.0) (list (+ xhi 10.0) (+ cy 0.05) 0.0))
+  (foreach ln (bdl:cross-lines (list (- xlo 30.0) (- cy 0.05) 0.0) (list (+ xhi 30.0) (+ cy 0.05) 0.0))
     (if (bdl:vertical-p ln)
       (progn
         (setq x (car (car ln)))
@@ -25492,7 +25719,7 @@
             (if (or (null right) (< d (car right))) (setq right (list d x))))))))
   (list left right))
 
-(defun bdl:direction-v (items greens / los his lo-sp hi-sp nl nr dl dr e xlo xhi yc gl gr g)
+(defun bdl:direction-v (items greens / los his lo-sp hi-sp nl nr dl dr e xlo xhi yc gl gr g near el er hl hr)
   ;; 竖排端子排整组判断出线方向：-1 向左、1 向右、nil 判断不了
   (setq los (mapcar 'cadr items) his (mapcar 'caddr items)
         xlo (apply 'min los) xhi (apply 'max his)
@@ -25501,23 +25728,29 @@
         hi-sp (- xhi (apply 'min his))
         nl 0 nr 0 dl 0.0 dr 0.0 gl 0 gr 0)
   (foreach e (mapcar 'cadddr items)
-    (if (car e) (setq nl (1+ nl) dl (+ dl (car (car e)))))
-    (if (cadr e) (setq nr (1+ nr) dr (+ dr (car (cadr e))))))
+    (if (car e) (setq nl (1+ nl) dl (+ dl (car (car e))) el (cond (el) ((cadr (car e))))))
+    (if (cadr e) (setq nr (1+ nr) dr (+ dr (car (cadr e))) er (cond (er) ((cadr (cadr e)))))))
   (foreach g greens
     (if (<= (- (cadr g) 150.0) yc (+ (caddr g) 150.0))
       (progn
+        (setq near (cons (car g) near))
         (if (< (- xlo 200.0) (car g) xlo) (setq gl (1+ gl)))
         (if (< xhi (car g) (+ xhi 200.0)) (setq gr (1+ gr))))))
-  ;; 先看原理号对齐（同横排 bdl:direction），再看哪侧已有绿色竖向电缆，最后看端子排边线
+  (setq hl (bdl:slot-hits near el -1) hr (bdl:slot-hits near er 1))
+  ;; 先看原理号对齐（同横排 bdl:direction）；居中时看哪侧边线外的电缆位（10、15、20…）上已有绿色电缆
+  ;; （另一列端子的电缆一般不在本端子排的电缆位上），再看哪侧附近有绿色竖向电缆，
+  ;; 最后看端子排边线远近（相差 0.5 以内算一样近，默认向左）
   (cond
     ((and (< lo-sp 0.2) (> hi-sp 0.2)) -1)
     ((and (< hi-sp 0.2) (> lo-sp 0.2)) 1)
+    ((and (> hl 0) (= hr 0)) -1)
+    ((and (> hr 0) (= hl 0)) 1)
     ((and (> gl 0) (= gr 0)) -1)
     ((and (> gr 0) (= gl 0)) 1)
     ((> nl nr) -1)
     ((> nr nl) 1)
     ((= nl 0) nil)
-    ((<= dl dr) -1)
+    ((<= dl (+ dr (* 0.5 nl))) -1)
     (T 1)))
 
 (defun bdl:cell-center-v (cy xin / below above y ln)
@@ -25550,8 +25783,8 @@
   (if y y cen))
 
 (defun bdl:green-vlines (/ ss i ed p1 p2 out)
-  ;; 当前空间全部绿色竖直 LINE：((X 下Y 上Y) ...)
-  (setq ss (ssget "_X" (list '(0 . "LINE") '(62 . 3) (cons 410 (getvar "CTAB"))))
+  ;; 当前视图内的绿色竖直 LINE：((X 下Y 上Y) ...)
+  (setq ss (bdl:view-ss '((0 . "LINE") (62 . 3)))
         i 0 out nil)
   (if ss
     (repeat (sslength ss)
@@ -25562,8 +25795,8 @@
   out)
 
 (defun bdl:vtips (/ ss i ed best p out)
-  ;; 当前空间全部三点闭合多段线的向下尖端（Y 最小的顶点）：((X Y) ...)
-  (setq ss (ssget "_X" (list '(0 . "LWPOLYLINE") '(90 . 3) (cons 410 (getvar "CTAB"))))
+  ;; 当前视图内三点闭合多段线的向下尖端（Y 最小的顶点）：((X Y) ...)
+  (setq ss (bdl:view-ss '((0 . "LWPOLYLINE") (90 . 3)))
         i 0 out nil)
   (if ss
     (repeat (sslength ss)
@@ -25825,7 +26058,8 @@
       (if items
         (progn
           ;; 先整组定方向，再取该侧边线；同一根电缆的原理号边线应在同一高度
-          (setq s (bdl:direction items))
+          (setq greens (bdl:green-lines)
+                s (bdl:direction items greens))
           (if (null s)
             (progn
               ;; 找不到端子排边线（如已 ZDDLD）且原理号等长时询问方向
@@ -25861,8 +26095,7 @@
                minx (apply 'min xs)
                maxx (apply 'max xs))
          ;; 3. 从端子排往外逐行查空位：中间空出的行优先；连续空 4 行视为电缆组结束
-         (setq greens (bdl:green-lines)
-               tips (bdl:tips)
+         (setq tips (bdl:tips)
                k 0 run 0 lastk -1 stack nil)
          (while (and (<= k 200) (<= run 3))
            (if (setq g (bdl:slot-line greens (+ pin (* s (+ 10.0 (* 5.0 k)))) minx))
