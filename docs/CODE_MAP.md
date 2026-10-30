@@ -10,7 +10,7 @@
 3. 改共享函数前先跑 `python tools/code_map.py callers 函数名`，确认影响哪些命令。
 4. 改动过程中用 `python tools/check_all_static.py --quick` 只跑相关检查；交付前跑一次不带参数的全量检查。
 
-- 源文件：`AA整合版本.lsp`，26623 行，1129 个函数，其中 175 个 `c:` 命令。
+- 源文件：`AA整合版本.lsp`，26647 行，1129 个函数，其中 175 个 `c:` 命令。
 
 ## 命令
 
@@ -185,12 +185,12 @@
 | `VPO2` | 23483-23488 | 6 | 切换到“两个：垂直”标准视口。 | aa:cmd-begin:706, aa:cmd-end:719 |
 | `TONG` | 23494-23578 | 85 | 框选文字对象去重，按自然顺序从上到下排列在指定插入点（HZ样式/字高3/宽比0.7/白色/间距5）。 | aa:cmd-begin:706, aa:cmd-end:719, aa:merge-sort:794, aa:gtx-natural-less:6303 |
 | `ZDDL2` | 24239-24330 | 92 | 自动根据现有端子排与接线方格绘制电缆引线、干线与标注。 | aa:cmd-begin:706, aa:cmd-end:719, zddl:parse-strip:23770, zddl:parse-wiring-ss:23991, zddl:ensure-layer:24051, zddl:plan-cables:24128, zddl:lookup-terminal:23679, zddl:label-layout:24153, zddl:draw-one-cable:24160, zddl:format-cable-no:24118 |
-| `ZDC` | 24332-24334 | 3 | ZDDLH 命令的简写别名。 | c:zddlh:26602 |
+| `ZDC` | 24332-24334 | 3 | ZDDLH 命令的简写别名。 | c:zddlh:26626 |
 | `ZDDLD` | 25424-25452 | 29 | 删除 ZDDL 生成的端子排框线与端子名/号，保留原理号、电缆接线和电缆文字。 | aa:cmd-begin:706, zddl2:xdata-app:25407, aa:layer-locked-p:4749, zddl2:set-layer-lock:25410, aa:cmd-end:719 |
-| `XZYL` | 26578-26584 | 7 | 修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。 | aa:cmd-begin:706, zyl:work:26546, aa:cmd-end:719 |
-| `BDL` | 26590-26596 | 7 | 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行；选水平原理号时按竖排端子排补画竖直电缆线。 | aa:cmd-begin:706, bdl:work:26024, aa:cmd-end:719 |
-| `ZDDLH` | 26602-26609 | 8 | 两次选择文字并指定左下基点，生成横排端子排与水平绿色电缆线（原 ZDDL）。 | aa:cmd-begin:706, zddl2:work:25321, aa:cmd-end:719 |
-| `ZDDLS` | 26615-26622 | 8 | 两次选择文字并指定左上基点，生成竖排端子排、水平引线与竖直绿色电缆线（向下箭头、文字 270°）。 | aa:cmd-begin:706, zddl2:work:25321, aa:cmd-end:719 |
+| `XZYL` | 26602-26608 | 7 | 修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。 | aa:cmd-begin:706, zyl:work:26570, aa:cmd-end:719 |
+| `BDL` | 26614-26620 | 7 | 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行；选水平原理号时按竖排端子排补画竖直电缆线。 | aa:cmd-begin:706, bdl:work:26048, aa:cmd-end:719 |
+| `ZDDLH` | 26626-26633 | 8 | 两次选择文字并指定左下基点，生成横排端子排与水平绿色电缆线（原 ZDDL）。 | aa:cmd-begin:706, zddl2:work:25321, aa:cmd-end:719 |
+| `ZDDLS` | 26639-26646 | 8 | 两次选择文字并指定左上基点，生成竖排端子排、水平引线与竖直绿色电缆线（向下箭头、文字 270°）。 | aa:cmd-begin:706, zddl2:work:25321, aa:cmd-end:719 |
 
 ## 辅助函数分组（按前缀）
 
@@ -238,5 +238,5 @@
 | `cu:` | 1 | 22773-22838 | CD, CU, CY, CZ |
 | `zddl:` | 27 | 23587-24237 | BDL, ZDC, ZDDL2, ZDDLH, ZDDLS |
 | `zddl2:` | 96 | 24342-25418 | BDL, ZDC, ZDDLD, ZDDLH, ZDDLS |
-| `bdl:` | 34 | 25459-26184 | BDL, XZYL |
-| `zyl:` | 31 | 26193-26572 | XZYL |
+| `bdl:` | 34 | 25459-26208 | BDL, XZYL |
+| `zyl:` | 31 | 26217-26596 | XZYL |

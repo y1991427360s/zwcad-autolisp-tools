@@ -304,6 +304,7 @@ NATIVE = {
     'cddr': lambda a: (a[2:] or None) if a else None,
     'cdddr': lambda a: (a[3:] or None) if a else None,
     'nth': lambda i, a: a[i] if a and 0 <= i < len(a) else None,
+    'logand': lambda *a: __import__('functools').reduce(lambda x, y: x & y, a, -1),
     'list': lambda *a: list(a) or None, 'cons': lcons,
     'append': lambda *a: [x for p in a for x in (p or [])] or None,
     'reverse': lambda a: list(reversed(a or [])) or None,
@@ -1878,7 +1879,7 @@ def mock_bdl_ssget(*args):
             return ['tip1']
     if mode == '_C':
         p1, p2, flt = args[1], args[2], dict(args[3])
-        if flt.get(0) == 'LINE':
+        if flt.get(0) == 'LINE,LWPOLYLINE':
             xlo, xhi = min(p1[0], p2[0]), max(p1[0], p2[0])
             if xlo <= 68684.2242 <= xhi:
                 return ['edgeL']
@@ -1913,6 +1914,25 @@ vgreen = [m for m in made if m.get(0) == 'LINE' and m.get(62) == 3]
 assert len(vgreen) == 1 and abs(vgreen[0][10][0] - 68669.2242) < 1e-4 and abs(vgreen[0][11][1] - 23224.1392) < 1e-4, vgreen
 vtxts = [m for m in made if m.get(0) == 'TEXT']
 assert [m[1] for m in vtxts] == ['未编号', '至未填写', '未填写'], vtxts
+# 端子排边框是矩形闭合多段线（用户 QW3：双电源切换箱）时，bdl:cross-lines 拆出与窗口相交的直线段，圆弧段跳过
+rect_ents = {
+    'rect': [(0, 'LWPOLYLINE'), (90, 4), (70, 1),
+             [10, -6629.4749, 6095.2374], [10, -6599.1674, 6095.2374],
+             [10, -6599.1674, 6080.9937], [10, -6629.4749, 6080.9937]],
+    'arc': [(0, 'LWPOLYLINE'), (90, 2), (70, 0), [10, -6625.0, 6070.0], (42, 1.0), [10, -6615.0, 6070.0]],
+    'ln': [(0, 'LINE'), (10, [-6620.0, 6000.0, 0.0]), (11, [-6620.0, 6200.0, 0.0])],
+}
+old_ssget2, old_entget2 = NATIVE['ssget'], NATIVE['entget']
+NATIVE['ssget'] = lambda *a: ['rect', 'arc', 'ln'] if a[0] == '_C' and dict(a[3]).get(0) == 'LINE,LWPOLYLINE' else []
+NATIVE['entget'] = lambda en: rect_ents[en]
+segs = call('bdl:cross-lines', [[-6622.4, 6052.3, 0.0], [-6622.3, 6115.8, 0.0]], GLOBAL)
+segs = sorted((round(a[0], 4), round(a[1], 4), round(b[0], 4), round(b[1], 4)) for a, b in (list(s) for s in segs))
+assert segs == sorted([(-6620.0, 6000.0, -6620.0, 6200.0),
+                       (-6629.4749, 6095.2374, -6599.1674, 6095.2374),
+                       (-6599.1674, 6080.9937, -6629.4749, 6080.9937)]), segs
+edges = call('bdl:edge', [-6622.3949, 6082.2869, 6085.7869], GLOBAL)
+assert abs(edges[0][1] - 6080.9937) < 1e-4 and abs(edges[1][1] - 6095.2374) < 1e-4, edges
+NATIVE['ssget'], NATIVE['entget'] = old_ssget2, old_entget2
 # BDL 绿线与箭头只在当前视图内交叉选择；视图扭转/非世界 UCS 时退回全图
 view_calls = []
 old_ssget, old_getvar = NATIVE['ssget'], NATIVE['getvar']

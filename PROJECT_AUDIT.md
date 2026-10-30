@@ -8,7 +8,7 @@
 
 | 文件 | 字节 | 顶层表达式 | 函数 | 命令 |
 | --- | ---: | ---: | ---: | ---: |
-| AA整合版本.lsp | 1132872 | 1222 | 1129 | 175 |
+| AA整合版本.lsp | 1134330 | 1222 | 1129 | 175 |
 | common/aicad_pure.lsp | 483 | 3 | 3 | 0 |
 | V6/aicad_aa_loader.lsp | 9914 | 32 | 24 | 3 |
 | V6/aicad_extension.lsp | 60953 | 142 | 112 | 10 |
@@ -116,12 +116,12 @@
 | review | implicit-global | AA整合版本.lsp:18708 | c:dl1 | 写入未声明变量 lay；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:19509 | aa:rep-text | 写入未声明变量 c；动态调用方局部绑定需人工确认 |
 | review | implicit-global | AA整合版本.lsp:19555 | aa:rep-end | 写入未声明变量 r；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26239 | zyl:remove1 | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26246 | zyl:plan | 写入未声明变量 d；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26246 | zyl:plan | 写入未声明变量 k；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26295 | zyl:join | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26433 | zyl:count-same | 写入未声明变量 x；动态调用方局部绑定需人工确认 |
-| review | implicit-global | AA整合版本.lsp:26439 | zyl:choose | 写入未声明变量 v；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26263 | zyl:remove1 | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26270 | zyl:plan | 写入未声明变量 d；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26270 | zyl:plan | 写入未声明变量 k；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26319 | zyl:join | 写入未声明变量 e；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26457 | zyl:count-same | 写入未声明变量 x；动态调用方局部绑定需人工确认 |
+| review | implicit-global | AA整合版本.lsp:26463 | zyl:choose | 写入未声明变量 v；动态调用方局部绑定需人工确认 |
 | review | shared-global | V6/aicad_aa_loader.lsp:264 | *aicad_basedirectory* | 跨文件写入: V6/aicad_aa_loader.lsp:264 (aicadloader:command-load), V6/aicad_extension.lsp:62 (aicad:remember-base-directory), V6/aicad_extension.lsp:97 (&lt;load>) |
 | review | sysvar-restore | AA整合版本.lsp:5292 | c:ll | "AUTOSNAP": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:5292 | c:ll | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
@@ -154,7 +154,7 @@
 | review | sysvar-restore | AA整合版本.lsp:23292 | c:sc3 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:23475 | c:vpo1 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
 | review | sysvar-restore | AA整合版本.lsp:23483 | c:vpo2 | "CMDECHO": 未见直接变量值恢复；getvar快照=False，需核对框架/是否持久设置 |
-| review | sysvar-restore | AA整合版本.lsp:26304 | zyl:pick | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
+| review | sysvar-restore | AA整合版本.lsp:26328 | zyl:pick | "ERRNO": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置 |
 | review | undo-close | AA整合版本.lsp:706 | aa:cmd-begin | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:737 | aa:undo-mark-on | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |
 | review | undo-close | AA整合版本.lsp:17826 | c1c2:run | vla-startundomark 出现；本函数未找到 vla-endundomark，需追踪调用方/异常路径 |

@@ -3,7 +3,7 @@
   "files": [
     {
       "file": "AA整合版本.lsp",
-      "bytes": 1132872,
+      "bytes": 1134330,
       "top_level_forms": 1222,
       "functions": 1129,
       "commands": 175
@@ -1055,7 +1055,7 @@
     {
       "command": "BDL",
       "file": "AA整合版本.lsp",
-      "line": 26590,
+      "line": 26614,
       "description": "选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行；选水平原理号时按竖排端子排补画竖直电缆线。",
       "params": [],
       "inputs": [
@@ -6415,7 +6415,7 @@
     {
       "command": "XZYL",
       "file": "AA整合版本.lsp",
-      "line": 26578,
+      "line": 26602,
       "description": "修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。",
       "params": [],
       "inputs": [
@@ -6528,6 +6528,7 @@
       "external_files": [],
       "object_candidates": [
         "LINE",
+        "LWPOLYLINE",
         "MTEXT",
         "TEXT"
       ],
@@ -7335,7 +7336,7 @@
     {
       "command": "ZDDLH",
       "file": "AA整合版本.lsp",
-      "line": 26602,
+      "line": 26626,
       "description": "两次选择文字并指定左下基点，生成横排端子排与水平绿色电缆线（原 ZDDL）。",
       "params": [],
       "inputs": [
@@ -7497,7 +7498,7 @@
     {
       "command": "ZDDLS",
       "file": "AA整合版本.lsp",
-      "line": 26615,
+      "line": 26639,
       "description": "两次选择文字并指定左上基点，生成竖排端子排、水平引线与竖直绿色电缆线（向下箭头、文字 270°）。",
       "params": [],
       "inputs": [
@@ -9197,7 +9198,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26239,
+      "line": 26263,
       "function": "zyl:remove1",
       "evidence": "写入未声明变量 e；动态调用方局部绑定需人工确认"
     },
@@ -9205,7 +9206,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26246,
+      "line": 26270,
       "function": "zyl:plan",
       "evidence": "写入未声明变量 d；动态调用方局部绑定需人工确认"
     },
@@ -9213,7 +9214,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26246,
+      "line": 26270,
       "function": "zyl:plan",
       "evidence": "写入未声明变量 k；动态调用方局部绑定需人工确认"
     },
@@ -9221,7 +9222,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26295,
+      "line": 26319,
       "function": "zyl:join",
       "evidence": "写入未声明变量 e；动态调用方局部绑定需人工确认"
     },
@@ -9229,7 +9230,7 @@
       "rule": "sysvar-restore",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26304,
+      "line": 26328,
       "function": "zyl:pick",
       "evidence": "\"ERRNO\": 未见直接变量值恢复；getvar快照=True，需核对框架/是否持久设置"
     },
@@ -9237,7 +9238,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26433,
+      "line": 26457,
       "function": "zyl:count-same",
       "evidence": "写入未声明变量 x；动态调用方局部绑定需人工确认"
     },
@@ -9245,7 +9246,7 @@
       "rule": "implicit-global",
       "level": "review",
       "file": "AA整合版本.lsp",
-      "line": 26439,
+      "line": 26463,
       "function": "zyl:choose",
       "evidence": "写入未声明变量 v；动态调用方局部绑定需人工确认"
     },
@@ -10041,7 +10042,7 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 26264,
+        "line": 26288,
         "function": "zyl:read-pass"
       }
     ],
@@ -10527,19 +10528,19 @@
     "d": [
       {
         "file": "AA整合版本.lsp",
-        "line": 26251,
+        "line": 26275,
         "function": "zyl:plan"
       }
     ],
     "e": [
       {
         "file": "AA整合版本.lsp",
-        "line": 26241,
+        "line": 26265,
         "function": "zyl:remove1"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 26296,
+        "line": 26320,
         "function": "zyl:join"
       }
     ],
@@ -10630,7 +10631,7 @@
     "k": [
       {
         "file": "AA整合版本.lsp",
-        "line": 26256,
+        "line": 26280,
         "function": "zyl:plan"
       }
     ],
@@ -10834,12 +10835,12 @@
     "v": [
       {
         "file": "AA整合版本.lsp",
-        "line": 26458,
+        "line": 26482,
         "function": "zyl:choose"
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 26466,
+        "line": 26490,
         "function": "zyl:choose"
       }
     ],
@@ -10865,7 +10866,7 @@
       },
       {
         "file": "AA整合版本.lsp",
-        "line": 26435,
+        "line": 26459,
         "function": "zyl:count-same"
       }
     ],

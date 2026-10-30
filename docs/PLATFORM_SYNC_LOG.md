@@ -2153,3 +2153,13 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `EEC30A4AB552F3148DFAE30D5D96134D1A065611F481621F467402A6F04406D9`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL电缆组计数-20261029-215156`。
 - AutoCAD 状态：代码未修改，与 21:14:47 起的 BDL 条目一并待同步。
 - 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。
+
+# 2026-10-30 15:20:44 中望 BDL 识别矩形（闭合多段线）端子排边框
+
+- 命令/模块：BDL（`bdl:cross-lines`，经 `bdl:edge` / `bdl:edge-v` / `bdl:cell-center(-v)` / `bdl:lead-used(-v)-p` 影响 BDL、XZYL）。
+- 问题：用户 QW3“双电源切换箱”外框是 4 顶点闭合 LWPOLYLINE，原理号 L1/L2/N1/N2（旋转 90°）下方的边线只认 LINE，找不到边线，按“距边 2”反推的位置偏离实际边框。
+- 改动：小窗口交叉选择改为 `LINE,LWPOLYLINE`；多段线按 ECS（`trans` 实体名）拆成直线段，含闭合段，跳过凸度非 0 的圆弧段，只保留包围范围与查找窗口相交的段，避免别处的段误判为边线。
+- 测试：`tools/check_bh_static.py` 测试桩过滤器同步为 `LINE,LWPOLYLINE`，新增 QW3 矩形 + 圆弧多段线 + 直线用例（拆段结果、`bdl:edge` 取到下边 6080.9937 / 上边 6095.2374），解释器补 `logand`；ALL PASS。`gen_命令索引.py`、`audit_lsp.py --write` 已更新；`check_all_static.py` ALL PASS（120.8s）。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `C94E1787B619C3E5129D4BE70C91DCCB4F61339B437072CAF55E0075675687E8`；修改前备份 `backups/dated/2026-10-30/AA整合版本.lsp.bak-BDL矩形边框-20261030-151454`。
+- AutoCAD 状态：代码未修改，与此前 BDL 条目一并待同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。

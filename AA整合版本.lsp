@@ -25453,17 +25453,41 @@
 
 ;;; --- BDL：给后补的原理号补画一根 ZDDL 样式的电缆 ---
 ;; 尺寸沿用 zddl2:draw-cables：第 1 根电缆距端子排 10，之后每根错开 5；箭头尖端左 20 写编号、右 1.5 写去向、右 32 写截面，电缆线到尖端右 40。
-;; 端子排边线、端子格竖线、已有引线用小窗口 ssget "_C" 查找（原理号附近需在当前视图内）。
+;; 端子排边线、端子格竖线、已有引线用小窗口 ssget "_C" 查找（原理号附近需在当前视图内）；直线和多段线（如矩形边框）都认。
 ;; 已有绿色电缆线和三角箭头只在当前视图内查找（bdl:view-ss）：要参照的已有电缆及其箭头需在屏幕上可见。
 
-(defun bdl:cross-lines (p1 p2 / ss i ed out)
-  ;; 小窗口交叉选择 LINE，返回 ((起点 终点) ...)；p1/p2 为 WCS
-  (setq ss (ssget "_C" (trans p1 0 1) (trans p2 0 1) '((0 . "LINE")))
-        i 0 out nil)
+(defun bdl:cross-lines (p1 p2 / ss i en ed out xl xh yl yh z vs v a b k)
+  ;; 小窗口交叉选择 LINE 和 LWPOLYLINE，返回 ((起点 终点) ...)；p1/p2 为 WCS。
+  ;; 端子排边框画成矩形（闭合多段线）时也要认：多段线拆成直线段（圆弧段跳过），只取和窗口相交的段
+  (setq ss (ssget "_C" (trans p1 0 1) (trans p2 0 1) '((0 . "LINE,LWPOLYLINE")))
+        i 0 out nil
+        xl (min (car p1) (car p2)) xh (max (car p1) (car p2))
+        yl (min (cadr p1) (cadr p2)) yh (max (cadr p1) (cadr p2)))
   (if ss
     (repeat (sslength ss)
-      (setq ed (entget (ssname ss i)) i (1+ i))
-      (setq out (cons (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed))) out))))
+      (setq en (ssname ss i) ed (entget en) i (1+ i))
+      (if (= (cdr (assoc 0 ed)) "LINE")
+        (setq out (cons (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed))) out))
+        (progn
+          ;; vs = ((WCS 顶点 凸度) ...)
+          (setq z (cond ((cdr (assoc 38 ed))) (0.0)) vs nil)
+          (foreach v ed
+            (cond
+              ((= (car v) 10)
+               (setq vs (cons (list (trans (list (cadr v) (caddr v) z) en 0) 0.0) vs)))
+              ((and (= (car v) 42) vs)
+               (setq vs (cons (list (car (car vs)) (cdr v)) (cdr vs))))))
+          (setq vs (reverse vs) k 0)
+          (if (= 1 (logand 1 (cond ((cdr (assoc 70 ed))) (0))))
+            (setq vs (append vs (list (car vs)))))
+          (while (< k (1- (length vs)))
+            (setq a (nth k vs) b (nth (1+ k) vs) k (1+ k))
+            (if (and (< (abs (cadr a)) 1e-9)
+                     (<= (min (car (car a)) (car (car b))) xh)
+                     (>= (max (car (car a)) (car (car b))) xl)
+                     (<= (min (cadr (car a)) (cadr (car b))) yh)
+                     (>= (max (cadr (car a)) (cadr (car b))) yl))
+              (setq out (cons (list (car a) (car b)) out))))))))
   out)
 
 (defun bdl:horizontal-p (ln)
