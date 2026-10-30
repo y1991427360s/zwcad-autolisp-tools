@@ -1,3 +1,4 @@
+from pathlib import Path
 """Offline checks for AA_LINK text linking (SX / SX1 / SX2), no CAD.
 
 Structure: command locals, declared setq/foreach variables, no vl-sort,
@@ -365,6 +366,17 @@ assert [ed[0][1] for ed in modded] == ['copy', 'paste'], modded
 # 解释器把引用表中的 -3 读作符号，按文本比较；真实 LISP 中为整数 -3
 assert all(str(ed[-1][0]) == '-3' and ed[-1][1:] == [['AA_LINK']] for ed in modded), modded
 assert any('清除副本标记 2 个，跳过原件 1 个，无标记 1 个' in s for s in said), said
+
+# SXD：值文件名换成图纸名；目标图表达式纯 ASCII、带图名校验和完成标记
+assert run('aa:link-dwg-of', 'E:\\卷册\\A图.aalink.txt') == 'E:\\卷册\\A图.dwg'
+source = (Path(__file__).resolve().parents[1] / 'AA整合版本.lsp').read_bytes().decode('utf-8')
+assert '(aa:link-export-roots dwg-id)' in source[source.index('(defun c:SX ('):source.index('(defun c:SXC')]  # SX 标记后直接更新值文件
+assert '(aa:link-locate-dwg info dir)' in source[source.index('(defun c:SXD'):source.index('(defun aa:link-clock')]  # 跳转不依赖值文件
+sxd_src = source[source.index('(defun aa:link-vbs-str'):source.index('(defun aa:link-pick-text')]
+assert 'vla-Activate' not in sxd_src and 'vla-Open' not in sxd_src  # LISP 切文档后命令会挂起，切换和打开都交给 VBS
+assert 'a.Documents.Open' in sxd_src and 't.Activate' in sxd_src and 'USERS5' in sxd_src and 'wscript.exe' in sxd_src
+assert '(min (- (cadr b) (cadr a)) (- (car b) (car a)))' in sxd_src  # 竖排文字按短边定缩放
+assert '(aa:cmd-begin' not in source[source.index('(defun c:SXD'):source.index('(defun aa:link-clock')]  # 只读命令不开撤销组
 
 print(f'PASS link: {len(LINK)} aa:link helpers + SX/SX1/SX2 structure; utf8 open/close; '
       'SX0 clears copies only; value-file round trip; handent root lookup; line parsing; newest-file priority; UID join; TEXT/MTEXT choice')

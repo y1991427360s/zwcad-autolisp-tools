@@ -195,6 +195,7 @@ invoke = invoke_enhanced
 
 # 联动辅助函数在 CAD 实体层读取 XData，此处以桩替代
 native['aa:link-xdata'] = lambda en: None
+native['not'] = lambda x: not bool(x)
 
 # Test 1: xyg:find-prefix-text
 entities = {
@@ -712,6 +713,81 @@ entities = {
 v_new_idx = invoke('xyg:build-text-index', [list(entities), 'point'], {})
 v_down_res = invoke('xyg:find-down-new-texts', [[68674.2242, 23224.1392, 0.0], v_new_idx, 4, None], {})
 assert v_down_res == ['4', '827', '829', '831', '833'], v_down_res
+
+# 13 芯电缆：最后一个原理号距线端 370，超过旧的固定 350 范围也不能丢
+names = ['800'] + [str(n) for n in range(839, 862, 2)]
+entities = {'h13_core': text_ed('TEXT', 72928.2471, 29432.2161, 3.0, '13')}
+for k, name in enumerate(names):
+    entities[f'h13_{k}'] = text_ed('TEXT', 72936.2471 + 30.0 * k, 29432.2161, 3.0, name)
+h13_idx = invoke('xyg:build-text-index', [list(entities), 'point'], {})
+h13_res = invoke('xyg:find-right-new-texts', [[72926.2471, 29431.7161, 0.0], h13_idx, 13, None], {})
+assert h13_res == ['13'] + names, h13_res
+entities = {'v13_core': text_ed('TEXT', 100.5, 998.0, 3.0, '13')}
+for k, name in enumerate(names):
+    entities[f'v13_{k}'] = text_ed('TEXT', 100.5, 990.0 - 30.0 * k, 3.0, name)
+v13_idx = invoke('xyg:build-text-index', [list(entities), 'point'], {})
+v13_res = invoke('xyg:find-down-new-texts', [[100.0, 1000.0, 0.0], v13_idx, 13, None], {})
+assert v13_res == ['13'] + names, v13_res
+
+# 水平、竖直绿色电缆线同图：芯线和没有横引线的绿色竖线不算电缆，line-geo 不含竖线
+G = {'*xy-conn-tol*': 0.05, '*xy-geom-tol*': 0.0001, '*xy-ang-tol*': 0.0175, 'pi': 3.141592653589793}
+def green(x1, y1, x2, y2):
+    return [(0, 'LINE'), (62, 3), (5, f'{x1}_{y1}'), (10, [x1, y1, 0.0]), (11, [x2, y2, 0.0])]
+entities = {'mx_h': green(0.0, 100.0, 50.0, 100.0), 'mx_core': green(20.0, 100.0, 20.0, 130.0),
+            'mx_cable': green(200.0, 100.0, 200.0, 20.0), 'mx_plain': green(300.0, 100.0, 300.0, 20.0),
+            'mx_lead': [(0, 'LINE'), (62, 7), (10, [200.0, 60.0, 0.0]), (11, [150.0, 60.0, 0.0])]}
+for fn in ('xy:near', 'xy:between', 'xy:abs', 'xy:hline-info-ed', 'xy:vline-hinfo-p', 'xy:make-vrec-if-valid-fast',
+           'xy:ss->list', 'xy:is-green-hline-p'):
+    assert fn in functions, fn
+native['xy:ss->list'] = lambda s: list(s or [])
+native['xy:is-green-hline-p'] = lambda en: en.startswith('mx_') and en != 'mx_lead'
+native['xy:collect-vlines'] = lambda sel: ([['mx_lead', [200.0, 60.0, 0.0], [150.0, 60.0, 0.0], 'h']] if sel == ['mx_cable'] else [])
+native['princ'] = lambda *a: None
+native['itoa'] = str
+native['strcat'] = lambda *a: ''.join(a)
+assert invoke('xyg:vline-on-hline-p', [entities['mx_core'], ['mx_h']], G)
+assert not invoke('xyg:vline-on-hline-p', [entities['mx_cable'], ['mx_h']], G)
+assert invoke('xyg:filter-green-lines', [['mx_h', 'mx_core', 'mx_cable', 'mx_plain']], G) == ['mx_h', 'mx_cable']
+assert invoke('xyg:filter-green-lines', [['mx_cable', 'mx_plain']], G) == ['mx_cable', 'mx_plain']
+assert invoke('xyg:filter-green-lines', [['mx_h']], G) == ['mx_h']
+assert [g[0] for g in invoke('xyg:line-geo-list', [['mx_h', 'mx_cable']], G)] == ['mx_h']
+
+# 并入行并到同编号、同去向的主电缆行
+assert 'xyg:merge-join-rows' in str(targets['xyg:run'])
+# XYG2：同一主流程，只是不留 XY 文字和异常标记
+assert targets['c:xyg'][3] == ['xyg:run', 'XYG', 't'] or str(targets['c:xyg'][3]).lower().count('xyg:run') == 1
+assert 'nil' in str(functions['c:xyg2'][3]) and 'xyg:run' in str(functions['c:xyg2'][3])
+xyg_run = source[source.index('(defun xyg:run'):source.index('(defun c:XYG ()')]
+assert '(foreach cur xy-new-texts (entdel cur))' in xyg_run
+assert xyg_run.index('lines-group-data (reverse lines-group-data)') < xyg_run.index('(entdel cur)') < xyg_run.index('getpoint')  # 指定插入点前图面已还原
+yuan = source[source.index('(defun xy:run-yuan'):source.index('(defun xy:filter-green-hlines')]
+assert '(if (not *xy-no-mark*)' in yuan
+xin = source[source.index('(defun xy:run-xin'):source.index('(defun xy:make-vrec-if-valid-fast')]
+assert '(setq *xy-no-mark* nil)' in xin  # 上次中断残留的标记不影响 XY
+native['bh:join-target'] = lambda s: s[2:] if s and s.startswith('并入') and len(s) > 2 else None
+native['aa:gtx-key'] = lambda s: s
+native['vl-remove'] = lambda x, xs: [v for v in xs if v != x]
+native['subst'] = lambda new, old, xs: [new if v == old else v for v in xs]
+def row(*texts):
+    return [[x, f'L{k}'] for k, x in enumerate(texts)]
+main = row('1B-208', '至甲柜', '4×1.5', '2', 'A', 'B')
+other = row('1B-209', '至甲柜', '4×1.5', '1', 'C')
+join = row('并入1B-208', '至甲柜', '4×1.5', '2', 'D', 'E')
+res = invoke('xyg:merge-join-rows', [[main, other, join]], {})
+assert res[-1] == 1 and len(res[0]) == 2 and res[0][1] == other, res
+got = res[0][0]
+assert [x[0] for x in got] == ['1B-208', '至甲柜', '4×1.5', '4', 'A', 'B', 'D', 'E'], got
+assert got[3] == ['4'] and got[6] == ['D', 'L4'], got
+# 主电缆在别处或去向不同：保留并入行
+diff = row('并入1B-208', '至乙柜', '4×1.5', '2', 'D')
+res = invoke('xyg:merge-join-rows', [[main, diff]], {})
+assert res[-1] == 0 and res[0] == [main, diff], res
+res = invoke('xyg:merge-join-rows', [[join]], {})
+assert res[-1] == 0 and res[0] == [join], res
+# 两根并入线按图上顺序接在主电缆后面
+join2 = row('并入1B-208', '至甲柜', '4×1.5', '1', 'F')
+res = invoke('xyg:merge-join-rows', [[main, join, join2]], {})
+assert res[-1] == 2 and [x[0] for x in res[0][0]] == ['1B-208', '至甲柜', '4×1.5', '5', 'A', 'B', 'D', 'E', 'F'], res
 
 print(f'PASS: {len(targets)} XYG functions; prefix text detection; 3mm rect filtering & 3-text truncation; hline dedup; '
       f'right-text cluster/count isolation (no duplicate text across columns); AA_LINK info/root detection; matrix sort on (text . link) pairs; '

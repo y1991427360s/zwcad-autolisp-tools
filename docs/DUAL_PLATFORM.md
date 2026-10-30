@@ -226,3 +226,5 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 差异：AutoCAD 2018 的 AutoLISP 运行在 GBK 字节语义下，全角字符如 `＃`（0xA3 0xA3）和 `－`（0xA3 0xAD）的 `strlen` 返回 2，`substr` 按字节偏移切片；而纯 Python 解释器或中望环境字符语义下返回 1。
 - 处理：源码中涉及全角字符跳步和切片时，一律使用 `(strlen "－")`、`(strlen "＃")` 动态获取步长，禁止硬编码步长为 1 或 2，确保在 GBK 实机与 Python 离线模拟测试中逻辑完全一致。
 - 证据与状态：`tools/check_nu_c1c2_target_static.py` 全量 650 项断言（含 39 个复杂全角字符边界用例）全部通过。
+
+- 跨文档跳转（SXD，2026-10-30，适用中望 2026，实测）：LISP 命令运行中 `vla-Activate` 切换后，目标图要到命令结束才成为活动图，期间 `SendCommand`、`ZoomCenter`、`ActiveViewport` 属性不生效，命令后续代码也会挂起到用户回到原图才继续；处理方式是 LISP 不切文档，由脱离 CAD 的 VBS 打开、切换并定位。AutoCAD 2018 未验证。

@@ -82,6 +82,7 @@
 ;;;   - XIN   : 统计选中直线矩形范围内的对象数量并标注结果。
 ;;;   - XY    : 处理所选电缆线（水平线，或绿色竖直线），先运行 XIN 统计芯数，再运行 YUAN 提取原理号；水平线横向输出，竖直线在底端下方输出 270° 文字。
 ;;;   - XYG   : 一次框选，自动提取绿色水平/竖直电缆线执行 XY 统计，并提取大字与电缆文字执行 GTX 分类汇总。
+;;;   - XYG2  : 与 XYG 相同的框选和汇总表，但原图不留痕：电缆后面不留芯数和原理号，异常电缆线也不改色、不延长。
 ;;;   - JM    : 按绿色电缆线（水平或竖直）所连原理号，把 ZDDLH/ZDDLS 生成的“未填写”替换为电缆截面；无法判断的保留并选中提示。
 ;;;   - BH1   : 逐根点选编号：先点起点柜名大字并输入前缀、起始号，再依次点绿色电缆线，回车后自动缩放一次识别并按点选顺序编号，同终点加 A/B/C，可撤销本批。
 ;;;   - BH2   : 框选起点柜和绿色电缆线，把已编号但没记录的电缆记入共享记录，给有记录的“未编号”按记录填写；不分配新编号，两端不一致的标红注明原因。
@@ -92,6 +93,7 @@
 ;;;   - YSSX0 : 强制清除联动标记：框选文字，原件和副本的联动标记一并删除，全部成为普通文字。
 ;;;   - SX    : 联动标记：框选原件端子排文字发放唯一编号（UID），草稿/XY/XYG/GTY 副本自动继承。
 ;;;   - SX1   : 联动刷新：全图所有同 UID 的副本文字按原件内容单向更新（只同步文字内容），已保存的图同时导出跨图值文件。
+;;;   - SXD   : 跳到原件：点选文字，缩放到它的原件；原件在其他图纸时按图名找到该图，打开或切换过去；只读。
 ;;;   - SX2   : 跨图联动刷新：读取指定文件夹内各卷册图的 .aalink.txt 值文件，更新本图中原件在其他图纸的副本文字。
 ;;;   - HBDL  : 框选电缆清册表格文字，自动将带有“并入”前缀的行合并到对应的目标电缆主行中，自动累加芯数并在末尾追加原理号，其他行保持原位。
 ;;;   - NU    : 材料表数字加数字：优先改井号相邻数字，其次改最后一个减号后的连续整数，都没有时改第一个数字（支持小数和正负号）。
@@ -136,6 +138,7 @@
 ;;;   - QW    : 提取选中文字，同一行用顿号连接，不同行之间也用顿号分隔，并复制到剪贴板。
 ;;;   - QW2   : 提取选中文字及坐标，每项一行“x,y 文字”，坐标保留 2 位小数，复制到剪贴板。
 ;;;   - QW3   : 导出选中对象的类型、图层、坐标、几何及文字属性为结构化文本并复制到剪贴板。
+;;;   - TJK   : 点选块，统计当前空间或框选范围内同名块（含动态块）的数量，选中它们并用红圈和序号标出；Q 清除标记。
 ;;;   - FF    : 预选文字，空格确认查找及替换内容，批量替换所有匹配片段。
 ;;;   - REP   : 将选中的柜名文字按内置映射表替换为标准柜名。
 ;;;   - QE    : 用 Windows 剪贴板中的文字批量替换选中文字；文字含“至”字时只替换“至”后的部分。
@@ -7607,6 +7610,7 @@
 (setq *xy-out-offy*      0.5)              ; 输出起点相对水平线右端点偏移 Y
 (setq *xy-step-x*        30.0)             ; 新文字插入点固定间距
 (setq *xy-warn-extend-len* 200.0)          ; 异常水平线右端点延长距离
+(setq *xy-no-mark*        nil)              ; T 时 YUAN 只提示异常电缆线，不改色、不延长（XYG2 用）
 (setq *xy-last-xin-counts* nil)            ; 最近一次XIN输出数字表
 (setq *xy-last-vrec-map*   nil)            ; 最近一次每条水平线匹配到的竖线表
 (setq *xy-last-vline-data* nil)            ; 最近一次 pre-fetched 竖直线数据 (en x y1 y2)
@@ -7964,6 +7968,7 @@
 )
 
 (defun xy:run-xin (sel / selList vlineDataList ss i ent entData p1 p2 hinfo rightPt rot handle countMap vrecMap vrecs countNum insertPt textStr)
+  (setq *xy-no-mark* nil)
   (setq *xy-last-xin-counts* nil)
   (setq *xy-last-vrec-map* nil)
   (setq *xy-last-vline-data* nil)
@@ -8617,7 +8622,8 @@
 
             (if (/= (car res) (caddr res))
               (progn
-                (xy:mark-abnormal-hline en)
+                (if (not *xy-no-mark*)
+                  (xy:mark-abnormal-hline en))
                 (setq warnCnt (1+ warnCnt))
                 (setq warnYText
                       (if (= warnYText "")
@@ -9076,6 +9082,76 @@
   )
 )
 
+;; 绿色竖线的端点落在绿色横线上：这是横电缆的芯线，不是电缆
+(defun xyg:vline-on-hline-p (ed hlines / p1 p2 hit en hd a b pt)
+  (setq p1 (cdr (assoc 10 ed))
+        p2 (cdr (assoc 11 ed))
+        hit nil)
+  (foreach en hlines
+    (setq hd (entget en)
+          a  (cdr (assoc 10 hd))
+          b  (cdr (assoc 11 hd)))
+    (foreach pt (list p1 p2)
+      (if (and (xy:near (cadr pt) (cadr a) *xy-conn-tol*)
+               (xy:between (car pt) (car a) (car b) *xy-conn-tol*))
+        (setq hit T))
+    )
+  )
+  hit
+)
+
+;; 绿色竖线上连着横引线才算竖直电缆
+(defun xyg:vline-has-leader-p (en / hinfo vd hit)
+  (setq hinfo (xy:hline-info-ed (entget en))
+        hit nil)
+  (foreach vd (xy:collect-vlines (list en))
+    (if (xy:make-vrec-if-valid-fast vd hinfo *xy-geom-tol*)
+      (setq hit T))
+  )
+  hit
+)
+
+;; XYG 收绿色电缆线：水平、竖直都收。只有一种方向时全部保留；
+;; 两种都有时，竖线要过芯线和引线两道判断，避免横排图里非电缆的绿色竖线被误认
+(defun xyg:filter-green-lines (ss / hlines vlines kept skipped en ed)
+  (setq hlines '() vlines '() kept '() skipped 0)
+  (foreach en (xy:ss->list ss)
+    (if (xy:is-green-hline-p en)
+      (progn
+        (setq ed (entget en))
+        (if (xy:near (cadr (cdr (assoc 10 ed))) (cadr (cdr (assoc 11 ed))) *xy-geom-tol*)
+          (setq hlines (cons en hlines))
+          (setq vlines (cons en vlines)))))
+  )
+  (setq hlines (reverse hlines)
+        vlines (reverse vlines))
+  (if (and hlines vlines)
+    (progn
+      (foreach en vlines
+        (if (and (not (xyg:vline-on-hline-p (entget en) hlines))
+                 (xyg:vline-has-leader-p en))
+          (setq kept (cons en kept))
+          (setq skipped (1+ skipped)))
+      )
+      (if (> skipped 0)
+        (princ (strcat "\r\n[XYG] 跳过 " (itoa skipped) " 条不是电缆的绿色竖线（芯线或没有横引线）。")))
+      (append hlines (reverse kept))
+    )
+    (if hlines hlines vlines)
+  )
+)
+
+;; 按方向取 XY 新文字：want-vert 为 T 取旋转文字（竖直电缆），否则取水平文字
+(defun xyg:texts-by-dir (texts want-vert / en out flat)
+  (setq out '())
+  (foreach en texts
+    (setq flat (xy:is-horizontal-text-0-p (xy:get-text-rotation (entget en)) *xy-ang-tol*))
+    (if (if want-vert (not flat) flat)
+      (setq out (cons en out)))
+  )
+  (reverse out)
+)
+
 (defun xyg:sort-lines-desc (lines / keyed)
   ;; 按 Y 坐标从大到小（从上到下）排序；每条线只 entget 一次，比较结果与逐次读取完全一致
   (setq keyed
@@ -9084,13 +9160,14 @@
 )
 
 (defun xyg:line-geo-list (sorted-lines / en ed p1 p2 out)
-  ;; 每条线只读取一次几何：(图元 Y 左端X)，顺序与 sorted-lines（Y 非增）一致
+  ;; 每条线只读取一次几何：(图元 Y 左端X)，顺序与 sorted-lines（Y 非增）一致；竖线不参与右侧邻线判断
   (setq out '())
   (foreach en sorted-lines
     (setq ed  (entget en)
           p1  (cdr (assoc 10 ed))
-          p2  (cdr (assoc 11 ed))
-          out (cons (list en (cadr p1) (min (car p1) (car p2))) out))
+          p2  (cdr (assoc 11 ed)))
+    (if (not (xy:vline-hinfo-p (xy:hline-info-ed ed)))
+      (setq out (cons (list en (cadr p1) (min (car p1) (car p2))) out)))
   )
   (reverse out)
 )
@@ -9125,7 +9202,11 @@
 (defun xyg:find-right-new-texts (rightPt new-index expected-count max-x / rx ry limit-x res x y record prev-x cand keep-cnt trimmed idx cand-num gap-ok)
   (setq rx      (car rightPt)
         ry      (cadr rightPt)
-        limit-x (if max-x max-x (+ rx 350.0)))
+        ;; 没有右侧邻线时按芯数定范围，不用固定 350，否则 12 芯以上丢末尾原理号
+        limit-x (cond (max-x max-x)
+                      ((and expected-count (> expected-count 0))
+                       (+ rx 10.0 (* 30.0 expected-count) 20.0))
+                      (T (+ rx 350.0))))
   (if (and expected-count (> expected-count 0))
     (setq limit-x (min limit-x (+ rx 10.0 (* 30.0 expected-count) 20.0)))
   )
@@ -9228,7 +9309,11 @@
 (defun xyg:find-down-new-texts (bottomPt new-index expected-count min-y / rx ry limit-y res x y record prev-y cand keep-cnt trimmed idx cand-num gap-ok)
   (setq rx      (car bottomPt)
         ry      (cadr bottomPt)
-        limit-y (if min-y min-y (- ry 350.0)))
+        ;; 没有下方邻线时按芯数定范围，同 xyg:find-right-new-texts
+        limit-y (cond (min-y min-y)
+                      ((and expected-count (> expected-count 0))
+                       (- (- (- ry 10.0) (* 30.0 expected-count)) 20.0))
+                      (T (- ry 350.0))))
   (if (and expected-count (> expected-count 0))
     (setq limit-y (max limit-y (- (- (- ry 10.0) (* 30.0 expected-count)) 20.0)))
   )
@@ -9355,7 +9440,54 @@
   )
 )
 
-(defun c:XYG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+;; 在 rows 里找并入行 row 的主电缆：编号是 tg、去向相同、本身不是并入行、芯数是数字
+(defun xyg:find-join-main (row tg rows / best cand)
+  (setq best nil)
+  (foreach cand rows
+    (if (and (null best)
+             (null (bh:join-target (car (car cand))))
+             (= (aa:gtx-key (car (car cand))) (aa:gtx-key tg))
+             (nth 1 cand)
+             (nth 1 row)
+             (= (car (nth 1 cand)) (car (nth 1 row)))
+             (nth 3 cand)
+             (> (atoi (car (nth 3 cand))) 0))
+      (setq best cand)
+    )
+  )
+  best
+)
+
+;; 主行芯数加上并入行芯数，并入行原理号接在主行后面；合并后的芯数没有原件，不带联动身份
+(defun xyg:join-row (main row)
+  (append (list (nth 0 main) (nth 1 main) (nth 2 main)
+                (cons (itoa (+ (atoi (car (nth 3 main))) (atoi (car (nth 3 row))))) nil))
+          (cdr (cdr (cdr (cdr main))))
+          (cdr (cdr (cdr (cdr row)))))
+)
+
+;; 汇总行里的“并入X”并到同编号、同去向的主电缆行，返回 (新行列表 . 并入根数)，规则同 BH2、HBDL。
+;; 找不到主电缆或并入行芯数不对时保留该行并提示
+(defun xyg:merge-join-rows (rows / out row tg main n)
+  (setq out rows n 0)
+  (foreach row rows
+    (if (setq tg (bh:join-target (car (car row))))
+      (progn
+        (setq main (if (and (nth 3 row) (> (atoi (car (nth 3 row))) 0))
+                     (xyg:find-join-main row tg out)))
+        (if main
+          (setq out (subst (xyg:join-row main row) main (vl-remove row out))
+                n   (1+ n))
+          (princ (strcat "\r\n[XYG] 提示: " (car (car row))
+                         " 没有找到本次框选里同编号、同去向的主电缆，保留为单独一行。")))
+      )
+    )
+  )
+  (cons out n)
+)
+
+;; XYG / XYG2 主流程：tag 为命令名；keep 为 T 时 XY 文字和异常标记留在图上（XYG），nil 时不留（XYG2）
+(defun xyg:run (tag keep / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                all-ss raw-green-lines-ss green-lines-list green-lines-ss sorted-lines
                line-orig-pts
                prefix-ent prefix-str last-ent xy-new-texts cur
@@ -9363,9 +9495,9 @@
                line-handle expected-count next-line-min-x limit-x is-vert next-vline-max-y limit-y
                left-texts right-texts full-texts pt text-style categorized-groups
                left-text temp-text last-hyphen-pos category found-category
-               eda p1a p2a left-src right-src prefix-link rect-index new-index line-geo)
+               eda p1a p2a left-src right-src prefix-link rect-index new-index new-vindex line-geo join-res)
 
-  (aa:cmd-begin "XYG")
+  (aa:cmd-begin tag)
   (princ "\r\n[XYG] 请框选包含大字、绿色直线及文字的对象区域: ")
   (setq all-ss (ssget))
   (if (null all-ss)
@@ -9374,11 +9506,11 @@
       (aa:cmd-end)
     )
     (progn
-      ;; 1. 自动识别绿色水平直线并进行几何去重
-      (setq raw-green-lines-ss (xy:filter-green-hlines all-ss))
+      ;; 1. 自动识别绿色水平、竖直电缆线并进行几何去重
+      (setq raw-green-lines-ss (xyg:filter-green-lines all-ss))
       (setq green-lines-list
         (if raw-green-lines-ss
-          (xyg:dedup-hlines (xy:ss->list raw-green-lines-ss) 0.5)
+          (xyg:dedup-hlines raw-green-lines-ss 0.5)
           nil))
       (if (or (null green-lines-list) (= (length green-lines-list) 0))
         (progn
@@ -9424,7 +9556,9 @@
               (setq last-ent (entlast))
               (princ "\r\n[XYG] 正在执行 XY（统计芯数与提取原理号）...")
               (xy:run-xin green-lines-ss)
+              (setq *xy-no-mark* (not keep))
               (xy:run-yuan green-lines-ss)
+              (setq *xy-no-mark* nil)
 
               ;; 收集 XY 新生成的文字
               (setq cur last-ent
@@ -9443,7 +9577,8 @@
               ;; 命令内一次性建立文字索引与直线几何缓存（在 XY 完成后建立，与逐线查询时的图面状态一致）
               ;; 选区小字按精确包围盒建树，XY 新文字按插入点建树；均为本命令局部变量，不跨命令保留
               (setq rect-index (xyg:build-text-index (xy:ss->list all-ss) 'BOX)
-                    new-index  (xyg:build-text-index xy-new-texts 'POINT)
+                    new-index  (xyg:build-text-index (xyg:texts-by-dir xy-new-texts nil) 'POINT)
+                    new-vindex (xyg:build-text-index (xyg:texts-by-dir xy-new-texts T) 'POINT)
                     line-geo   (xyg:line-geo-list sorted-lines))
 
               (setq lines-group-data '()
@@ -9463,7 +9598,7 @@
                 (if is-vert
                   (progn
                     (setq next-vline-max-y (xyg:next-vline-max-y line-en rx ry sorted-lines))
-                    (setq limit-y (if next-vline-max-y (+ next-vline-max-y 5.0) (- ry 350.0)))
+                    (setq limit-y (if next-vline-max-y (+ next-vline-max-y 5.0) nil))
                     (setq left-texts (xyg:find-vrect-texts rightPt rect-index)
                           left-src   *xyg-rect-src*)
                     (if (/= (length left-texts) 3)
@@ -9473,13 +9608,13 @@
                                 " 右下侧找到 " (itoa (length left-texts))
                                 " 个文字（期望为3个）。"))
                     )
-                    (setq right-texts (xyg:find-down-new-texts rightPt new-index expected-count limit-y)
+                    (setq right-texts (xyg:find-down-new-texts rightPt new-vindex expected-count limit-y)
                           right-src   *xyg-right-src*)
                   )
                   (progn
                     ;; 查找同一水平线上位于本线右侧的最近邻线（若有），作为本线文字的硬性右边界
                     (setq next-line-min-x (xyg:next-line-min-x line-en rx ry line-geo))
-                    (setq limit-x (if next-line-min-x (- next-line-min-x 5.0) (+ rx 350.0)))
+                    (setq limit-x (if next-line-min-x (- next-line-min-x 5.0) nil))
 
                     ;; 提取右上矩形文字（从左到右，严格最多3个）
                     (setq left-texts (xyg:find-rect-texts rightPt rect-index)
@@ -9508,6 +9643,16 @@
                 (setq i (1+ i))
               )
               (setq lines-group-data (reverse lines-group-data))
+
+              ;; XYG2：数据已取到，删掉 XY 临时文字，原图保持原样
+              (if (not keep)
+                (foreach cur xy-new-texts (entdel cur)))
+
+              ;; 一根电缆分画两处：“并入X”并到主电缆行，汇总表直接是合并好的
+              (setq join-res (xyg:merge-join-rows lines-group-data)
+                    lines-group-data (car join-res))
+              (if (> (cdr join-res) 0)
+                (princ (strcat "\r\n[XYG] 已合并 " (itoa (cdr join-res)) " 根并入电缆到主电缆。")))
 
               (if (null lines-group-data)
                 (progn
@@ -9566,6 +9711,12 @@
     )
   )
 )
+
+;;; 功能: 一次框选绿色电缆线，统计芯数、提取原理号并分类汇总，芯数和原理号留在电缆线后面。
+(defun c:XYG () (xyg:run "XYG" T))
+
+;;; 功能: 与 XYG 相同的框选和汇总表，但原图不留痕：电缆后面不留芯数和原理号，异常电缆线不改色、不延长。
+(defun c:XYG2 () (xyg:run "XYG2" nil))
 
 ;;; =======================================================================================
 ;;; 文字联动（AA_LINK）
@@ -9813,12 +9964,25 @@
   (if (and (= (type path) 'STR) (vl-file-directory-p path)) path)
 )
 
-(defun aa:link-ask-folder (/ default s)
+(defun aa:link-default-dir (/ env)
+  ;; 上次使用的值文件夹：本图会话变量优先，其次跨会话记录，都没有用本图所在文件夹
+  (setq env (getenv "AA_LINK_DIR"))
+  (cond
+    ((and (= (type *aa-link-dir*) 'STR) (vl-file-directory-p *aa-link-dir*)) *aa-link-dir*)
+    ((and (= (type env) 'STR) (vl-file-directory-p env)) env)
+    (T (getvar "DWGPREFIX"))
+  )
+)
+
+(defun aa:link-remember-dir (dir)
+  (setq *aa-link-dir* dir)
+  (setenv "AA_LINK_DIR" dir)
+)
+
+(defun aa:link-ask-folder (tag / default s)
   ;; 回车用默认文件夹（上次使用或本图所在文件夹），B 打开浏览对话框，也可直接输入或粘贴路径
-  (setq default (if (and (= (type *aa-link-dir*) 'STR) (vl-file-directory-p *aa-link-dir*))
-                  *aa-link-dir*
-                  (getvar "DWGPREFIX")))
-  (setq s (vl-string-trim " \"" (getstring T (strcat "\r\n[SX2] 值文件所在文件夹 <" default ">，输入 B 浏览: "))))
+  (setq default (aa:link-default-dir))
+  (setq s (vl-string-trim " \"" (getstring T (strcat "\r\n[" tag "] 值文件所在文件夹 <" default ">，输入 B 浏览: "))))
   (cond
     ((= s "") default)
     ((= (strcase s) "B") (aa:link-browse-folder))
@@ -9924,8 +10088,26 @@
 ;;; 功能: 联动标记。框选原件端子排文字，为未标记的文字发放 UID；已是原件的跳过，
 ;;;       副本（草稿、XYG、GTY 等）不会被改成原件。
 ;;; =======================================================================================
+(defun aa:link-export-roots (dwg-id / ss i ed info roots path n)
+  ;; 把本图全部原件写到 dwg 旁的值文件，供总图 SX2 刷新；返回写出的原件数，未保存或写入失败返回 nil
+  (setq ss (ssget "_X" '((0 . "TEXT,MTEXT") (-3 ("AA_LINK"))))
+        i  0)
+  (if ss
+    (while (< i (sslength ss))
+      (setq ed   (entget (ssname ss i) '("AA_LINK"))
+            info (aa:link-info ed))
+      (if (aa:link-root-p info dwg-id (cdr (assoc 5 ed)))
+        (setq roots (cons (cons (strcat (car info) "|" (cadr info)) ed) roots)))
+      (setq i (1+ i))
+    )
+  )
+  (if (and roots (setq path (aa:link-file-path)))
+    (aa:link-export roots path)
+  )
+)
+
 (defun c:SX (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
-                ss i en ed h info dwg-id n-new n-root n-copy)
+                ss i en ed h info dwg-id n-new n-root n-copy n-out)
   (aa:cmd-begin "SX")
   (princ "\r\n[SX] 框选原件端子排中的文字（只选原件，不要选草稿）: ")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))
@@ -9954,6 +10136,11 @@
      )
      (princ (strcat "\r\n[SX] 新标记 " (itoa n-new) " 个，已是原件 " (itoa n-root)
                     " 个，副本跳过 " (itoa n-copy) " 个。"))
+     ;; 有新标记就更新值文件，不用再为导出跑一次 SX1
+     (if (> n-new 0)
+       (if (setq n-out (aa:link-export-roots dwg-id))
+         (princ (strcat "\r\n[SX] 已更新值文件（原件 " (itoa n-out) " 个）。"))
+         (princ "\r\n[SX] 值文件未更新：图纸还没保存或文件被占用，保存后执行 SX1。")))
     )
   )
   (aa:cmd-end)
@@ -10066,6 +10253,230 @@
     )
   )
   (aa:cmd-end)
+)
+
+(defun aa:link-scan-uid (f key / n line hit)
+  ;; 从打开的值文件里找以 key 开头的行，找到即停
+  (setq n (strlen key))
+  (while (and (null hit) (setq line (read-line f)))
+    (if (= (substr line 1 n) key) (setq hit T))
+  )
+  hit
+)
+
+(defun aa:link-file-has-uid (path uid / f hit)
+  ;; 值文件里有该原件的 P 行时返回 T；打不开或读取出错返回 nil
+  (if (setq f (aa:link-open path "r"))
+    (progn
+      (setq hit (vl-catch-all-apply 'aa:link-scan-uid
+                  (list f (strcat "P" (chr 9) uid (chr 9)))))
+      (close f)
+      (if (vl-catch-all-error-p hit) nil hit)
+    )
+  )
+)
+
+(defun aa:link-find-source (uid files / best best-t n f tm)
+  ;; 在值文件列表里找原件所在文件，返回 (文件路径 . 命中个数)；多处命中取修改时间最新的，无命中返回 nil
+  (setq n 0)
+  (foreach f files
+    (if (aa:link-file-has-uid f uid)
+      (progn
+        (setq n  (1+ n)
+              tm (aa:link-file-time f))
+        (if (or (null best) (> tm best-t))
+          (setq best f best-t tm))
+      )
+    )
+  )
+  (if best (cons best n))
+)
+
+(defun aa:link-dwg-of (value-file)
+  ;; “…\图名.aalink.txt” → “…\图名.dwg”
+  (strcat (substr value-file 1 (- (strlen value-file) (strlen ".aalink.txt"))) ".dwg")
+)
+
+(defun aa:link-vbs-str (s / out c)
+  ;; 字符串写成 ChrW 拼接，让 VBS 文件保持纯 ASCII
+  (foreach c (vl-string->list s)
+    (setq out (strcat (if out (strcat out " & ") "") "ChrW(" (itoa c) ")"))
+  )
+  (if out out "\"\"")
+)
+
+(defun aa:link-write-jump (dwg h / path f)
+  ;; 写定位脚本：只在图名是 dwg 时缩放到句柄 h 的文字并选中，USERS5 置 AASXD 表示已完成。
+  ;; 外框和缩放都在目标图里算，目标图没打开时也不用先读它。返回脚本路径，失败返回 nil
+  (setq path (strcat (getenv "TEMP") "\\aa_sxd_jump.lsp"))
+  (if (setq f (aa:link-open path "w"))
+    (progn
+      (write-line (strcat "(if (= (strcase (getvar \"DWGNAME\")) \"" (strcase dwg) "\")") f)
+      (write-line "  ((lambda (e / mn mx a b)" f)
+      (write-line "     (if (and e (member (cdr (assoc 0 (entget e))) '(\"TEXT\" \"MTEXT\"))" f)
+      (write-line "              (assoc -3 (entget e '(\"AA_LINK\"))))" f)
+      (write-line "       (progn" f)
+      (write-line "         (vl-load-com)" f)
+      (write-line "         (vla-GetBoundingBox (vlax-ename->vla-object e) 'mn 'mx)" f)
+      (write-line "         (setq a (vlax-safearray->list mn) b (vlax-safearray->list mx))" f)
+      (write-line "         ;; 取外框较短的一边：竖排文字的外框高度是字串长度，按它算会缩得太远" f)
+      (write-line "         (command \"_.ZOOM\" \"_C\"" f)
+      (write-line "                  (trans (list (/ (+ (car a) (car b)) 2.0) (/ (+ (cadr a) (cadr b)) 2.0) 0.0) 0 1)" f)
+      (write-line "                  (max 60.0 (* 30.0 (min (- (cadr b) (cadr a)) (- (car b) (car a))))))" f)
+      (write-line "         (sssetfirst nil (ssadd e))" f)
+      (write-line (strcat "         (princ \"\\n[SXD] 已定位到原件，句柄 " h "。\"))") f)
+      (write-line (strcat "       (princ \"\\n[SXD] 这张图里句柄 " h " 已不是带标记的文字，原件可能已删除。\"))") f)
+      (write-line "     (setvar \"USERS5\" \"AASXD\"))" f)
+      (write-line (strcat "   (handent \"" h "\")))") f)
+      (write-line "(princ)" f)
+      (close f)
+      path
+    )
+  )
+)
+
+(defun aa:link-send-later (dwg-path jump / path f line)
+  ;; LISP 里切换文档后，本命令会挂起到用户回到原图才继续，所以打开、切换、定位全部交给脱离 CAD 的 VBS：
+  ;; 等本命令结束，打开或切到 dwg-path，确认它是活动图且空闲后加载定位脚本。成功启动返回 T
+  (setq path (strcat (getenv "TEMP") "\\aa_sxd_jump.vbs"))
+  (if (setq f (open path "w"))
+    (progn
+      (foreach line
+        (list
+          "On Error Resume Next"
+          "Set a = GetObject(, \"ZWCAD.Application\")"
+          (strcat "f = " (aa:link-vbs-str dwg-path))
+          (strcat "c = " (aa:link-vbs-str (strcat "(load \"" (vl-string-translate "\\" "/" jump) "\")\n")))
+          "p = LCase(f)"
+          "ok = False"
+          "tried = False"
+          "WScript.Sleep 500"
+          "For i = 1 To 150"
+          "  Err.Clear"
+          "  Set t = Nothing"
+          "  For Each x In a.Documents"
+          "    If LCase(x.FullName) = p Then Set t = x"
+          "  Next"
+          "  v = -1"
+          "  n = \"\""
+          "  v = a.ActiveDocument.GetVariable(\"CMDACTIVE\")"
+          "  n = LCase(a.ActiveDocument.FullName)"
+          "  If t Is Nothing Then"
+          "    If v = 0 Then"
+          "      If tried Then Exit For"
+          "      tried = True"
+          "      Set t = a.Documents.Open(f)"
+          "    End If"
+          "  ElseIf n <> p Then"
+          "    If v = 0 Then t.Activate"
+          "  ElseIf v = 0 Then"
+          "    a.ActiveDocument.SendCommand c"
+          "    WScript.Sleep 400"
+          "    u = \"\""
+          "    u = a.ActiveDocument.GetVariable(\"USERS5\")"
+          "    If u = \"AASXD\" Then"
+          "      a.ActiveDocument.SetVariable \"USERS5\", \"\""
+          "      ok = True"
+          "      Exit For"
+          "    End If"
+          "  End If"
+          "  WScript.Sleep 500"
+          "Next"
+          (strcat "If Not ok Then MsgBox " (aa:link-vbs-str (strcat "[SXD] 没能跳到原件：" dwg-path)))
+        )
+        (write-line line f)
+      )
+      (close f)
+      (startapp "wscript.exe" (strcat "\"" path "\""))
+      T
+    )
+  )
+)
+
+(defun aa:link-find-dwg (name dir depth / found sub)
+  ;; 在 dir 及其下 depth 层子文件夹里找名为 name 的图纸，返回完整路径
+  (setq dir (strcat (vl-string-right-trim "\\/" dir) "\\"))
+  (if (findfile (strcat dir name))
+    (strcat dir name)
+    (progn
+      (if (> depth 0)
+        (foreach sub (vl-directory-files dir nil -1)
+          (if (and (null found) (not (member sub '("." ".."))))
+            (setq found (aa:link-find-dwg name (strcat dir sub) (1- depth))))
+        )
+      )
+      found
+    )
+  )
+)
+
+(defun aa:link-locate-dwg (info dir / src)
+  ;; 原件所在图纸：先按联动 ID 里的图名找，图改过名时再查值文件；找不到返回 nil
+  (cond
+    ((aa:link-find-dwg (aa:link-dwg-label (car info)) dir 2))
+    ((setq src (aa:link-find-source (strcat (car info) "|" (cadr info)) (aa:link-collect-files dir 2)))
+     (if (findfile (aa:link-dwg-of (car src))) (aa:link-dwg-of (car src))))
+  )
+)
+
+(defun aa:link-pick-text (/ first en)
+  ;; 先取预选的单个文字，否则点选；不是文字返回 nil
+  (setq first (cadr (ssgetfirst)))
+  (if (and first (= (sslength first) 1))
+    (setq en (ssname first 0))
+    (setq en (car (entsel "\r\n[SXD] 点选要追溯的文字: ")))
+  )
+  (if (and en (member (cdr (assoc 0 (entget en))) '("TEXT" "MTEXT"))) en)
+)
+
+;;; =======================================================================================
+;;; 命令: SXD
+;;; 功能: 跳到原件。点选文字，缩放到它的原件并选中；原件在其他图纸时，按 .aalink.txt 值文件
+;;;       在值文件夹里按图名找到卷册图（不需要先跑 SX1），由后台 VBS 打开或切换过去再定位。
+;;;       只读，不改图，不开撤销组。
+;;; =======================================================================================
+(defun c:SXD (/ en ed info dwg-id dir path jump)
+  (vl-load-com)
+  (setq en (aa:link-pick-text))
+  (cond
+    ((null en)
+     (princ "\r\n[SXD] 没有选中文字。"))
+    ((null (setq ed (entget en '("AA_LINK")) info (aa:link-info ed)))
+     (princ "\r\n[SXD] 这个文字没有联动标记，无法追溯（XY 芯数、合并后的芯数没有原件）。"))
+    ((= (car info) (setq dwg-id (aa:link-dwg-id nil)))
+     (if (aa:link-root-ed info dwg-id)
+       (progn
+         (princ (strcat "\r\n[SXD] 原件在本图，句柄 " (cadr info) "。"))
+         (load (aa:link-write-jump (getvar "DWGNAME") (cadr info)))
+         (setvar "USERS5" ""))
+       (princ (strcat "\r\n[SXD] 原件（句柄 " (cadr info) "）已删除或不再带标记。"))))
+    (T
+     (setq dir  (aa:link-default-dir)
+           path (aa:link-locate-dwg info dir))
+     (if (null path)
+       (progn
+         (princ (strcat "\r\n[SXD] 在 " dir " 没找到图纸 " (aa:link-dwg-label (car info)) "。"))
+         (if (and (setq dir (aa:link-ask-folder "SXD"))
+                  (vl-file-directory-p dir))
+           (setq path (aa:link-locate-dwg info dir)))
+       )
+     )
+     (cond
+       ((null path)
+        (princ (strcat "\r\n[SXD] 没找到原件所在图纸：" (aa:link-dwg-label (car info)))))
+       ((null (setq jump (aa:link-write-jump (strcat (vl-filename-base path) ".dwg") (cadr info))))
+        (princ "\r\n[SXD] 写不了临时定位脚本。"))
+       (T
+        (aa:link-remember-dir dir)
+        (setq path (vl-string-translate "/" "\\" path))
+        (if (aa:link-send-later path jump)
+          (princ (strcat "\r\n[SXD] 正在跳到 " path "，句柄 " (cadr info) "。"))
+          (princ "\r\n[SXD] 写不了临时跳转脚本。"))
+       )
+     )
+    )
+  )
+  (princ)
 )
 
 (defun aa:link-clock ()
@@ -10190,15 +10601,15 @@
   (cond
     ((null items)
      (princ "\r\n[SX2] 本图没有来自其他图纸的联动文字（先在卷册图 SX 标记，再把 GTY 文字复制到本图）。"))
-    ((null (setq dir (aa:link-ask-folder)))
+    ((null (setq dir (aa:link-ask-folder "SX2")))
      (princ "\r\n[SX2] 未选择文件夹，命令结束。"))
     ((not (vl-file-directory-p dir))
      (princ (strcat "\r\n[SX2] 文件夹不存在：" dir)))
     ((null (setq files (aa:link-collect-files dir 2)))
      (princ (strcat "\r\n[SX2] 未找到 *.aalink.txt 值文件，请先在各卷册图（已保存）执行 SX1：" dir)))
     (T
-     (setq *aa-link-dir* dir
-           recs          '())
+     (aa:link-remember-dir dir)
+     (setq recs '())
      ;; 按修改时间从旧到新读取，较新文件的记录排在前面；稳定排序后同 UID 的首条即最新
      (foreach f (mapcar 'cdr
                         (aa:merge-sort (mapcar '(lambda (p) (cons (aa:link-file-time p) p)) files)
@@ -16565,6 +16976,146 @@
     (princ "\r\n[QW3] 未选择对象。"))
   (princ))
 
+;;; ---- TJK 统计同名块并可视化 ----
+(setq *TJK-LAYER* "AA块统计标记")
+
+(defun tjk:clear-marks (/ ss i n)
+  (setq n 0)
+  (if (setq ss (ssget "_X" (list (cons 8 *TJK-LAYER*))))
+    (progn
+      (setq i 0 n (sslength ss))
+      (repeat n
+        (entdel (ssname ss i))
+        (setq i (1+ i)))))
+  n)
+
+(defun tjk:ensure-layer ()
+  (if (not (tblsearch "LAYER" *TJK-LAYER*))
+    (entmake (list '(0 . "LAYER") '(100 . "AcDbSymbolTableRecord")
+                   '(100 . "AcDbLayerTableRecord")
+                   (cons 2 *TJK-LAYER*) '(70 . 0) '(62 . 1)
+                   '(6 . "Continuous") '(290 . 0)))))
+
+;; 筛出真实块名相同的引用；动态块的引用名是 *U 匿名块，要用 EffectiveName 判断。
+(defun tjk:filter-name (ss name / i en obj out)
+  (setq out (ssadd) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i)
+            obj (vlax-ename->vla-object en)
+            i (1+ i))
+      (if (= (strcase (hao2:block-name obj)) (strcase name))
+        (ssadd en out))
+      (vlax-release-object obj)))
+  out)
+
+(defun tjk:select (name area / flt)
+  (setq flt (list '(0 . "INSERT") (cons 2 (strcat name ",`*U*"))))
+  (tjk:filter-name
+    (cond
+      ((= area "K")
+       (princ (strcat "\r\n[TJK] 框选统计范围（只数 " name "）: "))
+       (ssget flt))
+      ((= area "ALL") (ssget "_X" flt))
+      (T (ssget "_X" (append flt (list (cons 410 (getvar "CTAB")))))))
+    name))
+
+;; 取每个块的 XY 中心（Z 一律归零，图中块的 Z 可能极大）和尺寸。
+(defun tjk:items (ss / i en bbox lo hi ins out)
+  (setq i 0)
+  (repeat (sslength ss)
+    (setq en (ssname ss i)
+          i (1+ i)
+          bbox (aa:safe-get-bbox nil en))
+    (if bbox
+      (setq lo (car bbox) hi (cadr bbox)
+            out (cons (list (/ (+ (car lo) (car hi)) 2.0)
+                            (/ (+ (cadr lo) (cadr hi)) 2.0)
+                            (max (- (car hi) (car lo)) (- (cadr hi) (cadr lo))))
+                      out))
+      (setq ins (trans (cdr (assoc 10 (entget en))) en 0)
+            out (cons (list (car ins) (cadr ins) 0.0) out))))
+  out)
+
+;; 按从上到下、从左到右画红圈和序号；圈不小于分布范围的 1/120，全图缩放时也看得见。
+(defun tjk:draw (items / xs ys span size r h i pt)
+  (setq xs (mapcar 'car items)
+        ys (mapcar 'cadr items)
+        span (max (- (apply 'max xs) (apply 'min xs))
+                  (- (apply 'max ys) (apply 'min ys)))
+        size (apply 'max (mapcar 'caddr items))
+        r (max (* size 1.5) (/ span 120.0))
+        h (* r 0.9))
+  (if (<= r 0.0) (setq r 1.0 h 0.9))
+  (setq items (aa:merge-sort items
+                '(lambda (a b)
+                   (if (equal (cadr a) (cadr b) 1e-6)
+                     (< (car a) (car b))
+                     (> (cadr a) (cadr b)))))
+        i 1)
+  (foreach item items
+    (setq pt (list (car item) (cadr item) 0.0))
+    (entmake (list '(0 . "CIRCLE") (cons 8 *TJK-LAYER*) '(62 . 256)
+                   (cons 10 pt) (cons 40 r)))
+    (entmake (list '(0 . "TEXT") (cons 8 *TJK-LAYER*) '(62 . 256)
+                   (cons 10 (list (+ (car pt) r) (+ (cadr pt) r) 0.0))
+                   (cons 40 h) (cons 1 (itoa i))))
+    (setq i (1+ i))))
+
+;;; 功能: 点选一个块，统计当前空间或框选范围内同名块（含动态块）的数量，选中它们并用红圈和序号标出。
+(defun c:TJK (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                pre sel en name area ss all items cnt other)
+  (setq pre (ssget "_I" '((0 . "INSERT"))))
+  (if (and pre (= (sslength pre) 1))
+    (setq en (ssname pre 0))
+    (progn
+      (initget "Q")
+      (setq sel (entsel "\r\n[TJK] 选择要统计的块 [清除标记(Q)]: "))
+      (cond
+        ((= sel "Q") (setq en "Q"))
+        (sel (setq en (car sel))))))
+  (cond
+    ((= en "Q")
+     (aa:cmd-begin "TJK")
+     (setq cnt (tjk:clear-marks))
+     (aa:cmd-end)
+     (princ (strcat "\r\n[TJK] 已清除 " (itoa cnt) " 个标记对象。")))
+    ((null en) (princ "\r\n[TJK] 未选择对象。"))
+    ((/= (cdr (assoc 0 (entget en))) "INSERT")
+     (princ "\r\n[TJK] 选中的不是块。"))
+    (T
+     (vl-load-com)
+     (setq name (hao2:block-name (vlax-ename->vla-object en)))
+     (initget "C K")
+     (setq area (getkword "\r\n[TJK] 统计范围 [当前空间(C)/框选(K)] <C>: "))
+     (if (null area) (setq area "C"))
+     (sssetfirst nil nil)
+     (setq ss (tjk:select name area))
+     (if (= (sslength ss) 0)
+       (princ (strcat "\r\n[TJK] 范围内没有块 " name "。"))
+       (progn
+         (setq all (tjk:select name "ALL")
+               cnt (sslength ss)
+               other (- (sslength all) cnt)
+               items (tjk:items ss))
+         (aa:cmd-begin "TJK")
+         (tjk:clear-marks)
+         (tjk:ensure-layer)
+         (tjk:draw items)
+         (aa:cmd-end)
+         (sssetfirst nil ss)
+         (princ (strcat "\r\n[TJK] " name " 共 " (itoa cnt) " 个，已选中并标号。"))
+         (alert (strcat "块名: " name
+                        "\n数量: " (itoa cnt)
+                        (if (= area "K") "（框选范围）" "（当前空间）")
+                        (if (> other 0)
+                          (strcat "\n范围外还有: " (itoa other) " 个")
+                          "")
+                        "\n\n红圈序号在图层 " *TJK-LAYER* "，不打印；"
+                        "\n再次运行 TJK 输入 Q 可清除。"))))))
+  (princ))
+
+
 ;; 白色及其他颜色与 QW2 相同，每项一行 "x,y 文字"；青色为 "x,y 文字 端子名"
 ;; DX1 提取选中文字及坐标，青色文字额外标注“端子名”，复制到剪贴板
 (defun c:DX1 ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss i idx ent ed txt hgt pt items out ok suffix cyan-n)
@@ -17915,6 +18466,10 @@
 ;;   DE  : 删除括号及括号内容        "DS-10(11)" -> "DS-10"
 ;;   DE2 : 用括号内容替换括号前数字  "DS-10(11)" -> "DS-11"
 ;;         数字带相同尾缀时连尾缀替换  "A630I(640I)" -> "A640I"
+;;         括号里是完整编号时整段替换    "12ZL-20(12ZL-22)" -> "12ZL-22"
+;;         括号里是完整柜名时整段替换    "至2#主变保护柜(1#35kV母线保护柜)" -> "至1#35kV母线保护柜"
+;;         一个文字有多处括号时全部替换  "1(2)UYH-141(140)A" -> "2UYH-140A"
+;;         柜号带横杠时整段替换、#保留    "至1-1#(2-1)直流馈线柜" -> "至2-1#直流馈线柜"
 ;; ============================================================
 
 ;; 查找子串最后一次出现位置（0 基），无则 nil
@@ -17988,6 +18543,123 @@
     (de:rstrip-digits base))
 )
 
+;; 去掉字符串末尾连续的编号字符（半角字母、数字、横杠、下划线），返回剩余长度
+(defun de:code-prefix-len (s / n c)
+  (setq n (strlen s))
+  (while (and (> n 0)
+              (setq c (ascii (substr s n 1)))
+              (or (and (>= c 48) (<= c 57))
+                  (and (>= c 65) (<= c 90))
+                  (and (>= c 97) (<= c 122))
+                  (= c 45)
+                  (= c 95)))
+    (setq n (1- n))
+  )
+  n
+)
+
+;; 去掉数字后的编号骨架：12ZL-22 -> ZL-
+(defun de:code-skeleton (s / i ch out)
+  (setq i 1 out "")
+  (while (<= i (strlen s))
+    (setq ch (substr s i 1))
+    (if (not (and (>= (ascii ch) 48) (<= (ascii ch) 57)))
+      (setq out (strcat out ch)))
+    (setq i (1+ i))
+  )
+  (strcase out)
+)
+
+;; DE2 括号里是完整编号时整段替换括号前的编号，两边只有数字不同才算对应；不适用返回 nil：
+;; "12ZL-20" + "12ZL-22" -> "12ZL-22"，"至11ZL-41" + "21ZL-41" -> "至21ZL-41"
+(defun de:replace-full-code (before inner / n token sk)
+  (setq n     (de:code-prefix-len before)
+        token (substr before (1+ n)))
+  (if (and (> (strlen token) 0)
+           (= (de:code-prefix-len inner) 0)
+           (/= (setq sk (de:code-skeleton inner)) "")
+           (= sk (de:code-skeleton token)))
+    (strcat (substr before 1 n) inner)
+  )
+)
+
+;; 以柜、屏、箱结尾的文字才算完整柜名
+(defun de:cabinet-name-p (s / z n)
+  (setq z (strlen "柜")
+        n (strlen s))
+  (and (> n z)
+       (member (substr s (1+ (- n z))) '("柜" "屏" "箱")))
+)
+
+;; DE2 括号里是完整柜名时整段换掉括号前的柜名，保留“至”和最后一个空格前的前缀；不适用返回 nil：
+;; "至2#主变保护柜" + "1#35kV母线保护柜" -> "至1#35kV母线保护柜"
+;; "35kV 1#SVG控制柜" + "2#SVG控制柜" -> "35kV 2#SVG控制柜"
+(defun de:replace-cabinet-name (before inner / z to sp)
+  (setq z  (strlen "至")
+        to (= (substr before 1 z) "至"))
+  (if (and (de:cabinet-name-p before) (de:cabinet-name-p inner))
+    (cond
+      ((= (substr inner 1 z) "至") inner)
+      ((and (not (vl-string-search " " inner)) (setq sp (de:rfind before " ")))
+       (strcat (substr before 1 (1+ sp)) inner))
+      (to (strcat "至" inner))
+      (T inner)
+    )
+  )
+)
+
+;; 字符串只由半角数字和横杠组成且以数字开头、结尾时返回横杠个数，否则 nil
+(defun de:code-dashes (s / i n ch cnt ok)
+  (setq n (strlen s) i 1 cnt 0 ok (> n 0))
+  (while (and ok (<= i n))
+    (setq ch (substr s i 1))
+    (cond
+      ((and (>= (ascii ch) 48) (<= (ascii ch) 57)))
+      ((and (= ch "-") (> i 1) (< i n)) (setq cnt (1+ cnt)))
+      (T (setq ok nil)))
+    (setq i (1+ i))
+  )
+  (if ok cnt nil)
+)
+
+;; 去掉 base 末尾含 dashes 个横杠的编号（1-1 -> 空）；末尾段数不够时返回 nil
+(defun de:strip-dash-code (base dashes / n ch go)
+  (setq n (strlen base) go T)
+  (while (and go (> n 0))
+    (setq ch (substr base n 1))
+    (cond
+      ((and (>= (ascii ch) 48) (<= (ascii ch) 57)) (setq n (1- n)))
+      ((and (= ch "-") (> dashes 0)) (setq dashes (1- dashes) n (1- n)))
+      (T (setq go nil)))
+  )
+  (if (and (= dashes 0)
+           (< n (strlen base))
+           (= (de:rstrip-digits (substr base (1+ n) 1)) ""))
+    (substr base 1 n)
+    nil)
+)
+
+;; DE2 柜号替换，括号紧跟在 # 后或括号里带横杠时使用；不适用返回 nil：
+;; "至1-1#" + "2-1" -> "至2-1#"，"1#" + "2" -> "2#"，"1-1" + "2-1" -> "2-1"
+(defun de:replace-cabinet-code (before inner / hash base code dashes pre)
+  (setq hash (and (> (strlen before) 1)
+                  (= (substr before (strlen before)) "#"))
+        base (if hash (substr before 1 (1- (strlen before))) before)
+        code (if (and hash (> (strlen inner) 1)
+                      (= (substr inner (strlen inner)) "#"))
+               (substr inner 1 (1- (strlen inner)))
+               inner)
+        dashes (de:code-dashes code))
+  (cond
+    ((null dashes) nil)
+    ((> dashes 0) (setq pre (de:strip-dash-code base dashes)))
+    ((and hash (/= (de:rstrip-digits base) base))
+     (setq pre (de:strip-replace-target base code))))
+  (if pre
+    (strcat pre code (if hash "#" ""))
+    nil)
+)
+
 ;; 返回最右侧完整括号对：（左位置 右位置 左括号 右括号）
 (defun de:find-pair (txt / pa pb posR openCh closeCh posL)
   (setq pa (de:rfind txt ")")
@@ -18007,8 +18679,8 @@
     nil)
 )
 
-;; 处理单个字符串；无可处理括号时返回 nil
-(defun de:strip (txt mode / pair posL posR openCh closeCh before inner after)
+;; 处理最右侧一对括号；无可处理括号时返回 nil
+(defun de:strip-one (txt mode / pair posL posR openCh closeCh before inner after)
   (setq pair (de:find-pair txt))
   (if pair
     (progn
@@ -18023,8 +18695,27 @@
             after (substr txt (+ posR (strlen closeCh) 1)))
       (if (= mode 0)
         (strcat before after)
-        (strcat (de:strip-replace-target before inner) inner after)))
+        (strcat (cond ((de:replace-cabinet-name before inner))
+                      ((de:replace-full-code before inner))
+                      ((de:replace-cabinet-code before inner))
+                      ((strcat (de:strip-replace-target before inner) inner)))
+                after)))
     nil)
+)
+
+;; 处理单个字符串；无可处理括号时返回 nil
+;; 第一对括号之后，继续从右往左处理括号里带数字的括号对：
+;; DE2 1(2)UYH-141(140)A -> 2UYH-140A，DE 1(2)UYH-142(141)A -> 1UYH-142A
+(defun de:strip (txt mode / new pair)
+  (setq new (de:strip-one txt mode))
+  (while (and new
+              (setq pair (de:find-pair new))
+              (de:digit-tail (substr new
+                                     (+ (car pair) (strlen (nth 2 pair)) 1)
+                                     (- (cadr pair) (car pair) (strlen (nth 2 pair))))))
+    (setq new (de:strip-one new mode))
+  )
+  new
 )
 
 (defun de:get-text (ent / obj result)

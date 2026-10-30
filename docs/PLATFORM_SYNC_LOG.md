@@ -2163,3 +2163,152 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `C94E1787B619C3E5129D4BE70C91DCCB4F61339B437072CAF55E0075675687E8`；修改前备份 `backups/dated/2026-10-30/AA整合版本.lsp.bak-BDL矩形边框-20261030-151454`。
 - AutoCAD 状态：代码未修改，与此前 BDL 条目一并待同步。
 - 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。
+
+# 2026-10-30 16:25:18 中望新增 TJK 统计同名块并可视化
+
+- 命令/模块：新增 TJK（`tjk:*`）。
+- 改动：点选块后统计当前空间或框选范围内的同名块（用 EffectiveName 兼容动态块），选中全部结果，在不打印图层“AA块统计标记”画红圈和序号（Z=0），弹窗报数并提示范围外数量；Q 清除标记。不统计嵌套在其他块内的实例。
+- 测试：`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS（109.5s）。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `DCF728257D105BE4E1CB9BD7E9780CD56CAFDEA5D0826965977C4CD5336D8621`；修改前备份 `backups/dated/2026-10-30/AA整合版本.lsp.bak-TJK块统计-20261030-162100`。
+- AutoCAD 状态：代码未修改，待同步。
+- 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。
+
+## 2026-10-30 17:13:21 中望 DE2 支持带横杠柜号
+
+- 命令/模块：`DE2`（新增 `de:code-dashes`、`de:strip-dash-code`、`de:replace-cabinet-code`，修改 `de:strip`）；`DE` 行为不变。
+- 问题：`至1-1#(2-1)直流馈线柜` 执行 DE2 得到 `至1-1#2-1直流馈线柜`。
+- 修改：括号紧跟 `#` 或括号里是带横杠的编号时，整段替换柜号并保留 `#`：`至1-1#(2-1)直流馈线柜`、`至1-1#（2-1#）直流馈线柜`、`至1-1(2-1)#直流馈线柜` → `至2-1#直流馈线柜`，`1#(2)主变保护柜` → `2#主变保护柜`。其余写法结果不变。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `800cc658f4c95c8c8e58d7bae427468f931f1103e14659c627cfd6b3a34670fd`（修改前 `dcf728257d105be4e1cb9bd7e9780cd56cafdea5d0826965977c4cd5336d8621`）。
+- 检查：`check_bh_static.py` 新增 6 条用例；`check_all_static.py` 全量 ALL PASS；索引、代码地图、审计产物已重新生成。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 17:52:21 中望 DE2 替换文字里全部数字括号
+
+- 命令/模块：`DE2`（`de:strip` 改为循环调用新拆出的 `de:strip-one`）；`DE` 行为不变，仍只删最右侧括号。
+- 问题：`1(2)UYH-141(140)A` 应得 `2UYH-140A`，原来只处理最右侧一对括号。
+- 修改：DE2 从右往左处理所有括号里带数字的括号对；括号里没有数字的（如 `(备用)`）不动。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `54e5eda1d9ae7f503a86e6b8dde1c2fef57b5cf20204ccd0c2de1b9671f62409`（修改前 `800cc658f4c95c8c8e58d7bae427468f931f1103e14659c627cfd6b3a34670fd`）。
+- 检查：`check_bh_static.py` 新增 3 条用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 17:59:30 中望 DE 删除文字里全部数字括号
+
+- 命令/模块：`DE`（`de:strip` 循环不再限 DE2）。
+- 问题：`1(2)UYH-142(141)A` 应得 `1UYH-142A`，原来只删最右侧一对括号。
+- 修改：DE 与 DE2 一样从右往左处理所有括号里带数字的括号对；第一对之后，括号里没有数字的不动。本条取代上一条“DE 仍只删最右侧括号”。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `617a42aecc44373cb05aa3bef8043ee7f7136bc8f91dcd1f15e8db9ef25e3a04`（修改前 `54e5eda1d9ae7f503a86e6b8dde1c2fef57b5cf20204ccd0c2de1b9671f62409`）。
+- 检查：`check_bh_static.py` 新增 3 条用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 18:22:03 中望 XYG 修复 13 芯以上丢末尾原理号
+
+- 命令/模块：`XYG`（`c:XYG`、`xyg:find-right-new-texts`、`xyg:find-down-new-texts`）。
+- 问题：电缆线另一侧没有邻线时，XY 新文字只在线端 350 范围内收集；13 芯时最后一个原理号距线端 10+30×12=370，被丢弃（实例 `861`，XY 已生成但汇总表只有 12 个）。
+- 修改：没有邻线时按芯数确定范围（10+30×芯数+20），水平、竖直电缆线相同；有邻线时的边界不变。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `d604dcb656b8f6b2a5a5c005c87d7797c03eb7d53e4e621d8f380b5cab2c2011`（修改前 `617a42aecc44373cb05aa3bef8043ee7f7136bc8f91dcd1f15e8db9ef25e3a04`）。
+- 检查：`check_xyg_static.py` 新增水平、竖直 13 芯用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 18:47:50 中望 XYG 同时处理水平和竖直电缆线
+
+- 命令/模块：`XYG`（新增 `xyg:filter-green-lines`、`xyg:vline-on-hline-p`、`xyg:vline-has-leader-p`、`xyg:texts-by-dir`，修改 `c:XYG`、`xyg:line-geo-list`）。`xy:filter-green-hlines` 未改，JM、BH2、BHG 行为不变。
+- 问题：选区有绿色水平线时绿色竖线被全部忽略，只能处理一种方向。
+- 修改：两种方向一起收。同时存在时，端点落在绿色横线上（芯线）或没有横引线的绿色竖线不算电缆；XY 新文字按水平、旋转分开查找，避免两种电缆互相串文字；竖线不再参与水平线右侧邻线判断。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `6f0f067b9a9108d12eb91555b33a43666cf006964c9e9af7d14221018d6690b3`（修改前 `d604dcb656b8f6b2a5a5c005c87d7797c03eb7d53e4e621d8f380b5cab2c2011`）。
+- 检查：`check_xyg_static.py` 新增混合方向用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 18:59:05 中望 XYG 自动合并并入电缆
+
+- 命令/模块：`XYG`（新增 `xyg:merge-join-rows`、`xyg:find-join-main`、`xyg:join-row`，修改 `c:XYG`）；`HBDL` 未改并保留。
+- 问题：XYG 汇总表里 `并入X` 单独成行，要再跑 `HBDL`。
+- 修改：汇总前把 `并入X` 行并到本次框选里同编号、同去向的主电缆行，芯数相加、原理号接在后面；找不到主电缆时保留该行并提示。规则与 BH2 一致（比 HBDL 多要求去向相同）。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `0352c1c5420ad9ce806d26c0584a8f6a620068fa3e1204725632672cd7f398a9`（修改前 `6f0f067b9a9108d12eb91555b33a43666cf006964c9e9af7d14221018d6690b3`）。
+- 检查：`check_xyg_static.py` 新增并入合并用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 19:36:25 中望新增 SXD 跳到原件
+
+- 命令/模块：新增 `SXD`（`aa:link-goto`、`aa:link-goto-expr`、`aa:link-send-later`、`aa:link-find-source` 等）；`aa:link-ask-folder` 增加标题参数，`SX2` 用的文件夹跨会话记住（`AA_LINK_DIR`）。
+- 修改：点选文字跳到原件；原件在其他图时按 `.aalink.txt` 找到同名 dwg，打开或切换后缩放并选中。跨图缩放由临时 VBS 在 SXD 结束后发送。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `62d0f457201228ab176b36b9b92301253bdea667df5f080dca314657d73e016d`。
+- 检查：`check_link_static.py` 新增用例；`check_all_static.py` 全量结果见本次交付。
+- 平台差异（中望 2026，实测）：SXD 运行中切换文档后，目标图在命令结束前不接收 `SendCommand`、`ZoomCenter`，`ActiveViewport` 属性也不生效。
+- 验证状态：用户授权实测。本图跳转、目标图已打开时跳转通过；目标图未打开时打开和切换通过，缩放选中的 VBS 重试版未测完（COM `Documents.Add` / `Open` 开始报错，已停止）。
+- AutoCAD 状态：待同步。
+
+## 2026-10-30 19:51:05 中望 SXD 修复中文图名跨图不定位
+
+- 命令/模块：`SXD`（`aa:link-goto-expr`、`aa:link-send-later`，新增 `aa:link-vbs-name`）。
+- 问题：用户在中文图名的真实总图上跨图时，表达式每次返回 nil 且不断回显，没有定位；本图跳转正常。可能原因是 `vl-list->string` 还原中文不等，或切换未生效，未实机区分。
+- 修改：图名比较改为 `vl-string->list` 字符码列表；VBS 按图名找目标图并切换，确认它是活动图且空闲后才发送，不再向其他图反复发送。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `9fe3d05530ffa3d075ec13c1b07fe8de0eb9703755d49e82113e275b124d72df`（修改前 `62d0f457201228ab176b36b9b92301253bdea667df5f080dca314657d73e016d`）。
+- 检查：`check_link_static.py` 已更新；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：修改后未实机验证，待用户在总图验收。
+
+## 2026-10-30 20:36:08 中望 DE2 支持括号里写完整编号
+
+- 命令/模块：`DE2`（新增 `de:replace-full-code`、`de:code-prefix-len`、`de:code-skeleton`，修改 `de:strip-one`）；`DE` 行为不变。
+- 问题：`12ZL-20(12ZL-22)` 得到 `12ZL-12ZL-22`，应为 `12ZL-22`。
+- 修改：括号内外的编号去掉数字后骨架相同（如都是 `ZL-`）时，用括号内容整段替换括号前的编号：`12ZL-20(12ZL-22)` → `12ZL-22`，`11ZL-41(21ZL-41)` → `21ZL-41`。骨架不同时按原规则处理。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `58fcd168bead7a36159af419698a9a36faf973a56e46bb9bcbda0f9039fa1cd4`（修改前 `9fe3d05530ffa3d075ec13c1b07fe8de0eb9703755d49e82113e275b124d72df`）。
+- 检查：`check_bh_static.py` 新增 9 条用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 20:38:58 中望 DE2 支持括号里写完整柜名
+
+- 命令/模块：`DE2`（新增 `de:replace-cabinet-name`、`de:cabinet-name-p`，修改 `de:strip-one`）；`DE` 行为不变。
+- 问题：`至2#主变保护柜(1#35kV母线保护柜)` 得到两段柜名连在一起，应为 `至1#35kV母线保护柜`。
+- 修改：括号内外都以柜、屏、箱结尾时，用括号内容整段替换括号前的柜名，保留“至”和最后一个空格前的前缀。括号里自带“至”或空格时按它的写法。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `50f63c4cb1b66fddd5c03e8c005c0c7b17b2d2e91798a43d73d6b8ef73d96a83`（修改前 `58fcd168bead7a36159af419698a9a36faf973a56e46bb9bcbda0f9039fa1cd4`）。
+- 检查：`check_bh_static.py` 新增 8 条用例；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 20:42:26 中望 SXD 修复竖排文字缩放过远
+
+- 命令/模块：`SXD`（`aa:link-goto`）。
+- 问题：跳到旋转 270° 的文字时视图高度为 1100，原因是缩放高度按外框高度 × 30 计算，竖排文字的外框高度是字串长度（实例约 36.7）。
+- 修改：缩放高度改按外框较短的一边 × 30 计算，下限仍为 60；实例由 1100 变为 90。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `29ea02766e975bef98f545d42b566313a0c426bbd9963e6649fcbd62f969630b`（修改前 `50f63c4cb1b66fddd5c03e8c005c0c7b17b2d2e91798a43d73d6b8ef73d96a83`）。
+- 检查：`check_link_static.py` 新增断言；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 20:55:09 中望 SXD 修复跨图要点回总图才定位
+
+- 命令/模块：`SXD`（重写 `aa:link-send-later`，新增 `aa:link-write-jump`、`aa:link-vbs-str`，删除 `aa:link-open-doc`、`aa:link-goto`、`aa:link-goto-expr` 等）。
+- 问题：跨图时图纸切过去后不动，用户点回总图后才缩放。LISP 里 `vla-Activate` 切文档后，SXD 挂起在原图，排在后面的 VBS 要等用户回到原图才启动。
+- 修改：LISP 不再打开或切换文档，只写定位脚本和 VBS 后结束；VBS 打开或切到目标图，空闲后加载定位脚本。外框和缩放在目标图内计算。
+- 平台差异（中望 2026，用户实测现象）：LISP 中 `vla-Activate` 切文档后，后续代码要等回到原文档才继续。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `c81cbb2cbecf3a3b0e4d3556474018ee6411f21ad08a65d2df55d5dbd0fd383a`（修改前 `29ea02766e975bef98f545d42b566313a0c426bbd9963e6649fcbd62f969630b`）。
+- 检查：`check_link_static.py` 已更新；VBS 语法用去掉 CAD 连接的副本检查；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：修改后未实机验证，待用户在总图验收。
+
+## 2026-10-30 21:18:27 中望新增 XYG2 不留痕汇总
+
+- 命令/模块：新增 `XYG2`；`c:XYG` 主体移入 `xyg:run`（tag keep），`xy:run-yuan` 增加 `*xy-no-mark*`，`xy:run-xin` 开始时清除它。
+- 修改：XYG2 与 XYG 用同一流程，取到电缆数据后删除 XY 生成的文字，再提示插入点；异常电缆线只报告，不改色、不延长。XYG 和 XY 行为不变。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `d6b02b29556f72e96c84ed48e26c4789450a19e6805398ff7c2fc202f8c50def`（修改前 `c81cbb2cbecf3a3b0e4d3556474018ee6411f21ad08a65d2df55d5dbd0fd383a`）。
+- 检查：`check_xyg_static.py` 新增断言；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-30 21:23:07 中望 SXD 不再依赖值文件，SX 标记后自动导出
+
+- 命令/模块：`SXD`（新增 `aa:link-find-dwg`、`aa:link-locate-dwg`，定位脚本增加标记校验）；`SX`（新增 `aa:link-export-roots`）。
+- 问题：用户总图的字提示没找到原件，同名值文件存在（26307 个原件，同一图纸 ID），但值文件里没有这个字的句柄；未在 CAD 里确认这个字的具体原因。值文件还要先跑 SX1 才有。
+- 修改：SXD 按标记里记的图名在文件夹树中找 dwg，图改名时才查值文件；目标图里该句柄不是带标记的文字时提示。SX 有新标记且图已保存时同时写值文件。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `9fcdd9cc17fe5cd2be9c78bad070337cf1d4dcb6eddf166e0c948cf821e0e078`（修改前 `d6b02b29556f72e96c84ed48e26c4789450a19e6805398ff7c2fc202f8c50def`）。
+- 检查：`check_link_static.py` 新增断言；`check_all_static.py` 全量结果见本次交付。
+- AutoCAD 状态：待同步。
+- 验证状态：未连接、加载或操作 CAD。
