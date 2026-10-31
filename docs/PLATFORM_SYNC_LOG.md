@@ -2487,4 +2487,4 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 源码哈希：AutoCAD 修改前 `0164a1e133cf0a1705c595fcb98255974ed1487e1dc2e2b40e43570100bf53a7`，修改后 `bb9b4e6c117c118add26ca05dd3c880b96ec4a01630c4b00144b06b40d0831f2`；备份 `backups/dated/2026-10-31/AA整合版本.lsp.bak-sync1029-1031-20261031-153210`。
 - 验证状态：未连接、加载或操作 CAD。AutoCAD 上未验证：SXD 跨图 VBS、SX2 筛选的 CAD 内流程、QW2P 剪贴板、`COPYBASE`。DH 主流程来自用户实测的单文件版，整合后未加载；`\U+` 修正未实机验证。
 - 同步状态：AutoCAD 已跟到上述中望版本；两版已分别提交并推送到各自 `origin/main`。
-- 分享包：`D:\Users\ys199\Desktop\AutoCAD2018插件-20261022-112211.zip`（按用户指定覆盖原文件，原包备份在 `E:\366256\vibecoding\AutoCAD分享打包\旧包备份\`），含 `更新说明-20261031.txt`；打包时安装程序试跑通过，`命令别名设置.exe` 自检通过（183 条）。
+- 分享包：`D:\Users\ys199\Desktop\AutoCAD2018插件-20261031-160838.zip`（10-22 的旧包备份在 `E:\366256\vibecoding\AutoCAD分享打包\旧包备份\`），含 `更新说明-20261031.txt`；打包时安装程序试跑通过，`命令别名设置.exe` 自检通过（183 条）。
