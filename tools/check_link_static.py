@@ -371,12 +371,45 @@ assert any('清除副本标记 2 个，跳过原件 1 个，无标记 1 个' in 
 assert run('aa:link-dwg-of', 'E:\\卷册\\A图.aalink.txt') == 'E:\\卷册\\A图.dwg'
 source = (Path(__file__).resolve().parents[1] / 'AA整合版本.lsp').read_bytes().decode('utf-8')
 assert '(aa:link-export-roots dwg-id)' in source[source.index('(defun c:SX ('):source.index('(defun c:SXC')]  # SX 标记后直接更新值文件
-assert '(aa:link-locate-dwg info dir)' in source[source.index('(defun c:SXD'):source.index('(defun aa:link-clock')]  # 跳转不依赖值文件
+assert '(aa:link-ask-folder "SX2" (aa:link-near-dir))' in source  # SX2 默认优先当前图所在文件夹
+near = source[source.index('(defun aa:link-near-dir'):source.index('(defun aa:link-ask-folder')]
+assert near.index('(aa:link-collect-files (getvar "DWGPREFIX") 2)') < near.index('(aa:link-default-dir)')
+sxd_cmd = source[source.index('(defun c:SXD'):source.index('(defun aa:link-clock')]
+assert '(aa:link-locate-dwg info dir)' in sxd_cmd  # 跳转不依赖值文件
+assert sxd_cmd.index('(getvar "DWGPREFIX")') < sxd_cmd.index('(aa:link-default-dir)')  # 先找当前图所在文件夹，再找上次用过的
 sxd_src = source[source.index('(defun aa:link-vbs-str'):source.index('(defun aa:link-pick-text')]
 assert 'vla-Activate' not in sxd_src and 'vla-Open' not in sxd_src  # LISP 切文档后命令会挂起，切换和打开都交给 VBS
 assert 'a.Documents.Open' in sxd_src and 't.Activate' in sxd_src and 'USERS5' in sxd_src and 'wscript.exe' in sxd_src
 assert '(min (- (cadr b) (cadr a)) (- (car b) (car a)))' in sxd_src  # 竖排文字按短边定缩放
 assert '(aa:cmd-begin' not in source[source.index('(defun c:SXD'):source.index('(defun aa:link-clock')]  # 只读命令不开撤销组
+
+# SX2 CAD 外筛选：执行源码里内嵌的 VBS，核对只返回有变化的记录、新文件优先、缺失与冲突统计
+import shutil
+import subprocess
+import tempfile
+script_lines = [s[1:-1].replace('\\"', '"') for s in functions['aa:link-filter-script'][3:][-1][1:]]
+assert all(line.isascii() for line in script_lines)
+tmp = Path(tempfile.mkdtemp(prefix='aa_sx2_'))
+try:
+    (tmp / 'aa_sx2_filter.vbs').write_text('\r\n'.join(script_lines) + '\r\n', encoding='ascii')
+    old_file, new_file = tmp / '旧.aalink.txt', tmp / '新.aalink.txt'
+    old_file.write_text('AA_LINK_VALUES\t1\r\nP\tD|1\t旧值\r\nP\tD|2\t相同\r\nP\tD|3\t纯\r\nM\tD|3\t{\\H3;纯}\r\nP\tD|5\t未变\r\n', encoding='utf-8')
+    new_file.write_text('AA_LINK_VALUES\t1\r\nP\tD|1\t新值\r\nP\tD|4\t甲\tB\r\n', encoding='utf-8')
+    (tmp / 'aa_sx2_need.txt').write_text(
+        f'F\t{old_file}\nF\t{new_file}\nT\tD|1\t旧值\nT\tD|1\t新值\nT\tD|2\t相同\n'
+        'M\tD|3\t纯\nT\tD|3\t纯\nT\tD|4\t乙\nT\tD|9\t没有\nM\tD|5\t未变\n', encoding='utf-8')
+    subprocess.run(['cscript.exe', '//B', '//nologo', str(tmp / 'aa_sx2_filter.vbs')], check=True, timeout=60)
+    counts = (tmp / 'aa_sx2_count.txt').read_text(encoding='ascii').strip()
+    assert counts == '(1 1)', counts
+    result = (tmp / 'aa_sx2_vals.txt').read_bytes().decode('utf-8-sig').split('\r\n')
+    assert result[0] == 'AA_LINK_VALUES\t1'
+    assert sorted(x for x in result[1:] if x) == sorted(
+        ['P\tD|1\t新值', 'P\tD|3\t纯', 'M\tD|3\t{\\H3;纯}', 'P\tD|4\t甲\tB']), result
+finally:
+    shutil.rmtree(tmp, ignore_errors=True)
+sx2_flat = list(walk(functions['c:sx2']))
+assert any(n[0] == 'aa:link-filter-values' for n in sx2_flat)  # 先走 CAD 外筛选，失败才逐行读取
+assert ':vlax-true' in source[source.index('(defun aa:link-filter-values'):source.index('(defun aa:link-file-time')]  # 必须等脚本结束
 
 print(f'PASS link: {len(LINK)} aa:link helpers + SX/SX1/SX2 structure; utf8 open/close; '
       'SX0 clears copies only; value-file round trip; handent root lookup; line parsing; newest-file priority; UID join; TEXT/MTEXT choice')

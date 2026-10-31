@@ -286,6 +286,29 @@ assert len(dedup_res) == 3, f'Expected 3 lines after deduplication, got {len(ded
 assert 'line_a' in dedup_res or 'line_dup' in dedup_res
 assert 'line_right' in dedup_res and 'line_lower' in dedup_res
 
+# Test 5b: 叠在一起的电缆线（D0205 QW3 实例）：右端相同、左端不同，只留最长的，否则出两行且短的少原理号
+entities = {
+    'ov_long': [(0, 'LINE'), (10, [71582.9557, 22168.0697, 0.0]), (11, [71783.7187, 22168.0697, 0.0])],
+    'ov_short': [(0, 'LINE'), (10, [71586.6106, 22168.0697, 0.0]), (11, [71783.7187, 22168.0697, 0.0])],
+    'ov_rev': [(0, 'LINE'), (10, [71783.7187, 22168.0697, 0.0]), (11, [71590.0, 22168.0697, 0.0])],
+}
+assert invoke('xyg:dedup-hlines', [['ov_short', 'ov_long'], 0.5], {}) == ['ov_long']
+assert invoke('xyg:dedup-hlines', [['ov_long', 'ov_short', 'ov_rev'], 0.5], {}) == ['ov_long']
+# 同一直线上右端不同的是两根电缆，首尾相接、部分重叠都保留
+entities = {
+    'col_1': [(0, 'LINE'), (10, [0.0, 50.0, 0.0]), (11, [200.0, 50.0, 0.0])],
+    'col_2': [(0, 'LINE'), (10, [200.0, 50.0, 0.0]), (11, [400.0, 50.0, 0.0])],
+    'col_3': [(0, 'LINE'), (10, [150.0, 50.0, 0.0]), (11, [300.0, 50.0, 0.0])],
+}
+assert sorted(invoke('xyg:dedup-hlines', [['col_1', 'col_2', 'col_3'], 0.5], {})) == ['col_1', 'col_2', 'col_3']
+# 竖直电缆线的输出端在下端：下端相同留最长的，下端不同都保留
+entities = {
+    'vov_long': [(0, 'LINE'), (10, [100.0, 500.0, 0.0]), (11, [100.0, 200.0, 0.0])],
+    'vov_short': [(0, 'LINE'), (10, [100.0, 200.0, 0.0]), (11, [100.0, 450.0, 0.0])],
+    'vov_other': [(0, 'LINE'), (10, [100.0, 190.0, 0.0]), (11, [100.0, 50.0, 0.0])],
+}
+assert invoke('xyg:dedup-hlines', [['vov_short', 'vov_long', 'vov_other'], 0.5], {}) == ['vov_long', 'vov_other']
+
 # Test 6: xyg:find-right-new-texts handles multiple columns on same row (no duplicate text)
 # Row Y=50.0: Line 1 (rightPt=250.0) and Line 5 (rightPt=650.0)
 entities = {}
@@ -337,7 +360,9 @@ LEGACY_LSP = r'''
               (and (<= minx xmax)
                    (>= maxx xmin)
                    (<= miny ymax)
-                   (>= maxy ymin))
+                   (>= maxy ymin)
+                   ;; 2026-10-31 行归属规则：文字中心不低于搜索框下沿
+                   (>= (/ (+ miny maxy) 2.0) ymin))
             )
             (progn
               ;; 若获取包围盒失败，保底基于插入点扩展判定
@@ -347,7 +372,8 @@ LEGACY_LSP = r'''
               (and (<= (- cx 2.0) xmax)
                    (>= (+ cx 2.0) xmin)
                    (<= (- cy 0.5) ymax)
-                   (>= (+ cy h) ymin))
+                   (>= (+ cy h) ymin)
+                   (>= (/ (+ (- cy 0.5) (+ cy h)) 2.0) ymin))
             )
           )
         )
@@ -383,7 +409,7 @@ LEGACY_LSP = r'''
     )
   )
   ;; 若在框选集合中未找到足够的3个文字，自动在当前图面对应矩形区域内补充查找，彻底杜绝框选不全导致的漏选
-  (if (< (length res) 3)
+  (if (< (length (xyg:dedup-texts res)) 3)
     (progn
       (setq nearby (xy:window-wcs xmin ymin xmax ymax '((0 . "TEXT,MTEXT"))))
       (if nearby
@@ -410,7 +436,7 @@ LEGACY_LSP = r'''
     )
   )
   ;; 按 X 坐标从左到右排序
-  (setq res (aa:merge-sort res '(lambda (a b) (< (cadr a) (cadr b)))))
+  (setq res (aa:merge-sort (xyg:dedup-texts res) '(lambda (a b) (< (cadr a) (cadr b)))))
   ;; 从右侧顶点往左看最多只有 3 个文字，多于 3 个时只保留最靠近右侧的最后 3 个
   (while (> (length res) 3)
     (setq res (cdr res))
@@ -514,27 +540,6 @@ LEGACY_LSP = r'''
              yb  (caddr (assoc 10 edb)))
        (> ya yb))))
 
-(defun old:next-line-min-x (line-en rx ry sorted-lines / next-line-min-x other-en other-ed other-p1 other-p2 other-y other-min-x)
-  (setq next-line-min-x nil)
-  (foreach other-en sorted-lines
-    (if (/= other-en line-en)
-      (progn
-        (setq other-ed (entget other-en)
-              other-p1 (cdr (assoc 10 other-ed))
-              other-p2 (cdr (assoc 11 other-ed))
-              other-y  (cadr other-p1)
-              other-min-x (min (car other-p1) (car other-p2)))
-        (if (and (<= (abs (- other-y ry)) 0.5)
-                 (> other-min-x rx))
-          (if (or (null next-line-min-x) (< other-min-x next-line-min-x))
-            (setq next-line-min-x other-min-x)
-          )
-        )
-      )
-    )
-  )
-  next-line-min-x
-)
 '''
 functions.update({f[1]: f for f in parse(LEGACY_LSP) if isinstance(f, list) and f[:1] == ['defun']})
 native['aa:link-xdata'] = lambda en: ['LINK', en]
@@ -651,14 +656,6 @@ def run_scene(seed):
         lines.append(en)
     sorted_new = invoke('xyg:sort-lines-desc', [lines], {})
     assert sorted_new == invoke('old:sort-lines-desc', [lines], {}), seed
-    geo = invoke('xyg:line-geo-list', [sorted_new], {})
-    for en in sorted_new:
-        p1, p2 = list(entities[en][1][1:]), list(entities[en][2][1:])
-        rp = p1 if p1[0] >= p2[0] else p2
-        for ry in (rp[1], rp[1] + 0.5, rp[1] - 0.5, rp[1] + 0.25):
-            got = invoke('xyg:next-line-min-x', [en, rp[0], ry, geo], {})
-            want = invoke('old:next-line-min-x', [en, rp[0], ry, sorted_new], {})
-            assert got == want, (seed, en, ry, got, want)
 
 
 for seed in range(60):
@@ -675,10 +672,10 @@ native['aa:gtx-natural-less'] = _nat_less
 native['textbox'] = lambda ed: None
 native['xyg:make-linked-text'] = lambda pt, content, h, sty, src: made.append((content, src)) or True
 link_a = [-3, ['AA_LINK', (1000, 'D1'), (1000, '1A')]]
-grp_b = [['DS-03', link_a], ['4'], ['107', link_a]]
-grp_a = [['DS-01'], ['2'], ['101']]
+grp_b = [['同步时钟柜'], ['DS-03', link_a], ['4'], ['107', link_a]]
+grp_a = [['同步时钟柜'], ['DS-01'], ['2'], ['101']]
 cats = [['DS', [grp_b, grp_a]]]
-invoke('xyg:output-gtx-matrix', [cats, ['同步时钟柜'], [0.0, 0.0, 0.0], 'HZ'], {})
+invoke('xyg:output-gtx-matrix', [cats, [0.0, 0.0, 0.0], 'HZ'], {})
 assert [c for c, _ in made] == ['同步时钟柜', 'DS-01', '2', '101', '同步时钟柜', 'DS-03', '4', '107'], made
 assert made[5][1] == [link_a] and not made[1][1], made
 
@@ -702,6 +699,65 @@ assert len(v_dedup) == 2
 v_rect_idx = invoke('xyg:build-text-index', [['vt_num', 'vt_dest', 'vt_spec'], 'box'], {})
 v_rect_res = invoke('xyg:find-vrect-texts', [[68674.2242, 23224.1392, 0.0], v_rect_idx], {})
 assert v_rect_res == ['1YYH-102B', '至110kV母线保护测控柜', '10×1.5'], v_rect_res
+
+# 字高 4 的图纸（D0204 QW3 实例）：下一行文字顶边正好碰到上一行搜索框下沿，不能串到上一行
+h4_right = [67512.4811, 33400.9088, 0.0]
+h4_low_right = [67512.4811, 33395.9088, 0.0]
+entities = {
+    'h4_dest': text_ed('TEXT', 67448.5525, 33401.4088, 4.0, '至相邻屏柜'),
+    'h4_type': text_ed('TEXT', 67503.1347, 33401.7375, 3.0, '通讯线'),
+    'h4_num': text_ed('TEXT', 67420.0491, 33396.7375, 3.0, '1(2)UB-102C'),
+    'h4_low_dest': text_ed('TEXT', 67448.5525, 33396.4088, 4.0, '至1(2)#主变测控柜'),
+    'h4_spec': text_ed('TEXT', 67500.1363, 33396.7375, 3.0, '14×1.5'),
+}
+BBOX = {
+    'h4_dest': [67448.8832, 67462.3099, 33401.4088, 33405.4088],
+    'h4_type': [67503.2339, 67509.2363, 33401.7848, 33404.7139],
+    'h4_num': [67420.0491, 67439.2991, 33396.7375, 33399.7375],
+    'h4_low_dest': [67448.8832, 67476.3099, 33396.4088, 33400.4088],
+    'h4_spec': [67500.1363, 67509.2363, 33396.7375, 33399.7375],
+}
+h4_idx = invoke('xyg:build-text-index', [list(entities), 'box'], {})
+h4_top = ['至相邻屏柜', '通讯线']
+h4_low = ['1(2)UB-102C', '至1(2)#主变测控柜', '14×1.5']
+assert invoke('xyg:find-rect-texts', [h4_right, h4_idx], {}) == h4_top
+assert invoke('xyg:find-rect-texts', [h4_low_right, h4_idx], {}) == h4_low
+# 上一行不足 3 个时走图面补查，同样不能把下一行的字补进来
+native['xy:window-wcs'] = lambda *a: list(entities)
+assert invoke('xyg:find-rect-texts', [h4_right, h4_idx], {}) == h4_top
+# 竖直电缆线同理：左侧邻线字高 4 的文字贴到本线搜索框左沿，不算本线的文字
+entities = {
+    'v4_left': text_ed('TEXT', 95.5, 1100.0, 4.0, '至甲柜'),
+    'v4_num': text_ed('TEXT', 100.5, 1100.0, 3.0, 'A-101'),
+    'v4_dest': text_ed('TEXT', 100.5, 1060.0, 4.0, '至乙柜'),
+}
+BBOX = {'v4_left': [95.5, 99.5, 1070.0, 1100.0], 'v4_num': [100.5, 103.5, 1085.0, 1100.0],
+        'v4_dest': [100.5, 104.5, 1030.0, 1060.0]}
+v4_idx = invoke('xyg:build-text-index', [list(entities), 'box'], {})
+assert invoke('xyg:find-vrect-texts', [[100.0, 1000.0, 0.0], v4_idx], {}) == ['A-101', '至乙柜']
+native['xy:window-wcs'] = lambda *a: None
+
+# 图上叠了两份同样的文字（D0202 QW3 实例）：只算一个，电缆编号不能被挤掉
+entities = {
+    'dup_num': text_ed('TEXT', 10237.4416, -4593.1374, 3.0, '1AW-132D'),
+    'dup_a': text_ed('TEXT', 10263.057, -4593.1374, 3.0, '至安全稳定控制装置A柜'),
+    'dup_b': text_ed('TEXT', 10263.057, -4593.1374, 3.0, '至安全稳定控制装置A柜'),
+    'dup_spec': text_ed('TEXT', 10297.9985, -4593.1374, 3.0, '4×4'),
+}
+BBOX = {
+    'dup_num': [10237.4416, 10252.8416, -4593.1374, -4590.1374],
+    'dup_a': [10263.305, 10285.9751, -4593.1374, -4590.1374],
+    'dup_b': [10263.305, 10285.9751, -4593.1374, -4590.1374],
+    'dup_spec': [10297.9985, 10303.5985, -4593.1374, -4590.1374],
+}
+dup_idx = invoke('xyg:build-text-index', [list(entities), 'box'], {})
+dup_row = ['1AW-132D', '至安全稳定控制装置A柜', '4×4']
+assert invoke('xyg:find-rect-texts', [[10310.9985, -4593.6374, 0.0], dup_idx], {}) == dup_row
+# 优先留带联动标记的那个；内容不同或位置不重合的不算重复
+native['aa:link-xdata'] = lambda en: None if en == 'plain' else ['LINK', en]
+assert invoke('xyg:dedup-texts', [[['plain', 5.0, 'A'], ['marked', 5.2, 'A']]], {}) == [['marked', 5.2, 'A']]
+assert len(invoke('xyg:dedup-texts', [[['a', 5.0, 'A'], ['b', 5.0, 'B'], ['c', 9.0, 'A']]], {})) == 3
+native['aa:link-xdata'] = lambda en: ['LINK', en]
 
 entities = {
     'vn_core': text_ed('TEXT', 68674.7242, 23222.1392, 3.0, '4'),
@@ -729,7 +785,7 @@ v13_idx = invoke('xyg:build-text-index', [list(entities), 'point'], {})
 v13_res = invoke('xyg:find-down-new-texts', [[100.0, 1000.0, 0.0], v13_idx, 13, None], {})
 assert v13_res == ['13'] + names, v13_res
 
-# 水平、竖直绿色电缆线同图：芯线和没有横引线的绿色竖线不算电缆，line-geo 不含竖线
+# 水平、竖直绿色电缆线同图：芯线和没有横引线的绿色竖线不算电缆
 G = {'*xy-conn-tol*': 0.05, '*xy-geom-tol*': 0.0001, '*xy-ang-tol*': 0.0175, 'pi': 3.141592653589793}
 def green(x1, y1, x2, y2):
     return [(0, 'LINE'), (62, 3), (5, f'{x1}_{y1}'), (10, [x1, y1, 0.0]), (11, [x2, y2, 0.0])]
@@ -750,13 +806,32 @@ assert not invoke('xyg:vline-on-hline-p', [entities['mx_cable'], ['mx_h']], G)
 assert invoke('xyg:filter-green-lines', [['mx_h', 'mx_core', 'mx_cable', 'mx_plain']], G) == ['mx_h', 'mx_cable']
 assert invoke('xyg:filter-green-lines', [['mx_cable', 'mx_plain']], G) == ['mx_cable', 'mx_plain']
 assert invoke('xyg:filter-green-lines', [['mx_h']], G) == ['mx_h']
-assert [g[0] for g in invoke('xyg:line-geo-list', [['mx_h', 'mx_cable']], G)] == ['mx_h']
+
+# 竖向电缆 1(2)UB-103B 正下方紧挨着 1(2)UB-105（D0204 实例）：按归属取文字，原理号不被下一根线截掉
+names = ['501', '1(2)UB-505', '1(2)UB-503']
+entities = {'own_core': text_ed('TEXT', 100.5, 998.0, 3.0, '3'), 'next_core': text_ed('TEXT', 100.5, 798.0, 3.0, '1'),
+            'next_name': text_ed('TEXT', 100.5, 790.0, 3.0, '1(2)UB-801')}
+for k, name in enumerate(names):
+    entities[f'own_{k}'] = text_ed('TEXT', 100.5, 990.0 - 30.0 * k, 3.0, name)
+M = {'*xy-last-core-map*': [['H1', 'own_core'], ['H2', 'next_core']],
+     '*xy-last-new-map*': [['H1', 'own_0', 'own_1', 'own_2'], ['H2', 'next_name']]}
+own = invoke('xyg:line-new-texts', ['H1'], M)
+assert own == ['own_core', 'own_0', 'own_1', 'own_2'], own
+own_idx = invoke('xyg:build-text-index', [own, 'point'], {})
+own_res = invoke('xyg:find-down-new-texts', [[100.0, 1000.0, 0.0], own_idx, 3, None], {})
+assert own_res == ['3'] + names, own_res
+xy_src = source[source.index('(defun xy:process-one-hline'):source.index('(defun xy:run-yuan')]
+assert xy_src.count('made   (cons cand made)') == 2 and '*xy-last-new-map*' in xy_src
+assert '(xyg:line-new-texts line-handle)' in source and 'next-vline-max-y' not in source
 
 # 并入行并到同编号、同去向的主电缆行
 assert 'xyg:merge-join-rows' in str(targets['xyg:run'])
+assert 'xyg:expand-combo-rows' in str(targets['xyg:run'])  # 拆行逻辑的执行断言在 check_bh_static.py
 # XYG2：同一主流程，只是不留 XY 文字和异常标记
 assert targets['c:xyg'][3] == ['xyg:run', 'XYG', 't'] or str(targets['c:xyg'][3]).lower().count('xyg:run') == 1
-assert 'nil' in str(functions['c:xyg2'][3]) and 'xyg:run' in str(functions['c:xyg2'][3])
+assert targets['c:xyg'][3] == ['xyg:run', '"XYG"', 't', 'nil'], targets['c:xyg'][3]
+assert functions['c:xyg2'][3] == ['xyg:run', '"XYG2"', 'nil', 'nil'], functions['c:xyg2'][3]
+assert functions['c:xyg3'][3] == ['xyg:run', '"XYG3"', 'nil', 't'], functions['c:xyg3'][3]  # 只有 XYG3 拆合画
 xyg_run = source[source.index('(defun xyg:run'):source.index('(defun c:XYG ()')]
 assert '(foreach cur xy-new-texts (entdel cur))' in xyg_run
 assert xyg_run.index('lines-group-data (reverse lines-group-data)') < xyg_run.index('(entdel cur)') < xyg_run.index('getpoint')  # 指定插入点前图面已还原

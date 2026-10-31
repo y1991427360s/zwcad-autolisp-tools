@@ -1537,6 +1537,110 @@ assert join('DS-24', 'DS-25') == 'DS-24(25)' and join('1UBY-105', '2UBY-105') ==
 assert join('DS-24', 'DS-24') == 'DS-24' and join('1B-101A', '1B-101B') is None and join('DS-24', 'TX-25') is None
 assert join('1UYH-141A', '2UYH-140A') == '1(2)UYH-141(140)A' and alts('1(2)UYH-141(140)A') == ['1UYH-141A', '2UYH-140A']
 assert alts('1(2)UYH-141(140,139)A') is None and alts('1(2)#柜(备用)') == ['1#柜(备用)', '2#柜(备用)']
+# XYG3：一根绿线画两根电缆（D0206 QW3 实例），汇总表拆成 1#、2# 两行
+xalts = lambda s: call('xyg:text-alts', [s], GLOBAL)
+assert xalts('至1-1#(2-1)直流馈线柜') == ['至1-1#直流馈线柜', '至2-1#直流馈线柜']
+assert xalts('11ZL-41(21ZL-41)') == ['11ZL-41', '21ZL-41']
+assert xalts('至2#主变保护柜(1#35kV母线保护柜)') == ['至2#主变保护柜', '至1#35kV母线保护柜']
+assert xalts('至35kV柜(备用)') is None and xalts('未编号') is None and xalts('至未填写') is None and xalts('4×1.5') is None
+assert call('de:strip-one', ['A63(4)0I', 2], GLOBAL) is None and call('de:strip-one', ['A63(4)0I', 1], GLOBAL) == 'A640I'
+xlink = lambda h, *more: [-3, ['AA_LINK', (1000, 'D'), (1000, h), *more]]
+xrow = lambda *t: [[x, *xlink(f'L{k}')] for k, x in enumerate(t)]
+xpre = ['35kV 1(2)#SVG进线柜', *xlink('LP')]
+xres = call('xyg:expand-combo-rows', [[xrow('1(2)SVG-106A', '至35kV 1(2)#SVG控制柜', '4×1.5', '2', '107', '107A')], xpre, True], GLOBAL)
+assert xres[-1] == 1 and [[i[0] for i in r] for r in xres[0]] == [
+    ['35kV 1#SVG进线柜', '1SVG-106A', '至35kV 1#SVG控制柜', '4×1.5', '2', '107', '107A'],
+    ['35kV 2#SVG进线柜', '2SVG-106A', '至35kV 2#SVG控制柜', '4×1.5', '2', '107', '107A']], xres
+# 拆开的文字保留联动并记第几张图（SXD 能跳转，SX1 不刷回合画写法），没变的文字联动不变
+assert xres[0][0][0] == ['35kV 1#SVG进线柜', *xlink('LP', (1070, 1))], xres
+assert xres[0][1][2] == ['至35kV 2#SVG控制柜', *xlink('L1', (1070, 2))], xres
+assert xres[0][0][3] == ['4×1.5', *xlink('L2')] and xres[0][1][6] == ['107A', *xlink('L5')], xres
+# 原件没有联动标记时，拆开的文字也没有
+assert call('xyg:pick-alt', [['甲'], ['乙', '丙'], 1], GLOBAL) == ['丙']
+# aa:link-info 认带第几张图的标记；刷新时原件按同样规则拆开，取这一张
+linfo = lambda *app: call('aa:link-info', [[[-3, ['AA_LINK', *app]]]], GLOBAL)
+assert linfo((1000, 'D'), (1000, '2A')) == ['D', '2A']
+assert linfo((1000, 'D'), (1000, '2A'), (1070, 2)) == ['D', '2A', 2]
+assert linfo((1000, 'D')) is None
+part = lambda s, n: call('aa:link-part-text', [s, n], GLOBAL)
+assert part('1(2)SVG-106B', 2) == '2SVG-106B' and part('至35kV 1(2)#SVG控制柜', 1) == '至35kV 1#SVG控制柜'
+assert part('至1-1#(2-1)直流馈线柜', 2) == '至2-1#直流馈线柜'
+assert part('1SVG-106A', 2) is None and part('1(2)SVG-106A', 3) is None  # 原件改成单柜写法：副本不动
+# 刷新不把拆开的副本改回合画写法（XYG3、DE/DE2、手改）
+marks = []
+NATIVE['aa:link-mark-part'] = lambda en, n: marks.append((en, n)) or True
+NATIVE['aa:ysdl-get-plain-text'] = lambda ed: ed[0]
+def refresh(cur, plain, new, part=None):
+    return call('aa:link-split-text', ['e', [cur], part, plain, new], GLOBAL)
+assert refresh('1SVG-106A', '1(2)SVG-106A', '1(2)SVG-106A') is None and marks == [('e', 1)]  # 手工拆的：记下，不改
+marks.clear()
+assert refresh('2SVG-106A', '1(2)SVG-106A', '1(2)SVG-106A') is None and marks == [('e', 2)]
+marks.clear()
+assert refresh('2SVG-106A', '1(2)SVG-106B', '1(2)SVG-106B') is True and not marks  # 对不上：不动并报告
+assert refresh('2SVG-106A', '1(2)SVG-106B', '1(2)SVG-106B', 2) == '2SVG-106B'      # 记过的：跟着原件
+assert refresh('2SVG-106A', '2SVG-106B', '2SVG-106B', 2) is True
+assert refresh('旧值', '新值', '新值') == '新值'                                    # 普通副本照常刷新
+assert refresh('1(2)旧-1', '1(2)SVG-1', '1(2)SVG-1') == '1(2)SVG-1'                 # 副本也是合画写法：照常刷新
+assert refresh('相同', '相同', '相同') == '相同' and not marks
+# DE、DE2 拆开联动副本时当场记下；原件、已记过的、普通括号不记
+ents23 = {'c': [(5, 'C1'), [-3, ['AA_LINK', (1000, 'D'), (1000, 'R1')]]],
+          'r': [(5, 'R1'), [-3, ['AA_LINK', (1000, 'D'), (1000, 'R1')]]],
+          'p': [(5, 'P1'), [-3, ['AA_LINK', (1000, 'D'), (1000, 'R1'), (1070, 1)]]],
+          'n': [(5, 'N1')]}
+saved = {k: NATIVE.get(k) for k in ('entget', 'aa:link-dwg-id')}
+NATIVE['entget'] = lambda en, *a: ents23[en]
+NATIVE['aa:link-dwg-id'] = lambda c: 'D'
+call('de:link-part', ['c', '1(2)SVG-106A', '2SVG-106A'], GLOBAL)
+assert marks == [('c', 2)], marks
+marks.clear()
+for en in ('r', 'p', 'n'):
+    call('de:link-part', [en, '1(2)SVG-106A', '1SVG-106A'], GLOBAL)
+call('de:link-part', ['c', '至XX柜(备用)', '至XX柜'], GLOBAL)
+assert not marks, marks
+del NATIVE['aa:link-mark-part'], NATIVE['aa:ysdl-get-plain-text']
+for k, v in saved.items():
+    if v is None:
+        NATIVE.pop(k, None)
+    else:
+        NATIVE[k] = v
+# 原理号也拆；未编号的两根都写未编号；同一张图上的普通行只加柜名
+xres = call('xyg:expand-combo-rows', [[xrow('未编号', '至同步时钟主机柜', '4×1.5', '1', '1(2)UBY-901')], xpre, True], GLOBAL)
+assert [[i[0] for i in r] for r in xres[0]] == [
+    ['35kV 1#SVG进线柜', '未编号', '至同步时钟主机柜', '4×1.5', '1', '1UBY-901'],
+    ['35kV 2#SVG进线柜', '未编号', '至同步时钟主机柜', '4×1.5', '1', '2UBY-901']], xres
+plain = xrow('DS-24', '至同步时钟主机柜', '通讯线', '2', 'B+', 'B-')
+xres = call('xyg:expand-combo-rows', [[plain], ['同步时钟主机柜'], True], GLOBAL)
+assert xres[-1] == 0 and xres[0] == [[['同步时钟主机柜'], *plain]], xres
+# 拆不开的保留合画写法：只有一个正式编号、括号个数不一致；用户 D0206 实测 *-101B 原来会因 princ 返回值报错
+for bad in (xrow('UTB-101B', '至35kV进线柜', '4×1.5', '1', '101'),
+            xrow('DS-24(25,26)', '至同步时钟主机柜', '通讯线', '1', 'B+')):
+    xres = call('xyg:expand-combo-rows', [[bad], xpre, True], GLOBAL)
+    assert xres[-1] == 0 and xres[0] == [[xpre, *bad]], xres
+xrow2 = xrow('*-101B', '至1(2)#35kV母线保护柜', '4×1.5', '1', '101')
+xres = call('xyg:expand-combo-rows', [[xrow2], ['35kV 风机回路进线柜+备用柜'], True], GLOBAL)
+assert xres[-1] == 0 and xres[0] == [[['35kV 风机回路进线柜+备用柜'], *xrow2]], xres
+# 文字不全（用户 D0206 截图）：只拆柜名，其余照抄成两份；原理号是数字时同样按文字不全处理
+for short in (xrow('至相邻屏柜', '通讯线', '2', '485+', '485-'), xrow('至相邻屏柜', '通讯线', '2', '107', '108')):
+    xres = call('xyg:expand-combo-rows', [[short], xpre, True], GLOBAL)
+    assert xres[-1] == 1 and xres[0] == [[['35kV 1#SVG进线柜', *xlink('LP', (1070, 1))], *short],
+                                         [['35kV 2#SVG进线柜', *xlink('LP', (1070, 2))], *short]], xres
+xres = call('xyg:expand-combo-rows', [[short], ['甲柜'], True], GLOBAL)
+assert xres[-1] == 0 and xres[0] == [[['甲柜'], *short]], xres
+# 不拆（XYG、XYG2）：合画写法原样保留，只加柜名
+one = xrow('1(2)SVG-106A', '至35kV 1(2)#SVG控制柜', '4×1.5', '2', '107', '107A')
+xres = call('xyg:expand-combo-rows', [[one, short], xpre, None], GLOBAL)
+assert xres[-1] == 0 and xres[0] == [[xpre, *one], [xpre, *short]], xres
+# 按柜分块：排完 1# 再排 2#，同编号前缀（11ZL-）不会把两个柜混在一起
+xres = call('xyg:expand-combo-rows', [[
+    xrow('1(2)SVG-106A', '至35kV 1(2)#SVG控制柜', '4×1.5', '2', '107', '107A'),
+    xrow('11ZL-04(16)', '至1-1#直流馈线柜', '2×4', '2', '+KM', '-KM'),
+    xrow('至相邻屏柜', '通讯线', '2', '485+', '485-')], xpre, True], GLOBAL)
+NATIVE['vl-string-translate'] = lambda src, dst, s: s.translate(str.maketrans(src, dst))
+NATIVE['vl-string-left-trim'] = lambda chars, s: s.lstrip(chars)
+cats = call('xyg:categorize-blocks', [xres[0]], GLOBAL)
+order = [r[0][0] for c in cats for r in c[1]]
+assert order == ['35kV 1#SVG进线柜'] * 3 + ['35kV 2#SVG进线柜'] * 3, order
+assert {c[0] for c in cats[:3]} == {'1SVG-', '11ZL-', '至相邻屏柜'}, cats
 F23 = {PATH: [H23, '1UYH-141A	1#主变保护柜	电压转接柜	A630I N600	x.dwg	t	',
               '2UYH-140A	2#主变保护柜	电压转接柜	A640I N600	x.dwg	t	']}
 c = Cad(F23)                                   # 用户实例：两张图编号差两段数字 → 1(2)UYH-141(140)A；重跑核对一致
@@ -1931,7 +2035,7 @@ assert len(made) == 9, len(made)
 vgreen = [m for m in made if m.get(0) == 'LINE' and m.get(62) == 3]
 assert len(vgreen) == 1 and abs(vgreen[0][10][0] - 68669.2242) < 1e-4 and abs(vgreen[0][11][1] - 23224.1392) < 1e-4, vgreen
 vtxts = [m for m in made if m.get(0) == 'TEXT']
-assert [m[1] for m in vtxts] == ['未编号', '至未填写', '未填写'], vtxts
+assert [m[1] for m in vtxts] == ['未编号', '至未填写', '4×1.5'], vtxts  # 截面按所选原理号直接写
 # 端子排边框是矩形闭合多段线（用户 QW3：双电源切换箱）时，bdl:cross-lines 拆出与窗口相交的直线段，圆弧段跳过
 rect_ents = {
     'rect': [(0, 'LWPOLYLINE'), (90, 4), (70, 1),
@@ -2145,5 +2249,50 @@ assert [l.split('	')[:4] for l in F32[PATH][1:]] == [['1B-700', '甲柜', '乙�
 assert any('并入 1B-700' in o and '不单独编号' in o for o in c.out), c.out
 assert any('并入的主电缆 1B-701 不在本批点选里' in o for o in c.out), c.out
 print('PASS: 场景32 并入：与主电缆算同一根，原理号合并核对/记录；旧“并入”记录并到主记录；画并入线前的主记录改为合并原理号；找不到主电缆时无法编号；旧号改新时并入线跟改；BH1/BHG/BH3 同样合并')
+# BDL 补画时按所选原理号写截面，规则同 JM；判断不了保留“未填写”并说明原因
+assert call('bdl:spec-text', [['501', '503']], GLOBAL) == '4×1.5'
+assert call('bdl:spec-text', [['101', '133']], GLOBAL) == '4×2.5'
+assert call('bdl:spec-text', [['485+', '485-']], GLOBAL) == '通讯线'
+assert call('bdl:spec-text', [['101', '501']], GLOBAL) == '未填写'
+assert call('bdl:spec-text', [['']], GLOBAL) == '未填写'
+bdl_src = SOURCE.read_bytes().decode('utf-8')
+assert bdl_src.count('(setq spec (bdl:spec-text (bdl:ss-texts ss))') == 2  # 横排、竖排都写
+assert '(zddl2:e-text "未填写"' not in bdl_src[bdl_src.index('(defun bdl:work-vertical'):bdl_src.index('(defun c:BDL')]
+# BDL2 循环内清预选集，否则 ssget 反复取到同一批
+multi = bdl_src[bdl_src.index('(defun bdl:work-multi'):bdl_src.index('(defun bdl:draw')]
+assert '(bdl:draw ss)' in multi and multi.index('(sssetfirst nil nil)') < multi.index('(ssget')
+assert "(vl-catch-all-apply 'bdl:work-multi nil)" in bdl_src
+# 先逐根记住，空选后才按选择顺序生成；生成前高亮已取消
+def run_bdl2(sets):
+    events, picks = [], list(sets)
+    saved = {k: NATIVE.get(k) for k in ('ssget', 'sssetfirst', 'redraw', 'sslength', 'ssname', 'bdl:draw', 'princ')}
+    def fake_ssget(flt):
+        events.append('select')
+        return picks.pop(0) if picks else None
+    NATIVE.update({'ssget': fake_ssget, 'sssetfirst': lambda a, b: None,
+                   'redraw': lambda en, mode: events.append((en, mode)),
+                   'sslength': len, 'ssname': lambda ss, i: ss[i],
+                   'bdl:draw': lambda ss: events.append(('draw', ss[0])), 'princ': lambda *a: None})
+    GLOBAL.set('bdl-picks', None)
+    call('bdl:work-multi', [], GLOBAL)
+    GLOBAL.set('bdl-picks', None)
+    for k, v in saved.items():
+        if v is None:
+            NATIVE.pop(k, None)
+        else:
+            NATIVE[k] = v
+    return events
+ev = run_bdl2([['a', 'b'], ['c'], ['d']])
+assert ev.count('select') == 4, ev
+first_draw = ev.index(('draw', 'a'))
+assert first_draw > max(i for i, e in enumerate(ev) if e == 'select'), ev   # 第 4 次空选之后才开始画
+assert [e for e in ev if e[0] == 'draw'] == [('draw', 'a'), ('draw', 'c'), ('draw', 'd')], ev
+assert [e[1] for e in ev[:first_draw] if e != 'select'].count(3) == 4
+assert all((en, 4) in ev[:first_draw] for en in 'abcd'), ev
+assert run_bdl2([]) == ['select']                                          # 一根都没选：不画
+# Esc 时 c:BDL2 取消高亮，什么都不画
+wrap = bdl_src[bdl_src.index('(defun c:BDL2'):]
+assert wrap.index("(bdl:hilite bdl-picks 4)") > wrap.index("'bdl:work-multi") and 'bdl-picks)' in wrap[:wrap.index('\n')]
+print('PASS: BDL 补画时写截面；BDL2 连续补画')
 print('ALL PASS: check_bh_static')
 

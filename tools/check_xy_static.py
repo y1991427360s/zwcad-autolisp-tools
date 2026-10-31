@@ -286,6 +286,7 @@ native['ssget'] = lambda *args: selection
 native['trans'] = lambda p, a, b: p
 made = []
 native['entmake'] = lambda ed: made.append(ed) or ed
+native['entlast'] = lambda: 'LAST'
 assert invoke('xy:run-xin', [['35D3']], env)
 assert next(v[1] for v in made[-1] if v[0] == 1) == '3'
 assert env['*xy-last-xin-counts*'] == [('35D3', 3)]

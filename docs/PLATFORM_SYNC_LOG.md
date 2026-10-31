@@ -2107,7 +2107,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 测试：`tools/check_bh_static.py` 新增场景27b（视图范围换算为 `_C` 两角点、带颜色过滤；视图扭转退回 `_X`），场景27 端到端不变，ALL PASS；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
 - 工作流程：`工作智能体/工作流程/二次接线-端子排与电缆清册.md` BDL 注意事项补充“运行前把端子排和旁边已有电缆（含箭头）缩放到屏幕内”。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `90EC3A0C7FEA8011B474F2AD33473748F0D47AB299957CF90E8AF77A77481570`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL视图内搜索-20261029-211140`。
-- AutoCAD 状态：代码未修改，待用户明确要求后同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机速度与识别待用户验收。
 
 # 2026-10-29 21:27:00 中望 BDL 端子排边线查找放宽到 30，横排方向补看已有绿色电缆
@@ -2119,7 +2119,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 测试：`tools/check_bh_static.py` 新增场景31（D0206 UA3 真实坐标居中找到两侧边线、竖排靠已有绿线定向左；横排 30 范围、居中按已有绿线定上/下、无绿线默认向下、对齐方式仍优先），ALL PASS；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
 - 工作流程：`二次接线-端子排与电缆清册.md` BDL 识别规则补充方向判断顺序和 30 范围说明。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `0722E0A82254C46C1C56BBD261305261010492793EF9EB738BCFA680DF24A986`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL边线30-20261029-212349`。
-- AutoCAD 状态：代码未修改，与 21:14:47 条目一并待用户明确要求后同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机效果待用户验收。
 
 # 2026-10-29 21:38:22 中望 BH1/BH2/BHG/BH3 “并入X”电缆与主电缆算同一根
@@ -2130,7 +2130,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 测试：`tools/check_bh_static.py` 新增场景32（两个用户实例原样、合画柜写法、旧并入记录并掉、主记录升级与重跑不变、另一端少芯仍报冲突、三种无法并入、旧号改新跟改、BHG、BH3、BH1），测试解释器补 `cdddr`；`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
 - 文档：`docs/BH.md` 新增“并入”一节；`工作智能体/工作流程/二次接线-端子排与电缆清册.md` 3.5 节补充并入说明。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `DFB81C93D9BDFCD2451D6471BB6C71039A041468456A3B27C40C58316833A64F`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BH并入-20261029-213017`。
-- AutoCAD 状态：代码未修改，待用户明确要求后同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查，未连接、加载或操作任何 CAD；实机效果待用户验收。
 
 # 2026-10-29 21:46:58 中望 BDL 居中原理号按边线外电缆位上的绿线定方向
@@ -2141,7 +2141,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 测试：`tools/check_bh_static.py` 新增场景31b（D0206 坐标，右侧有非电缆位绿线时向左、右侧电缆位有绿线时向右、无绿线差 1e-4 时默认向左、横排对应三例、`bdl:slot-hits` 计数），ALL PASS；用 D0206 六个对象加一根右侧干扰绿线离线端到端模拟 `bdl:work`：向左、接在已有电缆外侧距端子排 15。`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
 - 并行改动提示：21:30 起另一工具在同一 `AA整合版本.lsp` 的 BH 部分新增约 190 行（备份 `bak-BH并入-20261029-213017`，`check_bh_static.py` 场景32），本条未改动其内容，上述 SHA 含其改动。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `32DDD67F223539829B581575FDFD6D0A3BC7E3307ECCB764D36A3E4082186F69`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL方向电缆位-20261029-214046`。
-- AutoCAD 状态：代码未修改，与 21:14:47、21:27:00 条目一并待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查与模拟；用户仅执行只读诊断表达式，未由智能体连接或操作 CAD；实机效果待用户验收。
 
 # 2026-10-29 21:54:22 中望 BDL 电缆位计数只数紧挨边线的电缆组
@@ -2151,7 +2151,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 改动：改为与查空位相同的数法——从距边线 10 起每 5 一格往外数（误差 1 以内），连续 4 格空就停，只统计紧挨边线的那组电缆。
 - 测试：`tools/check_bh_static.py` 场景31b 增加“左侧远处 160 处网格上的绿线不计入、右侧 10 有电缆 → 向右”；ALL PASS。`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `EEC30A4AB552F3148DFAE30D5D96134D1A065611F481621F467402A6F04406D9`；修改前备份 `backups/dated/2026-10-29/AA整合版本.lsp.bak-BDL电缆组计数-20261029-215156`。
-- AutoCAD 状态：代码未修改，与 21:14:47 起的 BDL 条目一并待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。
 
 # 2026-10-30 15:20:44 中望 BDL 识别矩形（闭合多段线）端子排边框
@@ -2161,7 +2161,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 改动：小窗口交叉选择改为 `LINE,LWPOLYLINE`；多段线按 ECS（`trans` 实体名）拆成直线段，含闭合段，跳过凸度非 0 的圆弧段，只保留包围范围与查找窗口相交的段，避免别处的段误判为边线。
 - 测试：`tools/check_bh_static.py` 测试桩过滤器同步为 `LINE,LWPOLYLINE`，新增 QW3 矩形 + 圆弧多段线 + 直线用例（拆段结果、`bdl:edge` 取到下边 6080.9937 / 上边 6095.2374），解释器补 `logand`；ALL PASS。`gen_命令索引.py`、`audit_lsp.py --write` 已更新；`check_all_static.py` ALL PASS（120.8s）。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `C94E1787B619C3E5129D4BE70C91DCCB4F61339B437072CAF55E0075675687E8`；修改前备份 `backups/dated/2026-10-30/AA整合版本.lsp.bak-BDL矩形边框-20261030-151454`。
-- AutoCAD 状态：代码未修改，与此前 BDL 条目一并待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。
 
 # 2026-10-30 16:25:18 中望新增 TJK 统计同名块并可视化
@@ -2170,7 +2170,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 改动：点选块后统计当前空间或框选范围内的同名块（用 EffectiveName 兼容动态块），选中全部结果，在不打印图层“AA块统计标记”画红圈和序号（Z=0），弹窗报数并提示范围外数量；Q 清除标记。不统计嵌套在其他块内的实例。
 - 测试：`gen_命令索引.py`、`audit_lsp.py --write`（0 structural findings）已更新；`check_all_static.py` ALL PASS（109.5s）。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `DCF728257D105BE4E1CB9BD7E9780CD56CAFDEA5D0826965977C4CD5336D8621`；修改前备份 `backups/dated/2026-10-30/AA整合版本.lsp.bak-TJK块统计-20261030-162100`。
-- AutoCAD 状态：代码未修改，待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：仅离线静态检查，未连接、加载或操作 CAD；实机效果待用户验收。
 
 ## 2026-10-30 17:13:21 中望 DE2 支持带横杠柜号
@@ -2180,7 +2180,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：括号紧跟 `#` 或括号里是带横杠的编号时，整段替换柜号并保留 `#`：`至1-1#(2-1)直流馈线柜`、`至1-1#（2-1#）直流馈线柜`、`至1-1(2-1)#直流馈线柜` → `至2-1#直流馈线柜`，`1#(2)主变保护柜` → `2#主变保护柜`。其余写法结果不变。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `800cc658f4c95c8c8e58d7bae427468f931f1103e14659c627cfd6b3a34670fd`（修改前 `dcf728257d105be4e1cb9bd7e9780cd56cafdea5d0826965977c4cd5336d8621`）。
 - 检查：`check_bh_static.py` 新增 6 条用例；`check_all_static.py` 全量 ALL PASS；索引、代码地图、审计产物已重新生成。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 17:52:21 中望 DE2 替换文字里全部数字括号
@@ -2190,7 +2190,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：DE2 从右往左处理所有括号里带数字的括号对；括号里没有数字的（如 `(备用)`）不动。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `54e5eda1d9ae7f503a86e6b8dde1c2fef57b5cf20204ccd0c2de1b9671f62409`（修改前 `800cc658f4c95c8c8e58d7bae427468f931f1103e14659c627cfd6b3a34670fd`）。
 - 检查：`check_bh_static.py` 新增 3 条用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 17:59:30 中望 DE 删除文字里全部数字括号
@@ -2200,7 +2200,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：DE 与 DE2 一样从右往左处理所有括号里带数字的括号对；第一对之后，括号里没有数字的不动。本条取代上一条“DE 仍只删最右侧括号”。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `617a42aecc44373cb05aa3bef8043ee7f7136bc8f91dcd1f15e8db9ef25e3a04`（修改前 `54e5eda1d9ae7f503a86e6b8dde1c2fef57b5cf20204ccd0c2de1b9671f62409`）。
 - 检查：`check_bh_static.py` 新增 3 条用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 18:22:03 中望 XYG 修复 13 芯以上丢末尾原理号
@@ -2210,7 +2210,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：没有邻线时按芯数确定范围（10+30×芯数+20），水平、竖直电缆线相同；有邻线时的边界不变。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `d604dcb656b8f6b2a5a5c005c87d7797c03eb7d53e4e621d8f380b5cab2c2011`（修改前 `617a42aecc44373cb05aa3bef8043ee7f7136bc8f91dcd1f15e8db9ef25e3a04`）。
 - 检查：`check_xyg_static.py` 新增水平、竖直 13 芯用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 18:47:50 中望 XYG 同时处理水平和竖直电缆线
@@ -2220,7 +2220,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：两种方向一起收。同时存在时，端点落在绿色横线上（芯线）或没有横引线的绿色竖线不算电缆；XY 新文字按水平、旋转分开查找，避免两种电缆互相串文字；竖线不再参与水平线右侧邻线判断。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `6f0f067b9a9108d12eb91555b33a43666cf006964c9e9af7d14221018d6690b3`（修改前 `d604dcb656b8f6b2a5a5c005c87d7797c03eb7d53e4e621d8f380b5cab2c2011`）。
 - 检查：`check_xyg_static.py` 新增混合方向用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 18:59:05 中望 XYG 自动合并并入电缆
@@ -2230,7 +2230,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：汇总前把 `并入X` 行并到本次框选里同编号、同去向的主电缆行，芯数相加、原理号接在后面；找不到主电缆时保留该行并提示。规则与 BH2 一致（比 HBDL 多要求去向相同）。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `0352c1c5420ad9ce806d26c0584a8f6a620068fa3e1204725632672cd7f398a9`（修改前 `6f0f067b9a9108d12eb91555b33a43666cf006964c9e9af7d14221018d6690b3`）。
 - 检查：`check_xyg_static.py` 新增并入合并用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 19:36:25 中望新增 SXD 跳到原件
@@ -2241,7 +2241,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 检查：`check_link_static.py` 新增用例；`check_all_static.py` 全量结果见本次交付。
 - 平台差异（中望 2026，实测）：SXD 运行中切换文档后，目标图在命令结束前不接收 `SendCommand`、`ZoomCenter`，`ActiveViewport` 属性也不生效。
 - 验证状态：用户授权实测。本图跳转、目标图已打开时跳转通过；目标图未打开时打开和切换通过，缩放选中的 VBS 重试版未测完（COM `Documents.Add` / `Open` 开始报错，已停止）。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 
 ## 2026-10-30 19:51:05 中望 SXD 修复中文图名跨图不定位
 
@@ -2250,7 +2250,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：图名比较改为 `vl-string->list` 字符码列表；VBS 按图名找目标图并切换，确认它是活动图且空闲后才发送，不再向其他图反复发送。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `9fe3d05530ffa3d075ec13c1b07fe8de0eb9703755d49e82113e275b124d72df`（修改前 `62d0f457201228ab176b36b9b92301253bdea667df5f080dca314657d73e016d`）。
 - 检查：`check_link_static.py` 已更新；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：修改后未实机验证，待用户在总图验收。
 
 ## 2026-10-30 20:36:08 中望 DE2 支持括号里写完整编号
@@ -2260,7 +2260,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：括号内外的编号去掉数字后骨架相同（如都是 `ZL-`）时，用括号内容整段替换括号前的编号：`12ZL-20(12ZL-22)` → `12ZL-22`，`11ZL-41(21ZL-41)` → `21ZL-41`。骨架不同时按原规则处理。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `58fcd168bead7a36159af419698a9a36faf973a56e46bb9bcbda0f9039fa1cd4`（修改前 `9fe3d05530ffa3d075ec13c1b07fe8de0eb9703755d49e82113e275b124d72df`）。
 - 检查：`check_bh_static.py` 新增 9 条用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 20:38:58 中望 DE2 支持括号里写完整柜名
@@ -2270,7 +2270,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：括号内外都以柜、屏、箱结尾时，用括号内容整段替换括号前的柜名，保留“至”和最后一个空格前的前缀。括号里自带“至”或空格时按它的写法。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `50f63c4cb1b66fddd5c03e8c005c0c7b17b2d2e91798a43d73d6b8ef73d96a83`（修改前 `58fcd168bead7a36159af419698a9a36faf973a56e46bb9bcbda0f9039fa1cd4`）。
 - 检查：`check_bh_static.py` 新增 8 条用例；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 20:42:26 中望 SXD 修复竖排文字缩放过远
@@ -2280,7 +2280,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：缩放高度改按外框较短的一边 × 30 计算，下限仍为 60；实例由 1100 变为 90。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `29ea02766e975bef98f545d42b566313a0c426bbd9963e6649fcbd62f969630b`（修改前 `50f63c4cb1b66fddd5c03e8c005c0c7b17b2d2e91798a43d73d6b8ef73d96a83`）。
 - 检查：`check_link_static.py` 新增断言；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 20:55:09 中望 SXD 修复跨图要点回总图才定位
@@ -2291,7 +2291,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 平台差异（中望 2026，用户实测现象）：LISP 中 `vla-Activate` 切文档后，后续代码要等回到原文档才继续。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `c81cbb2cbecf3a3b0e4d3556474018ee6411f21ad08a65d2df55d5dbd0fd383a`（修改前 `29ea02766e975bef98f545d42b566313a0c426bbd9963e6649fcbd62f969630b`）。
 - 检查：`check_link_static.py` 已更新；VBS 语法用去掉 CAD 连接的副本检查；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：修改后未实机验证，待用户在总图验收。
 
 ## 2026-10-30 21:18:27 中望新增 XYG2 不留痕汇总
@@ -2300,7 +2300,7 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：XYG2 与 XYG 用同一流程，取到电缆数据后删除 XY 生成的文字，再提示插入点；异常电缆线只报告，不改色、不延长。XYG 和 XY 行为不变。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `d6b02b29556f72e96c84ed48e26c4789450a19e6805398ff7c2fc202f8c50def`（修改前 `c81cbb2cbecf3a3b0e4d3556474018ee6411f21ad08a65d2df55d5dbd0fd383a`）。
 - 检查：`check_xyg_static.py` 新增断言；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
 
 ## 2026-10-30 21:23:07 中望 SXD 不再依赖值文件，SX 标记后自动导出
@@ -2310,5 +2310,181 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 修改：SXD 按标记里记的图名在文件夹树中找 dwg，图改名时才查值文件；目标图里该句柄不是带标记的文字时提示。SX 有新标记且图已保存时同时写值文件。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `9fcdd9cc17fe5cd2be9c78bad070337cf1d4dcb6eddf166e0c948cf821e0e078`（修改前 `d6b02b29556f72e96c84ed48e26c4789450a19e6805398ff7c2fc202f8c50def`）。
 - 检查：`check_link_static.py` 新增断言；`check_all_static.py` 全量结果见本次交付。
-- AutoCAD 状态：待同步。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
 - 验证状态：未连接、加载或操作 CAD。
+
+## 2026-10-31 08:01:24 中望 XYG/XYG2 兼容字高 4 的图纸
+
+- 命令/模块：`XYG`、`XYG2`（新增 `xyg:row-record-p`、`xyg:col-record-p`，修改 `xyg:find-rect-texts`、`xyg:find-vrect-texts`）。
+- 问题：用户在别人的图纸 62X-B26009S-D0204 上跑 XYG，绿线 Y=33400.9088 的汇总行混入下一行的“至1(2)#主变测控柜”。该文字字高 4，包围盒顶边 33400.4088 正好碰到上一行搜索框下沿 `ry-0.5`，包围盒相交判定算命中；字高 3 时顶边低 1，不会碰到。这根线没有电缆编号，上方只有 2 个文字，不足 3 个时的图面补查也会取到这个字。
+- 修改：横电缆要求文字中心不低于 `ry-0.5`，竖电缆要求文字中心不小于 `rx-0.5`，选区查询和图面补查都按此过滤。搜索框、3 个文字的取舍和 `xyg:box-hit-p` 不变。JM、BH 系列按插入点判断，未受此问题影响，未改。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `7f6764d3145fc58791678457c0e1c91c176e0fda672b0e61abc8b8c3a7ad71b1`（修改前 `9fcdd9cc17fe5cd2be9c78bad070337cf1d4dcb6eddf166e0c948cf821e0e078`）。
+- 检查：`check_xyg_static.py` 新增用户图纸实际坐标的回归（含图面补查和竖线镜像），对照用旧版同步加入该规则；`check_all_static.py` 全量通过（第一次 ZZ 性能基准 4.65x 抖动失败，未改 ZZ，重跑通过）。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 08:47:46 中望 SXD 优先在当前图所在文件夹找原件
+
+- 命令/模块：`SXD`（`c:SXD`）。
+- 问题：用户在 `20261031\统计电缆1.dwg` 用 SXD，跳到了 `20261030\统计电缆\` 下的 D0203。SXD 只从上次用过的文件夹（`*aa-link-dir*` / `AA_LINK_DIR`）开始找；文件夹整份另存后图纸 ID 和句柄不变，所以旧文件夹里的同名图也能命中。
+- 修改：先找当前图所在文件夹及其下两层，没有再找上次用过的文件夹，都没有才提示输入。`aa:link-default-dir` 不变，`SX2` 默认文件夹不受影响，但成功跳转后记录的文件夹会更新。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `614ce71cf63858c4ad31d69528939e4c708e6ce335e94d784ca02f1ac7332e8f`（修改前 `7f6764d3145fc58791678457c0e1c91c176e0fda672b0e61abc8b8c3a7ad71b1`）。
+- 检查：`check_link_static.py` 新增查找顺序断言；`check_all_static.py` 全量通过。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 08:51:46 中望 XYG/XYG2 重合文字只算一个
+
+- 命令/模块：`XYG`、`XYG2`（新增 `xyg:dedup-texts`，修改 `xyg:find-rect-texts`、`xyg:find-vrect-texts`）。
+- 问题：用户在 D0202 上跑 XYG2，电缆线上方有两个相同的“至安全稳定控制装置A柜”叠在一起（句柄 6A293、6A263），连同编号共 4 个文字，只留最靠右 3 个时 `1AW-132D` 被挤掉，汇总行去向重复。
+- 修改：同内容且轴向位置相差不超过 1 的文字只算一个，优先留带 AA_LINK 的；不足 3 个的补查判断也按去重后的数量。图上文字不动。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `9c5057190b55c4698aa2fa945e7f3f2091a1941a2c18493c22de3027c9914202`（修改前 `614ce71cf63858c4ad31d69528939e4c708e6ce335e94d784ca02f1ac7332e8f`）。
+- 检查：`check_xyg_static.py` 新增用户图纸实际坐标的回归；`check_all_static.py` 全量通过。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 09:07:37 中望 SX2 值文件改到 CAD 外筛选
+
+- 命令/模块：`SX2`（新增 `aa:link-filter-script`、`aa:link-write-need`、`aa:link-filter-values`）。
+- 问题：用户在总图执行 SX2 后中望无响应约十分钟。系统侧观察：主线程占满一核，内存平稳，磁盘每分钟只读约 1MB，与 9 个值文件共 8.7MB、约 11 万行吻合，读完不久恢复响应。LISP 逐行读取为什么这么慢（`read-line` 本身还是内存回收）未在 CAD 内测定。
+- 修改：SX2 写出待查清单，用 `WScript.Shell.Run` 同步运行 `%TEMP%` 下的 VBS，由它一次读完全部值文件，只把内容有变化的记录写回小文件交给 LISP，缺失数和冲突数也由它统计（冲突只计本图用到的 UID）。脚本跑不起来时退回原来的逐行读取并提示。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `c6f7b9423e75aed3484cb597e6f1f102e0b28d0590d58027cd801d6f968277f4`（修改前 `9c5057190b55c4698aa2fa945e7f3f2091a1941a2c18493c22de3027c9914202`）。
+- 检查：`check_link_static.py` 直接执行源码内嵌的 VBS（新文件优先、有变化才返回、MTEXT、缺失与冲突统计）；用 `20261031` 的真实值文件和 3 万条模拟清单测试，VBS 约 3 秒，50 条改动全部正确；`check_all_static.py` 全量通过。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD。CAD 内总耗时待用户重载后验收。
+
+## 2026-10-31 09:29:22 中望 SX2 默认文件夹优先当前图所在文件夹
+
+- 命令/模块：`SX2`（新增 `aa:link-near-dir`，`aa:link-ask-folder` 增加 default 参数）。
+- 问题：与 SXD 相同，SX2 回车默认用上次用过的文件夹，文件夹整份另存后可能读到旧值文件。
+- 修改：当前图所在文件夹及其下两层有值文件时默认用它，否则用上次用过的文件夹。SXD 提示时的默认文件夹不变。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `92c77b6b37f752a696cdd134b58c6cf65ecc7794b30e233f9076b11b3ed27462`（修改前 `c6f7b9423e75aed3484cb597e6f1f102e0b28d0590d58027cd801d6f968277f4`）。
+- 检查：`check_link_static.py` 新增断言；`check_all_static.py` 全量通过。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 09:36:42 中望 XYG/XYG2 按归属取芯数和原理号
+
+- 命令/模块：`XYG`、`XYG2`（新增 `xyg:line-new-texts`、`*xy-last-core-map*`、`*xy-last-new-map*`，删除 `xyg:next-vline-max-y`、`xyg:next-line-min-x`、`xyg:line-geo-list`、`xyg:texts-by-dir`；`xy:run-xin`、`xy:process-one-hline`、`xy:run-yuan` 记录每根线生成的文字）。
+- 问题：用户在 D0204 同时框选水平和竖直绿线，`1(2)UB-103B` 一行只有芯数 3，没有原理号；只选这一根线时正常。这根线正下方同一 X 上有 `1(2)UB-105`，旧逻辑以邻线端点加 5 为边界，线下 2 处的芯数保留，线下 10 起的原理号被截掉。根因按截图和源码推断，未取实际坐标。水平电缆同排右侧紧挨邻线时逻辑相同。
+- 修改：XY 记录给每根线生成的文字，XYG 每根线只从自己的文字里取，不再用邻线边界。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `cb6e1fec57504e889279dbeb337b8372d395ddf9739966a9c37c9fa2f6be1795`（修改前 `92c77b6b37f752a696cdd134b58c6cf65ecc7794b30e233f9076b11b3ed27462`）。
+- 检查：`check_xyg_static.py` 新增竖向上下紧挨的回归，删除已无对象的邻线对照；`check_all_static.py` 全量通过。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 10:14:12 中望 BDL 自动写截面，新增 BDL2 连续补画
+
+- 命令/模块：`BDL`（新增 `bdl:spec-text`、`bdl:ss-texts`；`bdl:work` 拆出 `bdl:draw`）、新增 `BDL2`（`bdl:work-multi`）。
+- 修改：BDL 补画时用所选原理号调用 `jm:decide` 写截面，横排、竖排都写；判断不了时写“未填写”并在命令行说明原因。BDL2 循环选择，每根选完立刻调用 `bdl:draw`，后一根能看到刚画的线；不选直接空格结束，一次 U 全部撤销。循环内清预选集，避免 ssget 反复取到同一批。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `1fede9b8a7cb546f01505ec11ec467821fad73b78163a04038d36bd045a9f771`（修改前 `cb6e1fec57504e889279dbeb337b8372d395ddf9739966a9c37c9fa2f6be1795`）。
+- 检查：`check_bh_static.py` 的端到端 BDL 用例按新截面更新，新增 `bdl:spec-text` 和 BDL2 结构断言；`check_all_static.py` 全量通过。BDL2 的循环未离线执行，只做结构检查。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 11:36:28 中望新增 QW2P，把“x,y 文字”写回图纸
+
+- 命令/模块：新增 `QW2P`（`qw2p:newline-pos`、`qw2p:parse-line`、`qw2p:parse-clip`、`qw2p:pick-sample`、`qw2p:text-data`），与 `QW2` 相反。
+- 修改：读剪贴板的 `x,y 文字`，选样板文字后指定第一行位置（回车按原坐标），批量生成左对齐单行文字，沿用样板的图层、颜色、样式和字高；有格式不符的行时整批拒绝。配合面板“AI 改 CAD 文字”窗口使用，也可手动贴 AI 的结果。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `16d6cfe482af8e4f66c1da6e084e4d18b94d5e3eb2f5980d2c1007df2fe1affc`。
+- 检查：新增 `tools/check_qw2p_static.py`，用迷你解释器跑剪贴板解析（含 `vl-string-search` 按字节计数的情况）；`check_all_static.py` 全量通过。`entmake`、取样板、指定位置未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 12:04:55 中望新增 XYG3，合画电缆拆成各柜两行
+
+- 命令/模块：新增 `XYG3`（`xyg:text-alts`、`xyg:pick-alt`、`xyg:split-row`、`xyg:expand-combo-rows`、`xyg:categorize-rows`、`xyg:categorize-blocks`）；`xyg:run` 增加 `split` 参数，`xyg:output-gtx-matrix` 改为每行自带柜名；`de:strip-one` 增加 mode 2（只认整段替换）。
+- 修改：XYG3 与 XYG2 一样不留痕，把 `35kV 1(2)#SVG进线柜`、`1(2)SVG-106A` 这类一根绿线代表两根电缆的行拆成两行，柜名、编号、去向、原理号分别拆开，规格和芯数相同。文字不全的行只拆柜名、其余照抄；只有一个正式编号或括号个数不一致时保留合画写法并提示。汇总表按柜分块，先排完 1# 再排 2#。拆开过的文字不带 AA_LINK。XYG、XYG2 不拆，分块只有一个柜名，输出与原来相同。
+- 用户实测：先把拆行放进 XYG、XYG2 的版本在 D0206 报 `listp` 错误，原因是提示分支返回了 `princ` 的字符串；已修正。用户随后要求保留原两个命令、拆行另设 XYG3。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `1277cb20ec79868f903db093401dfdbfbc2381b03cf6715bde7a7881e6f5c852`（修改前 `16d6cfe482af8e4f66c1da6e084e4d18b94d5e3eb2f5980d2c1007df2fe1affc`）。
+- 检查：`check_bh_static.py` 新增 XYG3 拆行、文字不全、不拆、按柜分块用例，含 D0206 实例；`check_xyg_static.py` 更新输出函数用例并断言只有 XYG3 拆行；`check_all_static.py`、`check_project.py` 全量通过。XYG3 整条命令流程未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 12:06:11 中望 QW2P 改由 CAD 外读取剪贴板
+
+- 命令/模块：`QW2P`（新增 `qw2p:add-line`、`qw2p:read-clip-file`，`qw2p:parse-clip` 返回值改为三项）。
+- 修改：用户实测 1350 行、约 3.4 万字符时报“1 行不是 x,y 文字格式”，而同一份结果按相同规则离线核对全部合格；推测是 htmlfile 读长文本时不完整，未在 CAD 中证实。改为 PowerShell 把剪贴板写成 UTF-8 临时文件后逐行读取，失败时退回 `qe:get-clip-text`；拒绝时显示第一条不合格的内容。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `d90d2f9e5ff34cda7fb6fa7a7995a7d8c36f9096a3fec80226ef46e147e8621a`。
+- 检查：`check_qw2p_static.py`、`check_all_static.py` 通过；PowerShell 命令在 CAD 外用 1350 行结果实测，内容一致。LISP 调用该命令和 `read-line` 未实机执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：2026-10-31 用户在中望重载后实测写入成功；截断原因未单独证实。
+
+## 2026-10-31 12:46:06 中望 QW2P 去掉选样板文字
+
+- 命令/模块：`QW2P`（删除 `qw2p:pick-sample`，`qw2p:text-data` 改为只收坐标和文字）。
+- 修改：按用户要求不再选样板文字，新文字固定用 `T` 命令的样式（HZ、字高 3、宽度系数 0.7），放在当前图层，颜色随层；图里没有 HZ 样式时不写入，与 `T` 一致。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `58d12fa27903fda073f00510314bcb9a87338d121922fff3aac2f26b919d13bd`。
+- 检查：`check_qw2p_static.py` 增加 entmake 表断言，`check_all_static.py` 通过。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 14:11:08 中望 XYG 叠在一起的电缆线只算一根
+
+- 命令/模块：`xyg:dedup-hlines`（影响 `XYG`、`XYG2`、`XYG3`、`JM`、`BH2`、`BHG`）；`xyg:run` 增加去掉叠线的命令行提示。
+- 修改：去重条件由两端都相同改为输出端（横线右端、竖线下端）相同，同组只留最长的一根；排序改为先按输出端、同端按长度。D0205 同步时钟电缆的两根绿线右端相同、左端差 3.65，以前出两行，短的少 `B+`，现在一行 `2 B+ B-`。输出端不同的同排多列保留。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `7fd21d1abda60012f5adf8eb995891b90b16dff895da7e49cee2ffbec1e70f50`。
+- 检查：`check_xyg_static.py` 新增 D0205 实例、同排多列、部分重叠、竖直电缆线用例；`check_all_static.py`、`check_project.py` 全量通过。XYG 整条命令流程未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 14:19:50 中望 XYG3 拆开的文字可 SXD 跳转；SX1/SX2 不再把拆开的副本刷回合画写法
+
+- 命令/模块：`XYG3`（`xyg:pick-alt`、`xyg:split-row`）、`SX1`、`SX2`、`DE`、`DE2`（新增 `aa:link-part-text`、`aa:link-mark-part`、`aa:link-split-text`、`de:link-part`；`aa:link-info` 兼容第三项）。
+- 问题：用户反馈 XYG3 拆开过的文字 SXD 跳不了，原因是这些文字当时去掉了 AA_LINK；用户另反馈手工拆开的副本一跑刷新就全变回合画写法。
+- 修改：`AA_LINK` 增加可选第三项 `(1070 . 第几张图)`。XYG3 拆开的文字保留原件标记并记下第几张图；DE、DE2 拆开联动副本时当场记下。SX1、SX2 刷新时：记过的取原件拆开后对应那一份；原件是合画写法而副本不是时绝不刷回合画写法，内容与拆开的某一份相同就补记，对不上的不动并报告数量；其余副本照常刷新。普通括号（`至XX柜(备用)`）不算合画写法。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `5baea024c5bdb95bed022526316dcad59e75e64ce747a6ac224b9ad4dde1198b`（修改前 `7fd21d1abda60012f5adf8eb995891b90b16dff895da7e49cee2ffbec1e70f50`）。
+- 检查：`check_bh_static.py` 新增标记写入、第几张图解析、刷新决策、DE/DE2 记录用例；`check_all_static.py`、`check_project.py` 全量通过。SX1、SX2 和 DE 的完整命令流程、`entmod` 写 XData 未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 14:33:18 中望 BDL2 改为先逐根记住，空选后一次生成
+
+- 命令/模块：`BDL2`（`bdl:work-multi` 重写，新增 `bdl:hilite`，`c:BDL2` 增加局部变量 `bdl-picks`）。
+- 问题：用户反馈选一根按空格就立刻生成，来不及把窗口摆到合适位置。BDL 只在当前视图内找已有电缆，窗口没摆好时结果不对。
+- 修改：每根选完按空格只记住并保持高亮；不选直接空格后取消高亮，按选择顺序逐根调用 `bdl:draw`，后一根排在前一根外侧。Esc 全部放弃，什么都不画。一次 U 撤销不变。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `351372d24459f1c66034c331c1ff09da93d4036ebb36ba3542145c4ad66eecc6`（修改前 `5baea024c5bdb95bed022526316dcad59e75e64ce747a6ac224b9ad4dde1198b`）。
+- 检查：`check_bh_static.py` 新增循环执行用例，确认空选之后才生成、顺序不变、生成前已取消高亮、一根都没选时不画；`check_all_static.py`、`check_project.py` 全量通过。`redraw` 高亮效果和 Esc 流程未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。
+
+## 2026-10-31 15:26:08 中望新增 GTY2，整理后经 CAD 剪贴板贴到另一张图
+
+- 命令/模块：新增 `GTY2`（`gty2:layout`、`gty2:locked-layer`、`gty2:make-copies`、`gty2:to-clip`）。`GTY` 及其共享函数未改，新旧文件比对为纯新增行。
+- 问题：用户想把卷册图上整理好的文字直接放到总图。
+- 修改：`GTY2` 选中文字后按 GTY 的规则分行、排序，生成临时副本，用原生 `COPYBASE` 以第一行第一列为基点放进 CAD 剪贴板，再删掉临时副本；到总图 Ctrl+V 点位置。不走文本文件，因为粘贴才能带上样式、图层和 AA_LINK，`SX2`、`SXD` 才认得副本。文字在锁定图层时整批拒绝。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `062b1861e78e0a37fb48281beb5627780853eeb47bfb6ff56f658a2e7b17cde6`（修改前 `351372d24459f1c66034c331c1ff09da93d4036ebb36ba3542145c4ad66eecc6`）。
+- 检查：新增 `check_gty2_static.py`（排序表达式与 `c:GTY` 逐条相同、布局网格、失败清理、基点 UCS 转换、COPYBASE 前清预选、卡住时取消、锁定图层）；`check_all_static.py`、`check_project.py` 全量通过。`COPYBASE`、粘贴和 XData 跨图保留未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：未连接、加载或操作 CAD，待用户在中望重载后验收。`COPYBASE` 在插件里是首次使用。
+
+## 2026-10-31 15:44:00 中望新增 DH，多行文字转规整单行文字
+
+- 命令/模块：新增 `DH`（`dh:parse`、`dh:wrap`、`dh:convert`、`dh:run` 等），复用 `txt2:ensure-style`、`aa:safe-get-bbox`。原有命令未改。
+- 问题：X 分解混合字体的 MTEXT 时按字体分段，一行碎成好几段且错位。
+- 修改：`DH` 不调用原生分解，自己解析内容后 entmake 单行文字。保持换行(B) 按原显示行数生成，并沿用插入点的左/中/右和文字块中心；合成一行(H) 每个 MTEXT 一个 TEXT，超框宽时压窄宽度比例。用了字体覆盖且含中文时落到“宋体”样式。全部生成成功才删原对象。不保留 AA_LINK 标记。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `672e54183a75163cadd40babca4b8924d71eda288219e094b9b606d806ede1b4`（修改前 `062b1861e78e0a37fb48281beb5627780853eeb47bfb6ff56f658a2e7b17cde6`）。
+- 检查：新增 `check_dh_static.py`（结构、解析、折行）；`check_all_static.py` 全量通过。折行宽度为模拟字宽，`textbox`、`entmake` 未离线执行。
+- AutoCAD 状态：已同步（2026-10-31 15:58:50，见当日“AutoCAD 2018 补齐”条目）。
+- 验证状态：桌面单文件版用户已在中望试用无问题；整合版未加载。AutoCAD 单文件版首次试用中文转 90°，改用专用样式 `DH_SimSun` 后用户实测方向正常。
+
+## 2026-10-31 15:58:50 AutoCAD 2018 补齐 10-29 21:14 至 10-31 15:44 全部待同步项
+
+- 中望来源版本：`ZW-auto_lisp/AA整合版本.lsp` SHA-256 `672e54183a75163cadd40babca4b8924d71eda288219e094b9b606d806ede1b4`（含 2026-10-31 15:44:00 的 DH）。
+- 补齐范围：本台账 2026-10-29 21:14:47 之后全部 37 条待同步项，命令包括 BDL、BDL2、BH1/BH2/BH3/BHG（并入）、TJK、DE/DE2、XYG/XYG2/XYG3、SX/SX1/SX2/SXD、QW2P、GTY2、DH。作废的 19:23、20:41、20:47、21:02 条目不移植。
+- 做法：以中望 `f267fa8`（上次同步的来源，CRLF 后 SHA-256 与 `5ebb83ec…` 相同）为基线做三方合并，按函数核对：中望新增 85 个、改动 34 个、删除 3 个；中望未改的函数保持 AutoCAD 现有写法。结果与中望逐函数比对，差异只剩已登记的平台适配和下面新增的适配。DH 是之后追加的，单独移植。
+- 平台适配（详见 `docs/DUAL_PLATFORM.md` 2026-10-31 一节）：
+  - `aa:link-filter-script`：SX2 筛选脚本改用 FSO 按系统 ANSI 读写，不用 ADODB UTF-8。
+  - `aa:link-vbs-str`、`aa:link-send-later`：VBS 里中文直接写 ANSI 字面量（经典 LISP 的 `vl-string->list` 是字节，不能拼 ChrW）；连接 `AutoCAD.Application.22`，失败再试 `AutoCAD.Application`；新增 `aa:link-slash` 按字符换斜杠。
+  - `aa:link-write-jump`：定位脚本写成 `aa:sxd-jump` defun，不直接调用 lambda；用 HandleToObject 取对象。
+  - `qw2p:read-clip-file`：PowerShell 按系统 ANSI 写临时文件。
+  - `de:code-prefix-len`：从头按字符走；`bh:join-target`：全角冒号按整字去掉，不进 `vl-string-trim` 字符表。
+  - `c:SX1`、`c:SX2`、`aa:link-filter-values`：判断返回值 T 用 `eq`。
+  - XYG：`xyg:find-*`、`xyg:run` 采用中望写法，索引参数直接传入；保留 AutoCAD 的 `xyg:text-record`、`xyg:build-text-index`、`xyg:index-tree`、`xyg:index-hits`；删除 `xyg:next-vline-max-y`。`c:XYG` 改由 `xyg:run` 实现后，中望同样不再用 `=` 比较图元名。
+  - DH：取自用户实测过的 `DH-AutoCAD2018.lsp`（`dh:chars`、`dh:ensure-style` 专用样式 `DH_SimSun`、`dh:bbox`），入口改用 `aa:cmd-begin`/`aa:cmd-end`；去掉调试用的 `dh:font-info`；修正单文件里 `"\U+"`、`"\M"` 少写的反斜杠（单文件版未改，转义字符在单文件里不会被整体保留）。
+- 工具与文档：`check_bh/link/xy/xyg/zz_static.py` 合并中望改动并改为 GBK；新增 `check_gty2_static.py`、`check_qw2p_static.py`、`check_dh_static.py`（DH 只查结构）；新增 `tests/test_sync_1031_gbk.py`，在 GBK 字节模型下跑 DE/DE2 台账实例、并入、DH 解析与折行、SXD 字符串，并用 cscript 编译去掉 CAD 连接的 VBS；SX2 筛选 VBS 用 GBK 文件实跑。`tests/test_xyg_perf.py` 按新接口更新：删除已无对象的“跨选区复用缓存”用例，随机新旧对照由 `check_xyg_static.py` 覆盖，整条命令流程改跑 `c:XYG` → `xyg:run`。`docs/BH.md`、`GTY.md`、`HBDL.md`、`QW.md`、`XYG.md` 合并中望改动。
+- 检查（AutoCAD 版）：`check_all_static.py` ALL PASS；`gen_命令索引.py` 198 个命令；`audit_lsp.py --write` 0 structural findings；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS。
+- 源码哈希：AutoCAD 修改前 `0164a1e133cf0a1705c595fcb98255974ed1487e1dc2e2b40e43570100bf53a7`，修改后 `bb9b4e6c117c118add26ca05dd3c880b96ec4a01630c4b00144b06b40d0831f2`；备份 `backups/dated/2026-10-31/AA整合版本.lsp.bak-sync1029-1031-20261031-153210`。
+- 验证状态：未连接、加载或操作 CAD。AutoCAD 上未验证：SXD 跨图 VBS、SX2 筛选的 CAD 内流程、QW2P 剪贴板、`COPYBASE`。DH 主流程来自用户实测的单文件版，整合后未加载；`\U+` 修正未实机验证。
+- 同步状态：AutoCAD 已跟到上述中望版本；两版已分别提交并推送到各自 `origin/main`。
+- 分享包：`D:\Users\ys199\Desktop\AutoCAD2018插件-20261022-112211.zip`（按用户指定覆盖原文件，原包备份在 `E:\366256\vibecoding\AutoCAD分享打包\旧包备份\`），含 `更新说明-20261031.txt`；打包时安装程序试跑通过，`命令别名设置.exe` 自检通过（183 条）。

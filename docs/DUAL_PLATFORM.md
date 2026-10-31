@@ -228,3 +228,20 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 证据与状态：`tools/check_nu_c1c2_target_static.py` 全量 650 项断言（含 39 个复杂全角字符边界用例）全部通过。
 
 - 跨文档跳转（SXD，2026-10-30，适用中望 2026，实测）：LISP 命令运行中 `vla-Activate` 切换后，目标图要到命令结束才成为活动图，期间 `SendCommand`、`ZoomCenter`、`ActiveViewport` 属性不生效，命令后续代码也会挂起到用户回到原图才继续；处理方式是 LISP 不切文档，由脱离 CAD 的 VBS 打开、切换并定位。AutoCAD 2018 未验证。
+
+## 2026-10-31 AutoCAD 2018 “宋体”样式中文转 90°（DH 单文件版）
+
+- 适用范围：用 `vla-put-FontFile` 绑 `simsun.ttc` 而未写字体名的“宋体”文字样式。
+- 差异：同一做法中望显示正常；AutoCAD 2018 用户实机中文和全角括号转 90°，英文数字正常，符合竖排字体 `@宋体` 的表现。具体是否解析到 `@` 字体未查询，属推测。
+- 处理：在图中已有“宋体”样式上按条件改字体未生效（命令行无修改提示），桌面 `DH-AutoCAD2018.lsp` 改用专用样式 `DH_SimSun`，用 `vla-SetFont` 按字体名“宋体”（字符集 134）设置，不绑字体文件，不动图中原“宋体”样式。AutoCAD 版 `txt2:ensure-style`（T2）同样只绑字体文件，未改，同步时需一并处理。
+- 证据与状态：现象为用户截图；2026-10-31 用户在 AutoCAD 2018 实测 `DH_SimSun` 方案方向正常（已实机确认）。原“宋体”样式的具体字体未查询，根因仍属推测。
+
+## 2026-10-31 外部脚本与 GBK 字节适配（SX2 / SXD / QW2P / DE2 / BH 并入）
+
+- SX2 筛选脚本：中望用 ADODB 按 UTF-8 读写值文件；AutoCAD 值文件是系统 ANSI，改用 `Scripting.FileSystemObject` 的 ANSI 模式读写。
+- SXD 跳转 VBS：中望逐字拼 `ChrW(码位)`，文件保持纯 ASCII；AutoCAD 的 `vl-string->list` 返回 GBK 字节，拼 ChrW 会乱码，改为把中文直接写进 ANSI 字面量，wscript 按系统 ANSI 读。ProgID 用 `AutoCAD.Application.22`，失败再试 `AutoCAD.Application`。
+- SXD 定位脚本：中望用 `((lambda ...) ...)` 直接调用；AutoCAD 改成 defun，理由同 HAO2 的未加引号 lambda 一节，并用 HandleToObject 取对象（同 2026-10-15 各节）。
+- QW2P：中望 PowerShell 写 UTF-8 后三参数 `open` 读；AutoCAD 写系统 ANSI 后两参数 `open` 读，剪贴板里 ANSI 表示不了的字符会变成问号。
+- 单字节扫描：GBK 尾字节范围 0x40 起，会落在字母、反斜杠、大括号上，而数字、`-`、`#`、括号、逗号、空格不会。AutoCAD 版凡判断字母或反斜杠的扫描要按字符走（`de:code-prefix-len`、`dh:chars`、`aa:link-slash`）。`vl-string-trim` 按字节处理字符表，全角字符不能放进去（`bh:join-target`）。
+- 跨文档行为：2026-10-30 中望实测的切换挂起在 AutoCAD 2018 未验证；两版都由脱离 CAD 的 VBS 打开、切换并定位，等待命令空闲时靠重试跨过 AutoCAD 的 `RPC_E_CALL_REJECTED`。
+- 证据与状态：源码静态比对、GBK 字节模型测试（`tests/test_sync_1031_gbk.py`）、SX2 筛选 VBS 用 GBK 文件实跑、SXD VBS 用 cscript 编译（已去掉连接 CAD 的行）。未在 AutoCAD 2018 实机验证。

@@ -17,6 +17,7 @@
 ;;;   - FKX   : 单击框内空白处选择正文对象，自动排除图框和右下角标题栏；支持手动指定范围。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 把文字及ATTDEF属性定义刷为宋体样式，高度3，宽度0.8；按可见范围保持对齐文字位置。
+;;;   - DH    : 把选中的多行文字转成规整的单行文字，保持原位置和对齐，文字不再碎成多段。
 ;;;   - ZHU   : 选中端子排名和端子号文字，选短接或拆除连片，生成HZ/3/0.7的“注：”单行文字。
 ;;;   - HWT   : 框选一列柜名文字，按从上到下顺序每行最多5个蛇形排列，生成L1/N1端子、SML电缆编号和两端JL进线的环网图，并输出可供BH3登记的电缆清单。
 ;;;   - ABCN  : 指定一点生成青色 A、B、C、N 单行文字，HZ/3/0.7、左中对正、按 H 默认间距5向下排列。
@@ -75,6 +76,7 @@
 ;;;   - XYJ   : 将选中竖直直线向下延长 5 个单位，再生成下接短线。
 ;;;   - GTX   : 按自动容差整理单行/多行电缆文字并自然排序汇总。
 ;;;   - GTY   : 保留原文字，按电缆编号排序整理并复制到指定位置。
+;;;   - GTY2  : 把选中电缆文字按 GTY 规则排序整理后放进 CAD 剪贴板，到另一张图 Ctrl+V 粘贴；原文字不变。
 ;;;   - HWD   : 横排交替柜名与电缆编号重组为起点、编号、终点三列，左中对齐、行距5，保留原横排。
 ;;;   - GTZ   : 将选中的交替柜名与电缆编号单列文字，按前后柜与编号重组为3列表格输出。
 ;;;   - BIAN  : 根据选中直线生成方向三角、至字样和电缆规格标注。
@@ -83,6 +85,7 @@
 ;;;   - XY    : 处理所选电缆线（水平线，或绿色竖直线），先运行 XIN 统计芯数，再运行 YUAN 提取原理号；水平线横向输出，竖直线在底端下方输出 270° 文字。
 ;;;   - XYG   : 一次框选，自动提取绿色水平/竖直电缆线执行 XY 统计，并提取大字与电缆文字执行 GTX 分类汇总。
 ;;;   - XYG2  : 与 XYG 相同的框选和汇总表，但原图不留痕：电缆后面不留芯数和原理号，异常电缆线也不改色、不延长。
+;;;   - XYG3  : 与 XYG2 一样不留痕，并把 1(2)# 合画电缆拆成各柜两行，汇总表先排完 1# 再排 2#。
 ;;;   - JM    : 按绿色电缆线（水平或竖直）所连原理号，把 ZDDLH/ZDDLS 生成的“未填写”替换为电缆截面；无法判断的保留并选中提示。
 ;;;   - BH1   : 逐根点选编号：先点起点柜名大字并输入前缀、起始号，再依次点绿色电缆线，回车后自动缩放一次识别并按点选顺序编号，同终点加 A/B/C，可撤销本批。
 ;;;   - BH2   : 框选起点柜和绿色电缆线，把已编号但没记录的电缆记入共享记录，给有记录的“未编号”按记录填写；不分配新编号，两端不一致的标红注明原因。
@@ -118,6 +121,7 @@
 ;;;   - ZDC   : ZDDLH 命令的简写别名。
 ;;;   - ZDDLD : 删除 ZDDL 生成的端子排框线与端子名/号，保留原理号、电缆接线和电缆文字。
 ;;;   - BDL   : 选择后补的原理号，按 ZDDL 样式补画引线、短斜线、电缆线、箭头和占位文字，自动找空行；选水平原理号时按竖排端子排补画竖直电缆线。
+;;;   - BDL2  : 连续补画多根电缆：逐根选原理号按空格记住，不选直接空格后一次生成（同 BDL），生成前可先调整窗口，一次 U 全部撤销。
 ;;;   - XZYL  : 修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。
 ;;;   - ZDDL2 : 自动根据现有端子排与接线方格绘制电缆引线、干线与标注。
 ;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
@@ -137,6 +141,7 @@
 ;;;   - AF    : 在每个选中文字开头增加文字（空输入使用剪贴板）。
 ;;;   - QW    : 提取选中文字，同一行用顿号连接，不同行之间也用顿号分隔，并复制到剪贴板。
 ;;;   - QW2   : 提取选中文字及坐标，每项一行“x,y 文字”，坐标保留 2 位小数，复制到剪贴板。
+;;;   - QW2P  : 把剪贴板里“x,y 文字”格式的内容按 T 命令的样式写到当前图层，与 QW2 相反。
 ;;;   - QW3   : 导出选中对象的类型、图层、坐标、几何及文字属性为结构化文本并复制到剪贴板。
 ;;;   - TJK   : 点选块，统计当前空间或框选范围内同名块（含动态块）的数量，选中它们并用红圈和序号标出；Q 清除标记。
 ;;;   - FF    : 预选文字，空格确认查找及替换内容，批量替换所有匹配片段。
@@ -2600,6 +2605,222 @@
   (txt2:run)
   (aa:cmd-end)
 )
+
+;;; =======================================================================================
+;;; 命令: DH
+;;; 功能: 把选中的多行文字转成规整的单行文字，保持原位置和对齐，文字不再碎成多段。
+;;; =======================================================================================
+(setq *dh:one-line* nil) ; (DH) 记住上次选择：nil=保持换行，T=合成一行
+
+;; 从 i 起找第一个分号，返回位置或 nil。
+(defun dh:semi (s i n)
+  (while (and (<= i n) (/= (substr s i 1) ";"))
+    (setq i (1+ i)))
+  (if (<= i n) i nil))
+
+;; 解析 \H / \W 的参数，返回 (数值 . 是否倍数)，如 "1.2x" → (1.2 . T)。
+(defun dh:num (txt / rel val)
+  (setq rel (wcmatch (strcase txt) "*X"))
+  (if rel (setq txt (substr txt 1 (1- (strlen txt)))))
+  (if (setq val (distof txt 2)) (cons val rel)))
+
+;; 去掉每行首尾空格及整段首尾空行；rev 为倒序的行列表，返回正序列表。
+(defun dh:tidy (rev / out)
+  (foreach x rev
+    (setq x (vl-string-trim " " x))
+    (if (or out (/= x "")) (setq out (cons x out))))
+  (while (and out (= (car out) "")) (setq out (cdr out)))
+  out)
+
+;; 拆出 MTEXT 的纯文字。返回 (行列表 是否改过字体 首个\H 首个\W)。
+;; \P 和真实换行都算换行；\U+XXXX 保留给 TEXT 显示。
+(defun dh:parse (s / n i cur lines ch nx semi arg font hc wc)
+  (setq n (strlen s) i 1 cur "")
+  (while (<= i n)
+    (setq ch (substr s i 1))
+    (cond
+      ((or (= ch "{") (= ch "}")) (setq i (1+ i)))
+      ((= ch "\n") (setq lines (cons cur lines) cur "" i (1+ i)))
+      ((= ch "\r") (setq i (1+ i)))
+      ((= ch "\t") (setq cur (strcat cur " ") i (1+ i)))
+      ((/= ch "\\") (setq cur (strcat cur ch) i (1+ i)))
+      ((= i n) (setq i (1+ i)))
+      (T
+       (setq nx (substr s (1+ i) 1))
+       (cond
+         ((member nx '("\\" "{" "}")) (setq cur (strcat cur nx) i (+ i 2)))
+         ((= nx "P") (setq lines (cons cur lines) cur "" i (+ i 2)))
+         ((= nx "~") (setq cur (strcat cur " ") i (+ i 2)))
+         ((member nx '("U" "M")) (setq cur (strcat cur "\\" nx) i (+ i 2)))
+         ((member nx '("L" "l" "O" "o" "K" "k" "X" "x")) (setq i (+ i 2)))
+         ((member nx '("A" "a" "C" "c" "F" "f" "H" "h" "p" "Q" "q" "S" "T" "t" "W" "w"))
+          (setq semi (dh:semi s (+ i 2) n))
+          (if semi
+            (progn
+              (setq arg (substr s (+ i 2) (- semi i 2)))
+              (cond
+                ((member nx '("F" "f")) (setq font T))
+                ((and (= nx "H") (null hc)) (setq hc (dh:num arg)))
+                ((and (= nx "W") (null wc)) (setq wc (dh:num arg)))
+                ((= nx "S")
+                 (setq arg (vl-string-translate "#^" "//" arg)
+                       cur (strcat cur arg))))
+              (setq i (1+ semi)))
+            (setq i (+ i 2))))
+         (T (setq cur (strcat cur nx) i (+ i 2)))))))
+  (list (dh:tidy (cons cur lines)) font hc wc))
+
+;; 字符串含非 ASCII 字符（中文等）时返回 T。
+(defun dh:non-ascii-p (s / i n c hit)
+  (setq i 1 n (strlen s))
+  (while (and (<= i n) (not hit))
+    (setq c (ascii (substr s i 1)))
+    (if (or (> c 126) (< c 0)) (setq hit T))
+    (setq i (1+ i)))
+  hit)
+
+;; 用 TEXT 的实际字体测文字宽度。
+(defun dh:width (s st h w / b)
+  (setq b (textbox (list (cons 1 s) (cons 7 st) (cons 40 h) (cons 41 w))))
+  (if b (- (caadr b) (caar b)) 0.0))
+
+;; 这个字符后面允许换行：中文之后、空格之后、紧跟中文的减号之后、下一个字符是中文时。
+(defun dh:break-after-p (pv ch nx)
+  (or (= ch " ") (and (= ch "-") (dh:non-ascii-p pv)) (dh:non-ascii-p ch)
+      (and (/= nx "") (dh:non-ascii-p nx))))
+
+;; 按框宽折行，模仿 MTEXT：优先断在可换行处，不把英文数字拆开。
+(defun dh:wrap (s st h w boxw / n i start brk cut out)
+  (setq n (strlen s) i 1 start 1)
+  (while (<= i n)
+    (if (and (> i start)
+             (> (dh:width (substr s start (1+ (- i start))) st h w) boxw))
+      (setq cut (if brk brk (1- i))
+            out (cons (vl-string-trim " " (substr s start (1+ (- cut start)))) out)
+            start (1+ cut)
+            brk nil)
+      (progn
+        (if (dh:break-after-p (substr s (max 1 (1- i)) 1) (substr s i 1) (substr s (1+ i) 1))
+          (setq brk i))
+        (setq i (1+ i)))))
+  (reverse (cons (vl-string-trim " " (substr s start)) out)))
+
+;; 把一个 MTEXT 换成单行文字，全部生成成功才删原对象，否则删掉已生成的并保留原对象。
+;; 返回生成的文字个数，跳过时返回 0。
+(defun dh:convert (en one-line / ed raw parsed lines font hc wc h w boxw style factor pitch
+                     ang ux uy ins box cx cy along row col nrm visual out n top i
+                     px py line tw made ok props item text-data)
+  (setq ed (entget en) raw "")
+  (foreach item ed
+    (if (member (car item) '(1 3)) (setq raw (strcat raw (cdr item)))))
+  (setq parsed (dh:parse raw)
+        lines (car parsed)
+        font (cadr parsed)
+        hc (caddr parsed)
+        wc (cadddr parsed)
+        h (cdr (assoc 40 ed))
+        w 1.0
+        boxw (cond ((cdr (assoc 41 ed))) (0.0))
+        style (cdr (assoc 7 ed))
+        factor (cond ((cdr (assoc 44 ed))) (1.0)))
+  (if hc (setq h (if (cdr hc) (* h (car hc)) (car hc))))
+  (if wc (setq w (car wc)))
+  (cond
+    ((null lines) 0)
+    ((= (cdr (assoc 72 ed)) 3) 0)
+    (T
+     ;; 文字用了字体覆盖且含中文时，原样式不一定显示得了中文，统一落到宋体。
+     (if (and font (dh:non-ascii-p (apply 'strcat lines)))
+       (setq style (cond ((txt2:ensure-style)) (style))))
+     (setq pitch (* h factor (/ 5.0 3.0))
+           item (cdr (assoc 11 ed))
+           ang (if (and item (> (distance '(0.0 0.0) (list (car item) (cadr item))) 1e-9))
+                 (angle '(0.0 0.0) (list (car item) (cadr item)))
+                 (cond ((cdr (assoc 50 ed))) (0.0)))
+           ux (cos ang)
+           uy (sin ang)
+           ins (cdr (assoc 10 ed))
+           nrm (cond ((cdr (assoc 210 ed))) ('(0.0 0.0 1.0)))
+           col (rem (1- (cdr (assoc 71 ed))) 3)
+           row (/ (1- (cdr (assoc 71 ed))) 3)
+           box (aa:safe-get-bbox nil en))
+     ;; 水平文字用实际外框高度推算显示了几行：没折过行的不折，只压宽。
+     (if (and box (equal ang 0.0 1e-6))
+       (setq visual (1+ (fix (+ 0.5 (/ (max 0.0 (- (cadr (cadr box)) (cadr (car box)) h))
+                                       pitch))))))
+     (cond
+       (one-line (setq lines (list (apply 'strcat lines))))
+       ((and (> boxw 0.0) (or (null visual) (> visual (length lines))))
+        (setq out nil)
+        (foreach line lines
+          (setq out (append out (dh:wrap line style h w boxw))))
+        (setq lines out)))
+     (setq n (length lines)
+           top (/ (* (1- n) pitch) 2.0))
+     (if box
+       (setq cx (/ (+ (car (car box)) (car (cadr box))) 2.0)
+             cy (/ (+ (cadr (car box)) (cadr (cadr box))) 2.0))
+       ;; 读不到外框时按对齐方式估算文字块中心。
+       (setq i (* (- 1 row) (+ top (/ h 2.0)))
+             cx (+ (car ins) (* uy i))
+             cy (- (cadr ins) (* ux i))))
+     (setq along (+ (* (- (car ins) cx) ux) (* (- (cadr ins) cy) uy))
+           props nil)
+     (foreach item ed
+       (if (member (car item) '(6 8 48 60 62 67 370 410 420 430 440))
+         (setq props (cons item props))))
+     (setq i 0 ok T made nil)
+     (foreach line lines
+       (if (and ok (/= line ""))
+         (progn
+           (setq px (+ cx (* along ux) (* -1.0 uy (- top (* i pitch))))
+                 py (+ cy (* along uy) (* ux (- top (* i pitch))))
+                 tw (dh:width line style h w)
+                 item (trans (list px py (caddr ins)) 0 nrm)
+                 text-data (append
+                             (list '(0 . "TEXT") (cons 1 line) (cons 7 style)
+                                   (cons 10 item) (cons 11 item) (cons 40 h)
+                                   (cons 41 (if (and (> boxw 0.0) (> tw boxw))
+                                              (/ (* w boxw) tw)
+                                              w))
+                                   (cons 50 (angle '(0.0 0.0)
+                                                   (trans (list ux uy 0.0) 0 nrm T)))
+                                   (cons 72 col) (cons 73 2) (cons 210 nrm))
+                             props))
+           (if (entmake text-data)
+             (setq made (cons (entlast) made))
+             (setq ok nil))))
+       (setq i (1+ i)))
+     (if (and ok made)
+       (progn (entdel en) (length made))
+       (progn (foreach item made (entdel item)) 0)))))
+
+;; 选 MTEXT、选换行方式、逐个转换并报告。
+(defun dh:run (/ ss key i total done)
+  (setq ss (ssget "_:L" '((0 . "MTEXT"))))
+  (if (null ss)
+    (princ "\r\n[DH] 未选择未锁定的多行文字。")
+    (progn
+      (initget "B H")
+      (setq key (getkword (strcat "\n换行方式 [保持换行(B)/合成一行(H)] <"
+                                  (if *dh:one-line* "H" "B") ">: ")))
+      (if key (setq *dh:one-line* (= key "H")))
+      (setq i 0 total 0 done 0)
+      (while (< i (sslength ss))
+        (setq key (dh:convert (ssname ss i) *dh:one-line*))
+        (if (> key 0)
+          (setq done (1+ done) total (+ total key)))
+        (setq i (1+ i)))
+      (redraw)
+      (princ (strcat "\r\n[DH] 选中 " (itoa (sslength ss)) " 个多行文字，转换 " (itoa done)
+                     " 个，生成 " (itoa total) " 个单行文字。")))))
+
+(defun c:DH (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
+  (aa:cmd-begin "DH")
+  (dh:run)
+  (aa:cmd-end)
+)
+
 ;;; =======================================================================================
 ;;; 命令: H
 ;;; 功能: 先将选中文字统一为左中对正，再按用户输入的垂直间距从上到下排列。
@@ -6956,6 +7177,195 @@
 )
 
 ;;; =======================================================================================
+;;; 命令: GTY2
+;;; 功能: 把选中电缆文字按 GTY 规则排序整理后放进 CAD 剪贴板，到另一张图 Ctrl+V 粘贴；原文字不变。
+;;; =======================================================================================
+(defun gty2:layout (ss / i ent ent-data text-string insertion-point text-height text-width
+                       text-data total-height avg-height row-tol split-gap col-gap line-height
+                       rows current-item split-rows current-row last-item-x current-item-x
+                       col-widths row row-index sort-keys row-map token sorted-rows fast-rows)
+  ;; 与 c:GTY 的分行、排序、列宽完全相同，check_gty2_static.py 逐表达式比对。
+  (setq text-data     '()
+        total-height  0.0
+        i             0)
+
+  (repeat (sslength ss)
+    (setq ent             (ssname ss i)
+          ent-data        (entget ent)
+          text-string     (cdr (assoc 1 ent-data))
+          insertion-point (cdr (assoc 10 ent-data))
+          text-height     (cond ((cdr (assoc 40 ent-data))) (3.0))
+          text-width      (aa:gty-get-text-width ent-data)
+          text-data       (cons (list ent text-string insertion-point text-width text-height) text-data)
+          total-height    (+ total-height text-height)
+          i               (1+ i))
+  )
+  (setq text-data (reverse text-data))
+
+  (setq avg-height  (/ total-height (max 1 (length text-data)))
+        row-tol     (max 1.0 (* avg-height 0.6))
+        split-gap   200.0
+        col-gap     (max 10.0 (* avg-height 2.0))
+        line-height 5.0)  ;; 行间 Y 坐标差固定为 5
+
+  (setq fast-rows (if (> (length text-data) 128)
+                    (aa:gty-separated-rows text-data row-tol T)))
+  (if fast-rows
+    (setq rows (cadr fast-rows))
+    (progn
+      (setq rows nil)
+      (foreach current-item text-data
+        (setq rows (aa:gty-add-row current-item rows row-tol)))))
+
+  (setq rows
+    (mapcar
+      '(lambda (line)
+         (aa:merge-sort line '(lambda (a b) (< (aa:gty-get-item-x a) (aa:gty-get-item-x b)))))
+      rows))
+
+  (setq split-rows '())
+  (foreach row rows
+    (if row
+      (progn
+        (setq current-row (list (car row))
+              last-item-x (aa:gty-get-item-x (car row)))
+        (foreach current-item (cdr row)
+          (setq current-item-x (aa:gty-get-item-x current-item))
+          (if (> (- current-item-x last-item-x) split-gap)
+            (progn
+              (setq split-rows (cons (reverse current-row) split-rows))
+              (setq current-row (list current-item)))
+            (setq current-row (cons current-item current-row))
+          )
+          (setq last-item-x current-item-x)
+        )
+        (setq split-rows (cons (reverse current-row) split-rows))
+      )
+    )
+  )
+  (setq rows (reverse split-rows))
+
+  (setq rows (aa:gty-order-rows rows row-tol fast-rows))
+
+  (setq col-widths (aa:gty-column-widths rows col-gap))
+
+  (setq sort-keys '()
+        row-map   (aa:gty-row-tree rows (length rows))
+        row-index 0)
+  (foreach row rows
+    (setq token     (aa:gty-build-sort-key row row-index)
+          sort-keys (cons token sort-keys)
+          row-index (1+ row-index))
+  )
+  (setq sorted-rows
+    (mapcar
+      '(lambda (key)
+         (aa:gty-tree-item row-map
+           (atoi (substr key (+ 2 (vl-string-position 124 key nil T))))))
+      (acad_strlsort sort-keys)))
+  (list sorted-rows col-widths col-gap line-height)
+)
+
+(defun gty2:locked-layer (ss / i name hit)
+  ;; 锁定图层上的副本移不动也删不掉，开始前整批拒绝。
+  (setq i 0)
+  (while (and (not hit) (< i (sslength ss)))
+    (setq name (cdr (assoc 8 (entget (ssname ss i))))
+          i    (1+ i))
+    (if (= 4 (logand 4 (cdr (assoc 70 (tblsearch "LAYER" name)))))
+      (setq hit name)))
+  hit
+)
+
+(defun gty2:make-copies (rows widths gap line-height base / row row-index item current-item-x width-rest copied failed)
+  ;; 布局与 c:GTY 的放置循环相同。copies 是 c:GTY2 的局部变量，Esc 时其 *error* 能清掉已生成的副本。
+  (setq row-index 0)
+  (foreach row rows
+    (setq current-item-x (car base) width-rest widths)
+    (foreach item row
+      (if (not failed)
+        (progn
+          (setq copied
+            (aa:gty-copy-text
+              (aa:gty-get-item-ename item)
+              (aa:gty-get-item-pt item)
+              (list current-item-x
+                    (- (cadr base) (* row-index line-height))
+                    (caddr base))))
+          (if copied
+            (setq copies (cons copied copies))
+            (setq failed T))))
+      (setq current-item-x (+ current-item-x (car width-rest) gap)
+            width-rest (cdr width-rest)))
+    (setq row-index (1+ row-index)))
+  (if failed
+    (progn
+      (aa:gty-delete-copies copies)
+      (setq copies nil)))
+  copies
+)
+
+(defun gty2:to-clip (copies base / picked en result)
+  ;; 原生剪贴板连样式、图层和 AA_LINK 一起带走，粘贴后 SX2、SXD 仍能认出副本。
+  (setq picked (ssadd))
+  (foreach en copies (ssadd en picked))
+  (setvar "CMDECHO" 0)
+  (setq result (vl-catch-all-apply 'vl-cmdf
+                 (list "_.COPYBASE" "_non" (trans base 0 1) picked "")))
+  (if (> (getvar "CMDACTIVE") 0)
+    (progn
+      (command)
+      (setq result nil)))
+  (and result (not (vl-catch-all-error-p result)))
+)
+
+(defun c:GTY2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho ss layer layout rows first-item base copies done)
+  (setq ss (ssget "_I" '((0 . "TEXT"))))
+  (aa:cmd-begin "GTY2")
+  (defun *error* (msg)
+    (aa:gty-delete-copies copies)
+    (setq copies nil)
+    (sssetfirst nil nil)
+    (redraw)
+    (aa:cmd-error msg)
+  )
+  (if (not ss)
+    (progn
+      (prompt "\r\n[GTY2] 请选择要整理的电缆文字: ")
+      (setq ss (ssget '((0 . "TEXT"))))
+    )
+  )
+  (cond
+    ((not ss)
+     (princ "\r\n[GTY2] 未选择文字。"))
+    ((setq layer (gty2:locked-layer ss))
+     (princ (strcat "\r\n[GTY2] 图层“" layer "”已锁定，解锁后再运行，本次没有改动。")))
+    (t
+     (setq layout (gty2:layout ss)
+           rows (car layout)
+           first-item (car (car rows))
+           base (trans (aa:gty-get-item-pt first-item) (aa:gty-get-item-ename first-item) 0))
+     ;; 有预选时 COPYBASE 不再问选择对象，必须先清掉
+     (sssetfirst nil nil)
+     (gty2:make-copies rows (cadr layout) (caddr layout) (cadddr layout) base)
+     (if copies
+       (progn
+         (setq done (gty2:to-clip copies base))
+         (princ (if done
+                  (strcat "\r\n[GTY2] 已把 " (itoa (length rows)) " 行、" (itoa (length copies))
+                          " 个文字放进 CAD 剪贴板，原文字不变。切到总图按 Ctrl+V，点第一行第一列位置。")
+                  "\r\n[GTY2] 放进剪贴板失败，不要粘贴。"))
+         ;; 副本只为排好版后进剪贴板，原图不留
+         (aa:gty-delete-copies copies)
+         (setq copies nil)
+         (redraw))
+       (princ "\r\n[GTY2] 复制失败，已清理，原文字保留。")))
+  )
+  (sssetfirst nil nil)
+  (aa:cmd-end)
+)
+
+;;; =======================================================================================
 ;;; 命令: GTZ
 ;;; 功能: 将选中的交替柜名与电缆编号单列文字，按前后柜与电缆编号重组为3列表格输出。
 ;;; =======================================================================================
@@ -7613,6 +8023,8 @@
 (setq *xy-no-mark*        nil)              ; T 时 YUAN 只提示异常电缆线，不改色、不延长（XYG2 用）
 (setq *xy-last-xin-counts* nil)            ; 最近一次XIN输出数字表
 (setq *xy-last-vrec-map*   nil)            ; 最近一次每条水平线匹配到的竖线表
+(setq *xy-last-core-map*   nil)            ; 最近一次每条线生成的芯数文字 ((句柄 图元) ...)
+(setq *xy-last-new-map*    nil)            ; 最近一次每条线生成的原理号文字 ((句柄 图元 ...) ...)
 (setq *xy-last-vline-data* nil)            ; 最近一次 pre-fetched 竖直线数据 (en x y1 y2)
 (setq *xy-vline-buckets* nil)              ; 竖线按 X 分桶索引 (bucket-id . vdata-list)
 (setq *xy-vline-bucket-size* 100.0)        ; 竖线分桶宽度（图纸单位）
@@ -7970,6 +8382,7 @@
 (defun xy:run-xin (sel / selList vlineDataList ss i ent entData p1 p2 hinfo rightPt rot handle countMap vrecMap vrecs countNum insertPt textStr)
   (setq *xy-no-mark* nil)
   (setq *xy-last-xin-counts* nil)
+  (setq *xy-last-core-map* nil)
   (setq *xy-last-vrec-map* nil)
   (setq *xy-last-vline-data* nil)
   (setq selList (xy:ss->list sel))
@@ -8021,6 +8434,7 @@
             (cons 50 rot)
           )
         )
+        (setq *xy-last-core-map* (cons (list handle (entlast)) *xy-last-core-map*))
 
         (setq i (1+ i))
       )
@@ -8470,7 +8884,7 @@
     (t (+ ax *xy-hit-half-width*)))
 )
 
-(defun xy:process-one-hline (ed vlineDataList textMetaList / hinfo vrecs vrec item found txt rightPt startPt idx newCnt missCnt allVCnt tail cand scan rectXmin rectXmax)
+(defun xy:process-one-hline (ed vlineDataList textMetaList / hinfo vrecs vrec item found txt rightPt startPt idx newCnt missCnt allVCnt tail cand scan rectXmin rectXmax made)
   (setq hinfo (xy:hline-info-ed ed))
   (setq vrecs (xy:get-vrecs-for-hline-ed ed vlineDataList))
   (setq allVCnt (length vrecs))
@@ -8514,13 +8928,14 @@
       (setq idx 0)
       (setq newCnt 0)
       (foreach item found
-        (if (xy:copy-text-vertical
+        (if (setq cand (xy:copy-text-vertical
           (cadr item)
           (list (car startPt)
                 (- (cadr startPt) (* idx *xy-step-x*))
                 (caddr startPt))
-        )
-          (setq newCnt (1+ newCnt))
+        ))
+          (setq newCnt (1+ newCnt)
+                made   (cons cand made))
           (setq missCnt (1+ missCnt)))
         (setq idx    (1+ idx))
       )
@@ -8534,19 +8949,21 @@
       (setq idx 0)
       (setq newCnt 0)
       (foreach item found
-        (if (xy:copy-text-horizontal
+        (if (setq cand (xy:copy-text-horizontal
           (cadr item)
           (list (+ (car startPt) (* idx *xy-step-x*))
                 (cadr startPt)
                 (caddr startPt))
-        )
-          (setq newCnt (1+ newCnt))
+        ))
+          (setq newCnt (1+ newCnt)
+                made   (cons cand made))
           (setq missCnt (1+ missCnt)))
         (setq idx    (1+ idx))
       )
     )
   )
 
+  (setq *xy-last-new-map* (cons (cons (cdr (assoc 5 ed)) (reverse made)) *xy-last-new-map*))
   (list newCnt missCnt allVCnt)
 )
 
@@ -8558,6 +8975,7 @@
     )
     (progn
       (setq selList (xy:ss->list sel))
+      (setq *xy-last-new-map* nil)
       (if *xy-last-vline-data*
         (setq vlineDataList *xy-last-vline-data*)
         (progn
@@ -8838,6 +9256,34 @@
   )
 )
 
+(defun xyg:row-record-p (record ymin)
+  ;; 横电缆：文字中心在线下容差以上才算这根线的文字。按中心判断才兼容不同字高：
+  ;; 字高 4 时下一行文字顶边正好碰到本线搜索框下沿，只看包围盒相交会串行
+  (>= (/ (+ (nth 4 record) (nth 5 record)) 2.0) ymin)
+)
+
+(defun xyg:col-record-p (record xmin)
+  ;; 竖电缆：同理，文字中心要在线左容差以右，否则是左侧邻线的文字
+  (>= (nth 6 record) xmin)
+)
+
+(defun xyg:dedup-texts (res / out rest item kept dup)
+  ;; res 项为 (图元 轴向坐标 文字)。同内容且位置重合的文字是图上叠了两份，只算一个，
+  ;; 否则会占掉“最多 3 个文字”的名额，把电缆编号挤掉；优先留带联动标记的那个
+  (foreach item res
+    (setq dup nil rest nil)
+    (foreach kept out
+      (if (and (= (caddr kept) (caddr item))
+               (<= (abs (- (cadr kept) (cadr item))) 1.0))
+        (setq dup  T
+              kept (if (aa:link-xdata (car kept)) kept item)))
+      (setq rest (cons kept rest)))
+    (setq out (reverse rest))
+    (if (not dup) (setq out (cons item out)))
+  )
+  (reverse out)
+)
+
 (defun xyg:build-text-index (entities mode / records order en rec)
   ;; 命令内一次性采集文字记录并建立包围盒树，每个文字的包围盒只计算一次
   (setq records '()
@@ -8902,11 +9348,13 @@
         res  '())
   ;; 选区文字：查询命令内预建的包围盒树，不再逐个扫描整个框选集
   (foreach record (xyg:query-text-index rect-index xmin xmax ymin ymax)
-    (setq res (cons (list (cadr record) (nth 6 record) (nth 7 record)) res))
+    (if (xyg:row-record-p record ymin)
+      (setq res (cons (list (cadr record) (nth 6 record) (nth 7 record)) res))
+    )
   )
   ;; 若在框选集合中未找到足够的3个文字，自动在当前图面对应矩形区域内补充查找，彻底杜绝框选不全导致的漏选
   ;; 补查结果可能包含 XY 新生成的文字，因此保持查询时实时读取
-  (if (< (length res) 3)
+  (if (< (length (xyg:dedup-texts res)) 3)
     (progn
       (setq nearby (xy:window-wcs xmin ymin xmax ymax '((0 . "TEXT,MTEXT"))))
       (if nearby
@@ -8917,7 +9365,9 @@
             (if (null (assoc en res))
               (progn
                 (setq record (xyg:text-record en i 'BOX))
-                (if (and record (xyg:box-hit-p (cddr record) xmin xmax ymin ymax))
+                (if (and record
+                         (xyg:box-hit-p (cddr record) xmin xmax ymin ymax)
+                         (xyg:row-record-p record ymin))
                   (setq res (cons (list en (nth 6 record) (nth 7 record)) res))
                 )
               )
@@ -8929,7 +9379,7 @@
     )
   )
   ;; 按 X 坐标从左到右排序
-  (setq res (aa:merge-sort res '(lambda (a b) (< (cadr a) (cadr b)))))
+  (setq res (aa:merge-sort (xyg:dedup-texts res) '(lambda (a b) (< (cadr a) (cadr b)))))
   ;; 从右侧顶点往左看最多只有 3 个文字，多于 3 个时只保留最靠近右侧的最后 3 个
   (while (> (length res) 3)
     (setq res (cdr res))
@@ -8947,10 +9397,14 @@
         ymax (+ ry 155.0)
         res  '())
   (foreach record (xyg:query-text-index rect-index xmin xmax ymin ymax)
-    (setq cy (/ (+ (nth 4 record) (nth 5 record)) 2.0))
-    (setq res (cons (list (cadr record) cy (nth 7 record)) res))
+    (if (xyg:col-record-p record xmin)
+      (progn
+        (setq cy (/ (+ (nth 4 record) (nth 5 record)) 2.0))
+        (setq res (cons (list (cadr record) cy (nth 7 record)) res))
+      )
+    )
   )
-  (if (< (length res) 3)
+  (if (< (length (xyg:dedup-texts res)) 3)
     (progn
       (setq nearby (xy:window-wcs xmin ymin xmax ymax '((0 . "TEXT,MTEXT"))))
       (if nearby
@@ -8961,7 +9415,9 @@
             (if (null (assoc en res))
               (progn
                 (setq record (xyg:text-record en i 'BOX))
-                (if (and record (xyg:box-hit-p (cddr record) xmin xmax ymin ymax))
+                (if (and record
+                         (xyg:box-hit-p (cddr record) xmin xmax ymin ymax)
+                         (xyg:col-record-p record xmin))
                   (progn
                     (setq cy (/ (+ (nth 4 record) (nth 5 record)) 2.0))
                     (setq res (cons (list en cy (nth 7 record)) res))
@@ -8976,7 +9432,7 @@
     )
   )
   ;; 按 Y 坐标从上到下排序（电缆编号、去向、规格）
-  (setq res (aa:merge-sort res '(lambda (a b) (> (cadr a) (cadr b)))))
+  (setq res (aa:merge-sort (xyg:dedup-texts res) '(lambda (a b) (> (cadr a) (cadr b)))))
   ;; 从下端点往上看最多只有 3 个文字，多于 3 个时只保留最靠近下端点的最后 3 个
   (while (> (length res) 3)
     (setq res (cdr res))
@@ -8985,7 +9441,9 @@
   (mapcar 'caddr res)
 )
 
-(defun xyg:dedup-hlines (lines tol / hlines vlines sorted out vout top ed edt p1 p2 p1t p2t eda edb p1a p2a p1b p2b ya yb xa xb en)
+;; 电缆线去重：同一直线上输出端（横线右端、竖线下端）相同的线是一根电缆，
+;; 文字都从输出端读，只留最长的一根；长的那根盖住短的，芯线不会丢
+(defun xyg:dedup-hlines (lines tol / hlines vlines sorted out vout top ed edt p1 p2 p1t p2t eda edb p1a p2a p1b p2b ya yb xa xb xla xlb yua yub en)
   (setq hlines '()
         vlines '())
   (foreach en lines
@@ -9001,7 +9459,7 @@
         vlines (reverse vlines))
   (setq sorted
     (aa:merge-sort hlines
-      '(lambda (ea eb / eda edb p1a p2a p1b p2b ya yb xa xb)
+      '(lambda (ea eb / eda edb p1a p2a p1b p2b ya yb xa xb xla xlb)
          (setq eda (entget ea)
                edb (entget eb)
                p1a (cdr (assoc 10 eda))
@@ -9010,10 +9468,14 @@
                p2b (cdr (assoc 11 edb))
                ya  (cadr p1a)
                yb  (cadr p1b)
-               xa  (min (car p1a) (car p2a))
-               xb  (min (car p1b) (car p2b)))
+               xa  (max (car p1a) (car p2a))
+               xb  (max (car p1b) (car p2b))
+               xla (min (car p1a) (car p2a))
+               xlb (min (car p1b) (car p2b)))
          (if (<= (abs (- ya yb)) tol)
-           (< xa xb)
+           (if (<= (abs (- xa xb)) tol)
+             (< xla xlb)
+             (< xa xb))
            (> ya yb)))))
   (setq out '())
   (foreach en sorted
@@ -9028,7 +9490,6 @@
               p1t (cdr (assoc 10 edt))
               p2t (cdr (assoc 11 edt)))
         (if (and (<= (abs (- (cadr p1) (cadr p1t))) tol)
-                 (<= (abs (- (min (car p1) (car p2)) (min (car p1t) (car p2t)))) tol)
                  (<= (abs (- (max (car p1) (car p2)) (max (car p1t) (car p2t)))) tol))
           nil
           (setq out (cons en out))
@@ -9041,7 +9502,7 @@
     (progn
       (setq sorted
         (aa:merge-sort vlines
-          '(lambda (ea eb / eda edb p1a p2a p1b p2b xa xb ya yb)
+          '(lambda (ea eb / eda edb p1a p2a p1b p2b xa xb ya yb yua yub)
              (setq eda (entget ea)
                    edb (entget eb)
                    p1a (cdr (assoc 10 eda))
@@ -9051,9 +9512,13 @@
                    xa  (car p1a)
                    xb  (car p1b)
                    ya  (min (cadr p1a) (cadr p2a))
-                   yb  (min (cadr p1b) (cadr p2b)))
+                   yb  (min (cadr p1b) (cadr p2b))
+                   yua (max (cadr p1a) (cadr p2a))
+                   yub (max (cadr p1b) (cadr p2b)))
              (if (<= (abs (- xa xb)) tol)
-               (> ya yb)
+               (if (<= (abs (- ya yb)) tol)
+                 (> yua yub)
+                 (> ya yb))
                (< xa xb)))))
       (setq vout '())
       (foreach en sorted
@@ -9068,8 +9533,7 @@
                   p1t (cdr (assoc 10 edt))
                   p2t (cdr (assoc 11 edt)))
             (if (and (<= (abs (- (car p1) (car p1t))) tol)
-                     (<= (abs (- (min (cadr p1) (cadr p2)) (min (cadr p1t) (cadr p2t)))) tol)
-                     (<= (abs (- (max (cadr p1) (cadr p2)) (max (cadr p1t) (cadr p2t)))) tol))
+                     (<= (abs (- (min (cadr p1) (cadr p2)) (min (cadr p1t) (cadr p2t)))) tol))
               nil
               (setq vout (cons en vout))
             )
@@ -9142,14 +9606,11 @@
 )
 
 ;; 按方向取 XY 新文字：want-vert 为 T 取旋转文字（竖直电缆），否则取水平文字
-(defun xyg:texts-by-dir (texts want-vert / en out flat)
-  (setq out '())
-  (foreach en texts
-    (setq flat (xy:is-horizontal-text-0-p (xy:get-text-rotation (entget en)) *xy-ang-tol*))
-    (if (if want-vert (not flat) flat)
-      (setq out (cons en out)))
-  )
-  (reverse out)
+(defun xyg:line-new-texts (handle)
+  ;; XY 给这根线生成的文字（芯数 + 原理号）。按归属取，不按位置猜：原理号顺着线往外排，
+  ;; 会越过同一直线上紧挨着的下一根电缆，按邻线截断就丢原理号
+  (append (cdr (assoc handle *xy-last-core-map*))
+          (cdr (assoc handle *xy-last-new-map*)))
 )
 
 (defun xyg:sort-lines-desc (lines / keyed)
@@ -9157,46 +9618,6 @@
   (setq keyed
     (mapcar '(lambda (en) (list (caddr (assoc 10 (entget en))) en)) lines))
   (mapcar 'cadr (aa:merge-sort keyed '(lambda (a b) (> (car a) (car b)))))
-)
-
-(defun xyg:line-geo-list (sorted-lines / en ed p1 p2 out)
-  ;; 每条线只读取一次几何：(图元 Y 左端X)，顺序与 sorted-lines（Y 非增）一致；竖线不参与右侧邻线判断
-  (setq out '())
-  (foreach en sorted-lines
-    (setq ed  (entget en)
-          p1  (cdr (assoc 10 ed))
-          p2  (cdr (assoc 11 ed)))
-    (if (not (xy:vline-hinfo-p (xy:hline-info-ed ed)))
-      (setq out (cons (list en (cadr p1) (min (car p1) (car p2))) out)))
-  )
-  (reverse out)
-)
-
-(defun xyg:next-line-min-x (line-en rx ry line-geo / best rest item other-y other-min-x)
-  ;; 查找同一水平线上位于本线右侧的最近邻线左端X（若有），作为本线文字的硬性右边界
-  ;; line-geo 按 Y 非增排列：一旦 Y 已低于本线 0.5 以上，后续各线均不可能命中，提前结束
-  (setq best nil
-        rest line-geo)
-  (while rest
-    (setq item    (car rest)
-          rest    (cdr rest)
-          other-y (cadr item))
-    (if (and (< other-y ry) (> (- ry other-y) 0.5))
-      (setq rest nil)
-      (if (/= (car item) line-en)
-        (progn
-          (setq other-min-x (caddr item))
-          (if (and (<= (abs (- other-y ry)) 0.5)
-                   (> other-min-x rx))
-            (if (or (null best) (< other-min-x best))
-              (setq best other-min-x)
-            )
-          )
-        )
-      )
-    )
-  )
-  best
 )
 
 (defun xyg:find-right-new-texts (rightPt new-index expected-count max-x / rx ry limit-x res x y record prev-x cand keep-cnt trimmed idx cand-num gap-ok)
@@ -9278,32 +9699,6 @@
 
   (setq *xyg-right-src* (mapcar 'aa:link-xdata (mapcar 'car res)))
   (mapcar 'caddr res)
-)
-
-(defun xyg:next-vline-max-y (line-en rx ry sorted-lines / best other-en other-ed other-p1 other-p2 other-x other-max-y)
-  (setq best nil)
-  (foreach other-en sorted-lines
-    (if (/= other-en line-en)
-      (progn
-        (setq other-ed (entget other-en)
-              other-p1 (cdr (assoc 10 other-ed))
-              other-p2 (cdr (assoc 11 other-ed)))
-        (if (> (abs (- (cadr other-p1) (cadr other-p2))) (abs (- (car other-p1) (car other-p2))))
-          (progn
-            (setq other-x     (car other-p1)
-                  other-max-y (max (cadr other-p1) (cadr other-p2)))
-            (if (and (<= (abs (- other-x rx)) 0.5)
-                     (< other-max-y ry))
-              (if (or (null best) (> other-max-y best))
-                (setq best other-max-y)
-              )
-            )
-          )
-        )
-      )
-    )
-  )
-  best
 )
 
 (defun xyg:find-down-new-texts (bottomPt new-index expected-count min-y / rx ry limit-y res x y record prev-y cand keep-cnt trimmed idx cand-num gap-ok)
@@ -9395,13 +9790,12 @@
   (entmake data)
 )
 
-(defun xyg:output-gtx-matrix (categorized-groups prefix-item pt text-style / start-x current-y text-height line-height col-width all-strings output-box cat-item sorted-groups group current-x text-item)
+(defun xyg:output-gtx-matrix (categorized-groups pt text-style / start-x current-y text-height line-height col-width all-strings output-box cat-item sorted-groups group current-x text-item)
   (setq text-height 3.0
         start-x     (car pt)
         current-y   (cadr pt)
         col-width   50.0
-        line-height 5.0
-        all-strings (list (car prefix-item)))
+        line-height 5.0)
 
   (foreach cat-item categorized-groups
     (foreach group (cadr cat-item)
@@ -9418,18 +9812,16 @@
       (setq col-width (max col-width
         (+ (* 2.0 text-height) (- (caadr output-box) (caar output-box)))))))
 
-  ;; 每组为 ((文字 . AA_LINK) ...)，按首项文字（电缆编号）自然排序
+  ;; 每组为 (柜名 电缆编号 ...)，每项 (文字 . AA_LINK)，按电缆编号自然排序
   (foreach cat-item categorized-groups
     (setq sorted-groups
       (aa:merge-sort
         (cadr cat-item)
         '(lambda (itemA itemB)
-           (aa:gtx-natural-less (car (car itemA)) (car (car itemB)))))
+           (aa:gtx-natural-less (car (cadr itemA)) (car (cadr itemB)))))
     )
     (foreach group sorted-groups
       (setq current-x start-x)
-      (xyg:make-linked-text (list current-x current-y (caddr pt)) (car prefix-item) text-height text-style (cdr prefix-item))
-      (setq current-x (+ current-x col-width))
       (foreach text-item group
         (xyg:make-linked-text (list current-x current-y (caddr pt)) (car text-item) text-height text-style (cdr text-item))
         (setq current-x (+ current-x col-width))
@@ -9486,16 +9878,137 @@
   (cons out n)
 )
 
-;; XYG / XYG2 主流程：tag 为命令名；keep 为 T 时 XY 文字和异常标记留在图上（XYG），nil 时不留（XYG2）
-(defun xyg:run (tag keep / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+;; 合画写法拆成各张图的文字：先按 BH 合画柜规则（1(2)#、DS-24(25)、A630I(640I)），
+;; 再按 DE2 的整段替换（至1-1#(2-1)直流馈线柜、11ZL-41(21ZL-41)、至2#主变保护柜(1#35kV母线保护柜)）。不是合画写法返回 nil
+(defun xyg:text-alts (s / new)
+  (if s
+    (cond
+      ((bh:combo-alts s))
+      ((setq new (de:strip-one s 2)) (list (de:strip-one s 0) new))
+    )
+  )
+)
+
+;; 取第 i 张图的项（i 从 0 起）：拆开的文字保留联动身份并记下第几张图（组码 1070，从 1 起），
+;; SXD 能跳到原件，SX1、SX2 按 aa:link-part-text 取这张图的写法，不会刷回合画写法
+(defun xyg:pick-alt (item alts i)
+  (cond
+    ((null alts) item)
+    ((cdr item)
+     (cons (nth i alts)
+           (list -3 (append (cadr (cdr item)) (list (cons 1070 (1+ i)))))))
+    (T (list (nth i alts)))
+  )
+)
+
+;; XYG3：一根绿线画了两根电缆（柜名、编号、去向、原理号有合画写法）时拆成各张图的行，每行以各自柜名开头。
+;; 规格和芯数两张图通用。文字不全（如“至相邻屏柜”这行没有编号）时分不清各项位置，只拆柜名，其余照抄。
+;; 不是合画写法或拆不开时返回 nil：拆不开的保留合画写法并提示
+(defun xyg:split-row (row prefix-item / num prins sa na da pa alts n i out)
+  (setq num   (car (nth 0 row))
+        prins (cdr (cdr (cdr (cdr row))))
+        sa    (xyg:text-alts (car prefix-item))
+        na    (xyg:text-alts num)
+        da    (xyg:text-alts (car (nth 1 row)))
+        pa    (mapcar '(lambda (it) (xyg:text-alts (car it))) prins)
+        alts  (vl-remove nil (append (list sa na da) pa))
+        n     (length (car alts)))
+  (cond
+    ((null alts) nil)
+    ((or (bh:dest-p num) (not (and (nth 3 row) (bh:all-digits-p (car (nth 3 row))))))
+     (if sa
+       (progn
+         (setq i -1)
+         (mapcar '(lambda (s) (setq i (1+ i)) (cons (xyg:pick-alt prefix-item sa i) row)) sa))
+       (progn
+         (princ (strcat "\r\n[XYG] 提示: " num " 这一行文字不全，未拆开合画写法。"))
+         nil)))
+    ((not (vl-every '(lambda (a) (= (length a) n)) alts))
+     (princ (strcat "\r\n[XYG] 提示: " num " 柜名、编号、去向、原理号里括号的个数不一致，未拆开合画写法。"))
+     nil)
+    ((not (or na (bh:placeholder-p num)))
+     (princ (strcat "\r\n[XYG] 提示: " num " 只有一个编号，未拆开合画写法。"))
+     nil)
+    (T
+     (setq i 0)
+     (repeat n
+       (setq out (cons (append (list (xyg:pick-alt prefix-item sa i)
+                                     (xyg:pick-alt (nth 0 row) na i)
+                                     (xyg:pick-alt (nth 1 row) da i)
+                                     (nth 2 row)
+                                     (nth 3 row))
+                               (mapcar '(lambda (it a) (xyg:pick-alt it a i)) prins pa))
+                       out)
+             i   (1+ i)))
+     (reverse out))
+  )
+)
+
+;; 每行前面加上柜名；split 为 T 时合画电缆拆成各张图的行。返回 (新行列表 . 拆开的根数)
+(defun xyg:expand-combo-rows (rows prefix-item split / out row parts n)
+  (setq n 0)
+  (foreach row rows
+    (if (and split (setq parts (xyg:split-row row prefix-item)))
+      (setq out (append (reverse parts) out)
+            n   (1+ n))
+      (setq out (cons (cons prefix-item row) out)))
+  )
+  (cons (reverse out) n)
+)
+
+;; 按电缆编号最后一个“-”前的部分分类，类按自然顺序排
+(defun xyg:categorize-rows (rows / groups row temp-text last-hyphen-pos category found-category)
+  (setq groups '())
+  (foreach row rows
+    (if (>= (length row) 2)
+      (progn
+        (setq temp-text (aa:gtx-key (car (cadr row))))
+        (setq last-hyphen-pos (aa:gtx-find-last-char "-" temp-text))
+        (if last-hyphen-pos
+          (setq category (substr temp-text 1 last-hyphen-pos))
+          (setq category temp-text)
+        )
+        (setq found-category (assoc category groups))
+        (if found-category
+          (setq groups
+            (subst
+              (list category (cons row (cadr found-category)))
+              found-category
+              groups))
+          (setq groups
+            (cons (list category (list row)) groups))
+        )
+      )
+    )
+  )
+  (aa:merge-sort groups
+    '(lambda (a b) (aa:gtx-natural-less (car a) (car b))))
+)
+
+;; 按柜名分块，每块单独分类，排完一个柜再排下一个；XYG、XYG2 只有一个柜名，等同直接分类
+(defun xyg:categorize-blocks (rows / blocks row key found block out)
+  (foreach row rows
+    (setq key (car (car row)) found (assoc key blocks))
+    (if found
+      (setq blocks (subst (list key (cons row (cadr found))) found blocks))
+      (setq blocks (cons (list key (list row)) blocks)))
+  )
+  (foreach block (aa:merge-sort blocks '(lambda (a b) (aa:gtx-natural-less (car a) (car b))))
+    (setq out (append out (xyg:categorize-rows (reverse (cadr block)))))
+  )
+  out
+)
+
+;; XYG / XYG2 / XYG3 主流程：tag 为命令名；keep 为 T 时 XY 文字和异常标记留在图上（XYG），nil 时不留（XYG2、XYG3）；
+;; split 为 T 时合画电缆拆成各柜的行（XYG3）
+(defun xyg:run (tag keep split / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                all-ss raw-green-lines-ss green-lines-list green-lines-ss sorted-lines
                line-orig-pts
                prefix-ent prefix-str last-ent xy-new-texts cur
                lines-group-data i line-en ed p1 p2 rightPt rx ry
-               line-handle expected-count next-line-min-x limit-x is-vert next-vline-max-y limit-y
+               line-handle expected-count is-vert
                left-texts right-texts full-texts pt text-style categorized-groups
-               left-text temp-text last-hyphen-pos category found-category
-               eda p1a p2a left-src right-src prefix-link rect-index new-index new-vindex line-geo join-res)
+               eda p1a p2a left-src right-src prefix-link rect-index new-index join-res)
 
   (aa:cmd-begin tag)
   (princ "\r\n[XYG] 请框选包含大字、绿色直线及文字的对象区域: ")
@@ -9528,6 +10041,9 @@
                  (cons en (cadddr (xy:hline-info-ed eda))))
               green-lines-list))
           (princ (strcat "\r\n[XYG] 成功识别并去重得到 " (itoa (length green-lines-list)) " 条绿色电缆线（水平或竖直）。"))
+          (if (> (length raw-green-lines-ss) (length green-lines-list))
+            (princ (strcat "\r\n[XYG] 去掉 " (itoa (- (length raw-green-lines-ss) (length green-lines-list)))
+                           " 条重复或叠在一起的电缆线，只留最长的。")))
 
           ;; 2. 识别前缀大字（最左且字高 >= 80）
           (setq prefix-ent (xyg:find-prefix-text all-ss))
@@ -9574,12 +10090,8 @@
               ;; 按 Y 坐标从大到小（从上到下）排序
               (setq sorted-lines (xyg:sort-lines-desc green-lines-list))
 
-              ;; 命令内一次性建立文字索引与直线几何缓存（在 XY 完成后建立，与逐线查询时的图面状态一致）
-              ;; 选区小字按精确包围盒建树，XY 新文字按插入点建树；均为本命令局部变量，不跨命令保留
-              (setq rect-index (xyg:build-text-index (xy:ss->list all-ss) 'BOX)
-                    new-index  (xyg:build-text-index (xyg:texts-by-dir xy-new-texts nil) 'POINT)
-                    new-vindex (xyg:build-text-index (xyg:texts-by-dir xy-new-texts T) 'POINT)
-                    line-geo   (xyg:line-geo-list sorted-lines))
+              ;; 命令内一次性建立选区小字索引（在 XY 完成后建立，与逐线查询时的图面状态一致）；局部变量，不跨命令保留
+              (setq rect-index (xyg:build-text-index (xy:ss->list all-ss) 'BOX))
 
               (setq lines-group-data '()
                     i 0)
@@ -9593,12 +10105,11 @@
                 (setq rx (car rightPt)
                       ry (cadr rightPt)
                       line-handle (cdr (assoc 5 ed))
-                      expected-count (if *xy-last-xin-counts* (cdr (assoc line-handle *xy-last-xin-counts*)) nil))
+                      expected-count (if *xy-last-xin-counts* (cdr (assoc line-handle *xy-last-xin-counts*)) nil)
+                      new-index (xyg:build-text-index (xyg:line-new-texts line-handle) 'POINT))
 
                 (if is-vert
                   (progn
-                    (setq next-vline-max-y (xyg:next-vline-max-y line-en rx ry sorted-lines))
-                    (setq limit-y (if next-vline-max-y (+ next-vline-max-y 5.0) nil))
                     (setq left-texts (xyg:find-vrect-texts rightPt rect-index)
                           left-src   *xyg-rect-src*)
                     (if (/= (length left-texts) 3)
@@ -9608,14 +10119,10 @@
                                 " 右下侧找到 " (itoa (length left-texts))
                                 " 个文字（期望为3个）。"))
                     )
-                    (setq right-texts (xyg:find-down-new-texts rightPt new-vindex expected-count limit-y)
+                    (setq right-texts (xyg:find-down-new-texts rightPt new-index expected-count nil)
                           right-src   *xyg-right-src*)
                   )
                   (progn
-                    ;; 查找同一水平线上位于本线右侧的最近邻线（若有），作为本线文字的硬性右边界
-                    (setq next-line-min-x (xyg:next-line-min-x line-en rx ry line-geo))
-                    (setq limit-x (if next-line-min-x (- next-line-min-x 5.0) nil))
-
                     ;; 提取右上矩形文字（从左到右，严格最多3个）
                     (setq left-texts (xyg:find-rect-texts rightPt rect-index)
                           left-src   *xyg-rect-src*)
@@ -9627,8 +10134,8 @@
                                 " 个文字（期望为3个）。"))
                     )
 
-                    ;; 提取右侧新生成文字（芯数数字在前，原理号在后，多重限幅防串列重复）
-                    (setq right-texts (xyg:find-right-new-texts rightPt new-index expected-count limit-x)
+                    ;; 提取右侧新生成文字（芯数数字在前，原理号在后）
+                    (setq right-texts (xyg:find-right-new-texts rightPt new-index expected-count nil)
                           right-src   *xyg-right-src*)
                   )
                 )
@@ -9644,7 +10151,7 @@
               )
               (setq lines-group-data (reverse lines-group-data))
 
-              ;; XYG2：数据已取到，删掉 XY 临时文字，原图保持原样
+              ;; XYG2、XYG3：数据已取到，删掉 XY 临时文字，原图保持原样
               (if (not keep)
                 (foreach cur xy-new-texts (entdel cur)))
 
@@ -9654,6 +10161,12 @@
               (if (> (cdr join-res) 0)
                 (princ (strcat "\r\n[XYG] 已合并 " (itoa (cdr join-res)) " 根并入电缆到主电缆。")))
 
+              ;; XYG3：一根绿线画了 1(2)# 两根电缆，汇总表按各张图分行
+              (setq join-res (xyg:expand-combo-rows lines-group-data (cons prefix-str prefix-link) split)
+                    lines-group-data (car join-res))
+              (if (> (cdr join-res) 0)
+                (princ (strcat "\r\n[XYG] 已拆开 " (itoa (cdr join-res)) " 根合画电缆。")))
+
               (if (null lines-group-data)
                 (progn
                   (princ "\r\n[XYG] 未能汇总到有效的电缆文字。")
@@ -9661,34 +10174,7 @@
                 )
                 (progn
                   ;; 5. GTX 分类归纳
-                  (setq categorized-groups '())
-                  (foreach full-texts lines-group-data
-                    (if (>= (length full-texts) 1)
-                      (progn
-                        (setq left-text (car full-texts)
-                              temp-text (aa:gtx-key (car left-text)))
-                        (setq last-hyphen-pos (aa:gtx-find-last-char "-" temp-text))
-                        (if last-hyphen-pos
-                          (setq category (substr temp-text 1 last-hyphen-pos))
-                          (setq category temp-text)
-                        )
-                        (setq found-category (assoc category categorized-groups))
-                        (if found-category
-                          (setq categorized-groups
-                            (subst
-                              (list category (cons full-texts (cadr found-category)))
-                              found-category
-                              categorized-groups))
-                          (setq categorized-groups
-                            (cons (list category (list full-texts)) categorized-groups))
-                        )
-                      )
-                    )
-                  )
-
-                  (setq categorized-groups
-                    (aa:merge-sort categorized-groups
-                      '(lambda (a b) (aa:gtx-natural-less (car a) (car b)))))
+                  (setq categorized-groups (xyg:categorize-blocks lines-group-data))
 
                   ;; 6. 提示指定插入点并输出矩阵
                   (setq text-style (if (tblsearch "STYLE" "HZ") "HZ" (getvar "TEXTSTYLE")))
@@ -9696,7 +10182,7 @@
                   (if pt
                     (progn
                       (setq pt (trans pt 1 0))
-                      (xyg:output-gtx-matrix categorized-groups (cons prefix-str prefix-link) pt text-style)
+                      (xyg:output-gtx-matrix categorized-groups pt text-style)
                       (princ (strcat "\r\n[XYG] 执行完成：成功处理 " (itoa (length lines-group-data)) " 组电缆并生成汇总表格。"))
                     )
                     (princ "\r\n[XYG] 用户取消指定插入点，汇总表格未输出。")
@@ -9713,16 +10199,20 @@
 )
 
 ;;; 功能: 一次框选绿色电缆线，统计芯数、提取原理号并分类汇总，芯数和原理号留在电缆线后面。
-(defun c:XYG () (xyg:run "XYG" T))
+(defun c:XYG () (xyg:run "XYG" T nil))
 
 ;;; 功能: 与 XYG 相同的框选和汇总表，但原图不留痕：电缆后面不留芯数和原理号，异常电缆线不改色、不延长。
-(defun c:XYG2 () (xyg:run "XYG2" nil))
+(defun c:XYG2 () (xyg:run "XYG2" nil nil))
+
+;;; 功能: 与 XYG2 一样不留痕，并把 1(2)# 合画电缆拆成各柜两行，汇总表先排完 1# 再排 2#。
+(defun c:XYG3 () (xyg:run "XYG3" nil T))
 
 ;;; =======================================================================================
 ;;; 文字联动（AA_LINK）
 ;;; 原件文字经 SX 标记后带 XData：(-3 ("AA_LINK" (1000 . 图纸ID) (1000 . 原件句柄)))。
 ;;; 原生 COPY、GTY 副本、跨图粘贴自动保留该 XData；XY / XYG 新建文字时显式继承。
 ;;; 图纸 ID 与句柄都等于自身的是原件，其余同 UID 文字均为副本，SX1 按原件内容单向刷新。
+;;; XYG3 拆开的副本多一项 (1070 . 第几张图)，刷新时取原件拆开后的这一张（aa:link-part-text）。
 ;;; 跨图：SX1 在已保存的图旁写出 <图名>.aalink.txt（UTF-8，每行“P/M<TAB>UID<TAB>内容”），
 ;;; 总图执行 SX2 读取文件夹内全部值文件，按 UID 刷新原件不在本图的副本。
 ;;; =======================================================================================
@@ -9732,10 +10222,42 @@
 )
 
 (defun aa:link-info (ed / app)
-  ;; 返回 (图纸ID 原件句柄)；无记录或格式不符返回 nil
+  ;; 返回 (图纸ID 原件句柄)，XYG3 拆开的副本返回 (图纸ID 原件句柄 第几张图)；无记录或格式不符返回 nil
   (setq app (cdr (assoc "AA_LINK" (cdr (assoc -3 ed)))))
-  (if (= (length app) 2)
+  (if (>= (length app) 2)
     (mapcar 'cdr app)
+  )
+)
+
+(defun aa:link-part-text (str part / alts)
+  ;; XYG3 拆开的副本：原件纯文本按同样规则拆开，取第 part 张图的写法；原件已不是这种写法时返回 nil，副本不动
+  (if (and str (setq alts (xyg:text-alts str)))
+    (nth (1- part) alts)
+  )
+)
+
+(defun aa:link-mark-part (en part / ed old)
+  ;; 给拆开的副本记下第几张图；已记过的不动
+  (setq ed (entget en '("AA_LINK")) old (assoc -3 ed))
+  (if (and old (= (length (cadr old)) 3))
+    (entmod (subst (list -3 (append (cadr old) (list (cons 1070 part)))) old ed))
+  )
+)
+
+(defun aa:link-split-text (en ed part plain new-str / cur alts pos)
+  ;; SX1、SX2 决定写入的文字，nil 不写。plain 为原件纯文本，new-str 为普通副本该写的内容。
+  ;; 原件是合画写法而副本已拆开（XYG3、DE、DE2 或手改）时不刷回合画写法：
+  ;; 和拆开的某一份相同就记下第几张图，以后跟着原件走；对不上的不动，返回 T 由调用方计数
+  (setq cur (aa:ysdl-get-plain-text ed))
+  (cond
+    (part
+     (if (setq new-str (aa:link-part-text plain part)) new-str T))
+    ((or (null new-str) (= new-str cur)) new-str)
+    ((and (setq alts (xyg:text-alts plain)) (not (xyg:text-alts cur)))
+     (if (setq pos (vl-position cur alts))
+       (progn (aa:link-mark-part en (1+ pos)) nil)
+       T))
+    (T new-str)
   )
 )
 
@@ -9889,6 +10411,137 @@
   )
 )
 
+(defun aa:link-filter-script ()
+  ;; SX2 的 CAD 外筛选脚本：LISP 逐行读值文件每分钟才约 1MB，10 万行要等十分钟，这里一次读完。
+  ;; 读 aa_sx2_need.txt，写 aa_sx2_vals.txt（只含内容有变化的记录）和 aa_sx2_count.txt（缺失数 冲突数）
+  (list
+    "Set fs = CreateObject(\"Scripting.FileSystemObject\")"
+    "d = fs.GetParentFolderName(WScript.ScriptFullName) & Chr(92)"
+    "Function ReadLines(p)"
+    "  Set s = CreateObject(\"ADODB.Stream\")"
+    "  s.Type = 2"
+    "  s.Charset = \"utf-8\""
+    "  s.Open"
+    "  s.LoadFromFile p"
+    "  ReadLines = Split(Replace(s.ReadText(-1), vbCr, \"\"), vbLf)"
+    "  s.Close"
+    "End Function"
+    "Set plain = CreateObject(\"Scripting.Dictionary\")"
+    "Set raw = CreateObject(\"Scripting.Dictionary\")"
+    "Set out = CreateObject(\"Scripting.Dictionary\")"
+    "need = ReadLines(d & \"aa_sx2_need.txt\")"
+    "conf = 0"
+    "For Each x In need"
+    "  If Left(x, 2) = \"F\" & vbTab Then"
+    "    uid = \"\""
+    "    For Each y In ReadLines(Mid(x, 3))"
+    "      a = Split(y, vbTab, 3)"
+    "      k = \"\""
+    "      If UBound(a) = 2 Then k = a(0)"
+    "      If k = \"P\" Then"
+    "        uid = a(1)"
+    "        If plain.Exists(uid) Then"
+    "          If plain(uid) <> a(2) Then conf = conf + 1"
+    "          If raw.Exists(uid) Then raw.Remove uid"
+    "        End If"
+    "        plain(uid) = a(2)"
+    "      ElseIf k = \"M\" And uid <> \"\" Then"
+    "        If a(1) = uid Then raw(uid) = a(2)"
+    "        uid = \"\""
+    "      Else"
+    "        uid = \"\""
+    "      End If"
+    "    Next"
+    "  End If"
+    "Next"
+    "miss = 0"
+    "For Each x In need"
+    "  k = Left(x, 2)"
+    "  If k = \"T\" & vbTab Or k = \"M\" & vbTab Then"
+    "    a = Split(x, vbTab, 3)"
+    "    If UBound(a) = 2 Then"
+    "      u = a(1)"
+    "      If plain.Exists(u) Then"
+    "        w = plain(u)"
+    "        If k = \"M\" & vbTab And raw.Exists(u) Then w = raw(u)"
+    "        If w <> a(2) And Not out.Exists(u) Then"
+    "          t = \"P\" & vbTab & u & vbTab & plain(u)"
+    "          If raw.Exists(u) Then t = t & vbCrLf & \"M\" & vbTab & u & vbTab & raw(u)"
+    "          out(u) = t"
+    "        End If"
+    "      Else"
+    "        miss = miss + 1"
+    "      End If"
+    "    End If"
+    "  End If"
+    "Next"
+    "Set s = CreateObject(\"ADODB.Stream\")"
+    "s.Type = 2"
+    "s.Charset = \"utf-8\""
+    "s.Open"
+    "s.WriteText \"AA_LINK_VALUES\" & vbTab & \"1\" & vbCrLf & Join(out.Items, vbCrLf) & vbCrLf"
+    "s.SaveToFile d & \"aa_sx2_vals.txt\", 2"
+    "s.Close"
+    "Set c = fs.CreateTextFile(d & \"aa_sx2_count.txt\", True)"
+    "c.WriteLine \"(\" & miss & \" \" & conf & \")\""
+    "c.Close"
+  )
+)
+
+(defun aa:link-write-need (path items files / f item ed tab)
+  ;; 写给筛选脚本的清单：F 行为值文件（从旧到新），T/M 行为副本（TEXT/MTEXT）的 UID 和当前内容
+  (setq tab (chr 9))
+  (if (setq f (aa:link-open path "w"))
+    (progn
+      (foreach item files
+        (write-line (strcat "F" tab item) f))
+      (foreach item items
+        (setq ed (entget (cdr item)))
+        (write-line (strcat (if (= (cdr (assoc 0 ed)) "MTEXT") "M" "T") tab (car item) tab (cdr (assoc 1 ed))) f))
+      (close f)
+      T
+    )
+  )
+)
+
+(defun aa:link-filter-values (items files / dir need vbs vals cnt f line sh res)
+  ;; CAD 外筛选值文件，返回 (内容有变化的记录 缺失数 冲突数)；脚本跑不起来时返回 nil，由调用方逐行读取
+  (setq dir  (strcat (getenv "TEMP") "\\")
+        need (strcat dir "aa_sx2_need.txt")
+        vbs  (strcat dir "aa_sx2_filter.vbs")
+        vals (strcat dir "aa_sx2_vals.txt")
+        cnt  (strcat dir "aa_sx2_count.txt"))
+  (vl-file-delete vals)
+  (vl-file-delete cnt)
+  (if (and (= (vl-catch-all-apply 'aa:link-write-need (list need items files)) T)
+           (setq f (open vbs "w")))
+    (progn
+      (foreach line (aa:link-filter-script)
+        (write-line line f))
+      (close f)
+      (setq sh (vl-catch-all-apply 'vlax-create-object '("WScript.Shell")))
+      (if (= (type sh) 'VLA-OBJECT)
+        (progn
+          ;; 第三个参数让 Run 等脚本结束；//B 不弹脚本错误框，失败时没有结果文件
+          (vl-catch-all-apply 'vlax-invoke-method
+            (list sh 'Run (strcat "wscript.exe //B //nologo \"" vbs "\"") 0 :vlax-true))
+          (vlax-release-object sh)
+        )
+      )
+      (if (and (findfile cnt) (findfile vals) (setq f (open cnt "r")))
+        (progn
+          (setq line (read-line f))
+          (close f)
+          (setq res (vl-catch-all-apply 'read (list line)))
+          (if (and (listp res) (= (length res) 2))
+            (cons (aa:link-read-file vals '()) res)
+          )
+        )
+      )
+    )
+  )
+)
+
 (defun aa:link-file-time (path / st)
   ;; 文件修改时间折算为可比较的数值；取不到时为 0
   (if (setq st (vl-file-systime path))
@@ -9979,9 +10632,16 @@
   (setenv "AA_LINK_DIR" dir)
 )
 
-(defun aa:link-ask-folder (tag / default s)
+(defun aa:link-near-dir ()
+  ;; 当前图所在文件夹及其下两层有值文件时用它：文件夹整份另存后，上次用过的文件夹可能还是旧版本
+  (if (aa:link-collect-files (getvar "DWGPREFIX") 2)
+    (getvar "DWGPREFIX")
+    (aa:link-default-dir)
+  )
+)
+
+(defun aa:link-ask-folder (tag default / s)
   ;; 回车用默认文件夹（上次使用或本图所在文件夹），B 打开浏览对话框，也可直接输入或粘贴路径
-  (setq default (aa:link-default-dir))
   (setq s (vl-string-trim " \"" (getstring T (strcat "\r\n[" tag "] 值文件所在文件夹 <" default ">，输入 B 浏览: "))))
   (cond
     ((= s "") default)
@@ -10451,12 +11111,16 @@
          (setvar "USERS5" ""))
        (princ (strcat "\r\n[SXD] 原件（句柄 " (cadr info) "）已删除或不再带标记。"))))
     (T
-     (setq dir  (aa:link-default-dir)
+     ;; 先找当前图所在文件夹：文件夹整份另存后图纸 ID 不变，上次用过的文件夹可能还是旧版本
+     (setq dir  (getvar "DWGPREFIX")
            path (aa:link-locate-dwg info dir))
+     (if (null path)
+       (setq dir  (aa:link-default-dir)
+             path (aa:link-locate-dwg info dir)))
      (if (null path)
        (progn
          (princ (strcat "\r\n[SXD] 在 " dir " 没找到图纸 " (aa:link-dwg-label (car info)) "。"))
-         (if (and (setq dir (aa:link-ask-folder "SXD"))
+         (if (and (setq dir (aa:link-ask-folder "SXD" (aa:link-default-dir)))
                   (vl-file-directory-p dir))
            (setq path (aa:link-locate-dwg info dir)))
        )
@@ -10505,7 +11169,7 @@
 ;;; =======================================================================================
 (defun c:SX1 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                 ss i en ed h info dwg-id roots items item src-ed new-str n-chg n-miss n-other
-                path n-out t0 t1 t2 t3)
+                part n-keep path n-out t0 t1 t2 t3)
   (aa:cmd-begin "SX1")
   (setq t0     (aa:link-clock)
         dwg-id (aa:link-dwg-id nil)
@@ -10530,14 +11194,17 @@
       )
       (setq t1 (aa:link-clock))
       ;; 第二遍：副本按原件内容更新（entget 不带应用名，entmod 不改动扩展数据）
-      (setq n-chg 0 n-miss 0 n-other 0)
+      (setq n-chg 0 n-miss 0 n-other 0 n-keep 0)
       (foreach item items
         (cond
           ((/= (car (car item)) dwg-id)
            (setq n-other (1+ n-other)))
           ((setq src-ed (aa:link-root-ed (car item) dwg-id))
            (setq ed      (entget (cdr item))
-                 new-str (aa:link-text-for ed src-ed))
+                 part    (caddr (car item))
+                 new-str (aa:link-split-text (cdr item) ed part (aa:ysdl-get-plain-text src-ed)
+                                             (aa:link-text-for ed src-ed)))
+           (if (= new-str T) (setq n-keep (1+ n-keep) new-str nil))
            (if (and new-str (/= new-str (cdr (assoc 1 ed))))
              (if (entmod (subst (cons 1 new-str) (assoc 1 ed) ed))
                (setq n-chg (1+ n-chg))
@@ -10552,6 +11219,9 @@
       (setq t2 (aa:link-clock))
       (princ (strcat "\r\n[SX1] 原件 " (itoa (length roots)) " 个，副本 " (itoa (length items))
                      " 个，已更新 " (itoa n-chg) " 个，原件缺失 " (itoa n-miss) " 个。"))
+      (if (> n-keep 0)
+        (princ (strcat "\r\n[SX1] " (itoa n-keep) " 个已拆开的副本未更新：和原件对不上，没有改回合画写法。"))
+      )
       (if (> n-other 0)
         (princ (strcat "\r\n[SX1] 另有 " (itoa n-other) " 个副本的原件在其他图纸，请用 SX2 刷新。"))
       )
@@ -10581,7 +11251,7 @@
 ;;; =======================================================================================
 (defun c:SX2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
                 dwg-id ss i en info items dir files f recs pair rec ed new-str
-                n-chg n-miss n-conf)
+                part n-keep n-chg n-miss n-conf fast)
   (aa:cmd-begin "SX2")
   (setq dwg-id (aa:link-dwg-id nil)
         ss     (ssget "_X" '((0 . "TEXT,MTEXT") (-3 ("AA_LINK"))))
@@ -10601,7 +11271,7 @@
   (cond
     ((null items)
      (princ "\r\n[SX2] 本图没有来自其他图纸的联动文字（先在卷册图 SX 标记，再把 GTY 文字复制到本图）。"))
-    ((null (setq dir (aa:link-ask-folder "SX2")))
+    ((null (setq dir (aa:link-ask-folder "SX2" (aa:link-near-dir))))
      (princ "\r\n[SX2] 未选择文件夹，命令结束。"))
     ((not (vl-file-directory-p dir))
      (princ (strcat "\r\n[SX2] 文件夹不存在：" dir)))
@@ -10609,24 +11279,35 @@
      (princ (strcat "\r\n[SX2] 未找到 *.aalink.txt 值文件，请先在各卷册图（已保存）执行 SX1：" dir)))
     (T
      (aa:link-remember-dir dir)
-     (setq recs '())
      ;; 按修改时间从旧到新读取，较新文件的记录排在前面；稳定排序后同 UID 的首条即最新
-     (foreach f (mapcar 'cdr
-                        (aa:merge-sort (mapcar '(lambda (p) (cons (aa:link-file-time p) p)) files)
-                                       '(lambda (a b) (< (car a) (car b)))))
-       (setq recs (aa:link-read-file f recs))
+     (setq files (mapcar 'cdr
+                         (aa:merge-sort (mapcar '(lambda (p) (cons (aa:link-file-time p) p)) files)
+                                        '(lambda (a b) (< (car a) (car b))))))
+     (if (setq fast (aa:link-filter-values items files))
+       (setq recs (car fast))
+       (progn
+         (princ "\r\n[SX2] 快速读取不可用，改为逐行读取，值文件多时要等几分钟。")
+         (setq recs '())
+         (foreach f files
+           (setq recs (aa:link-read-file f recs))
+         )
+       )
      )
      (setq recs   (aa:merge-sort recs 'aa:link-uid<)
            items  (aa:merge-sort items 'aa:link-uid<)
-           n-conf (aa:link-count-conflicts recs)
+           n-conf (if fast (caddr fast) (aa:link-count-conflicts recs))
            n-chg  0
-           n-miss 0)
+           n-miss 0
+           n-keep 0)
      ;; 副本按记录更新（entget 不带应用名，entmod 不改动扩展数据）
      (foreach pair (aa:link-join items recs)
        (if (setq rec (cdr pair))
          (progn
            (setq ed      (entget (car pair))
-                 new-str (aa:link-text-from-rec ed rec))
+                 part    (caddr (aa:link-info (entget (car pair) '("AA_LINK"))))
+                 new-str (aa:link-split-text (car pair) ed part (cadr rec)
+                                             (aa:link-text-from-rec ed rec)))
+           (if (= new-str T) (setq n-keep (1+ n-keep) new-str nil))
            (if (and new-str (/= new-str (cdr (assoc 1 ed))))
              (if (entmod (subst (cons 1 new-str) (assoc 1 ed) ed))
                (setq n-chg (1+ n-chg))
@@ -10636,11 +11317,15 @@
          (setq n-miss (1+ n-miss))
        )
      )
+     ;; 快速读取只返回有变化的记录，缺失数以筛选脚本的统计为准
+     (if fast (setq n-miss (cadr fast)))
      (redraw)
      (princ (strcat "\r\n[SX2] 值文件 " (itoa (length files)) " 个，跨图副本 " (itoa (length items))
                     " 个，已更新 " (itoa n-chg) " 个，未找到原件值 " (itoa n-miss) " 个"
                     (if (> n-conf 0) (strcat "，多文件内容不一致 " (itoa n-conf) " 处（已取较新文件）") "")
                     "。"))
+     (if (> n-keep 0)
+       (princ (strcat "\r\n[SX2] " (itoa n-keep) " 个已拆开的副本未更新：和原件对不上，没有改回合画写法。")))
     )
   )
   (aa:cmd-end)
@@ -16714,6 +17399,155 @@
   (aa:cmd-end)
 )
 
+;; 找第一个换行的位置(0 起算)；中文下 vl-string-search 与 substr 的计数可能不一致，取到后核对，不一致时逐字查找
+(defun qw2p:newline-pos (s / pos i n)
+  (setq pos (vl-string-search "\n" s))
+  (cond
+    ((null pos) nil)
+    ((= (substr s (1+ pos) 1) "\n") pos)
+    (t
+     (setq i 1 n (strlen s) pos nil)
+     (while (and (not pos) (<= i n))
+       (if (= (substr s i 1) "\n") (setq pos (1- i)))
+       (setq i (1+ i)))
+     pos)
+  )
+)
+
+;; 解析一行 "x,y 文字"，返回 (x y 文字)；不符合格式返回 nil。文字本身可以含空格和逗号
+(defun qw2p:parse-line (line / i n ch comma space xval yval)
+  (setq i 1 n (strlen line))
+  (while (and (not space) (<= i n))
+    (setq ch (substr line i 1))
+    (cond
+      ((and (not comma) (= ch ",")) (setq comma i))
+      ((and comma (= ch " ")) (setq space i))
+    )
+    (setq i (1+ i))
+  )
+  (if (and comma space (> comma 1) (> space (1+ comma)) (< space n)
+           (setq xval (distof (substr line 1 (1- comma)) 2))
+           (setq yval (distof (substr line (1+ comma) (- space comma 1)) 2)))
+    (list xval yval (substr line (1+ space)))
+  )
+)
+
+;; 累积一行的解析结果。state 为 (倒序项目 格式不符行数 第一条不符的行)
+(defun qw2p:add-line (line state / item)
+  (setq line (vl-string-trim " \t\r" line))
+  (cond
+    ((= (strlen line) 0) state)
+    ((setq item (qw2p:parse-line line))
+     (list (cons item (car state)) (cadr state) (caddr state)))
+    (t
+     (list (car state) (1+ (cadr state)) (if (caddr state) (caddr state) line)))
+  )
+)
+
+;; 拆分字符串，返回 (项目列表 格式不符行数 第一条不符的行)
+(defun qw2p:parse-clip (s / pos line state)
+  (setq state (list nil 0 nil))
+  (while (> (strlen s) 0)
+    (setq pos (qw2p:newline-pos s))
+    (if pos
+      (setq line (substr s 1 pos)
+            s (substr s (+ pos 2)))
+      (setq line s
+            s "")
+    )
+    (setq state (qw2p:add-line line state))
+  )
+  (list (reverse (car state)) (cadr state) (caddr state))
+)
+
+;; 让 CAD 外的 PowerShell 把剪贴板存成 UTF-8 文件后逐行读取：较长的内容经 htmlfile 读入 LISP 时可能不完整。
+;; 取不到文件时返回 nil，由调用方退回 qe:get-clip-text
+(defun qw2p:read-clip-file (/ path sh f line state)
+  (setq path (strcat (getenv "TEMP") "\\qw2p-clip.txt"))
+  (if (findfile path) (vl-file-delete path))
+  (setq sh (vl-catch-all-apply 'vlax-create-object '("WScript.Shell")))
+  (if (= (type sh) 'VLA-OBJECT)
+    (progn
+      ;; 第三个参数让 Run 等命令结束；是否成功以结果文件为准
+      (vl-catch-all-apply 'vlax-invoke-method
+        (list sh 'Run
+          (strcat "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command "
+                  "\"[IO.File]::WriteAllText('" path "',(Get-Clipboard -Raw),"
+                  "(New-Object Text.UTF8Encoding $false))\"")
+          0 :vlax-true))
+      (vlax-release-object sh)
+    )
+  )
+  (if (and (findfile path) (setq f (aa:link-open path "r")))
+    (progn
+      (setq state (list nil 0 nil))
+      (while (setq line (read-line f))
+        (setq state (qw2p:add-line line state)))
+      (close f)
+      (vl-file-delete path)
+      (list (reverse (car state)) (cadr state) (caddr state))
+    )
+  )
+)
+
+;; 拼出 entmake 表：样式、字高、宽度系数与 T 命令一致，图层用当前图层，颜色随层
+(defun qw2p:text-data (pt str)
+  (list (cons 0 "TEXT")
+        (cons 8 (getvar "CLAYER"))
+        (cons 10 pt)
+        (cons 40 3.0)
+        (cons 1 str)
+        (cons 7 "HZ")
+        (cons 50 0.0)
+        (cons 41 0.7))
+)
+
+;;; 功能: 把剪贴板里“x,y 文字”格式的内容按 T 命令的样式写到当前图层，与 QW2 相反。
+(defun c:QW2P ( / *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho clip parsed items bad base dx dy made it)
+  (aa:cmd-begin "QW2P")
+  (setq parsed (qw2p:read-clip-file))
+  (if (null parsed)
+    (progn
+      (setq clip (qe:get-clip-text))
+      (if (= (type clip) 'STR) (setq parsed (qw2p:parse-clip clip)))
+    )
+  )
+  (setq items (car parsed)
+        bad (if parsed (cadr parsed) 0))
+  (cond
+    ((null items)
+     (princ "\r\n[QW2P] 剪贴板里没有“x,y 文字”格式的内容。"))
+    ;; 部分写入比不写更难发现，格式不对就整批拒绝
+    ((> bad 0)
+     (princ (strcat "\r\n[QW2P] 读到 " (itoa (length items)) " 行正常，" (itoa bad)
+                    " 行不是“x,y 文字”格式，未写入。第一处：" (substr (caddr parsed) 1 60))))
+    ((null (tblsearch "STYLE" "HZ"))
+     (princ "\r\n[QW2P] 未找到文字样式 HZ，未写入。"))
+    (t
+     (princ (strcat "\r\n[QW2P] 共 " (itoa (length items)) " 个文字。"))
+     (setq base (getpoint "\r\n指定第一行文字的位置 <回车=按原坐标>: "))
+     (if base
+       (setq base (trans base 1 0)
+             dx (- (car base) (car (car items)))
+             dy (- (cadr base) (cadr (car items))))
+       (setq dx 0.0 dy 0.0)
+     )
+     (setq made 0)
+     (foreach it items
+       (if (entmake (qw2p:text-data
+                      (list (+ (car it) dx) (+ (cadr it) dy) 0.0)
+                      (caddr it)))
+         (setq made (1+ made))
+       )
+     )
+     (princ (strcat "\r\n[QW2P] 已写入 " (itoa made) " 个文字"
+                    (if (< made (length items))
+                      (strcat "，" (itoa (- (length items) made)) " 个写入失败。")
+                      "。"))))
+  )
+  (aa:cmd-end)
+)
+
 ;;; QW3: compact, paste-ready inspection of selected CAD entities.
 ;;; 4 位小数并去掉尾随零：100.0000 -> 100，2.5000 -> 2.5。
 (defun aa:qw3-number (value / s)
@@ -18680,7 +19514,8 @@
 )
 
 ;; 处理最右侧一对括号；无可处理括号时返回 nil
-(defun de:strip-one (txt mode / pair posL posR openCh closeCh before inner after)
+;; mode 0 = DE 去括号，1 = DE2 换成括号内容，2 = 同 DE2 但只认整段替换（完整柜名、完整编号、柜号），其他括号返回 nil
+(defun de:strip-one (txt mode / pair posL posR openCh closeCh before inner after new)
   (setq pair (de:find-pair txt))
   (if pair
     (progn
@@ -18695,11 +19530,12 @@
             after (substr txt (+ posR (strlen closeCh) 1)))
       (if (= mode 0)
         (strcat before after)
-        (strcat (cond ((de:replace-cabinet-name before inner))
-                      ((de:replace-full-code before inner))
-                      ((de:replace-cabinet-code before inner))
-                      ((strcat (de:strip-replace-target before inner) inner)))
-                after)))
+        (progn
+          (setq new (cond ((de:replace-cabinet-name before inner))
+                          ((de:replace-full-code before inner))
+                          ((de:replace-cabinet-code before inner))
+                          ((= mode 1) (strcat (de:strip-replace-target before inner) inner))))
+          (if new (strcat new after)))))
     nil)
 )
 
@@ -18739,6 +19575,17 @@
     (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
 )
 
+;; 联动副本的合画写法被 DE、DE2 拆开时记下第几张图，之后 SX1 不会刷回合画写法
+(defun de:link-part (ent txt new / ed info pos)
+  (setq ed (entget ent '("AA_LINK")) info (aa:link-info ed))
+  (if (and info
+           (null (caddr info))
+           (not (aa:link-root-p info (aa:link-dwg-id nil) (cdr (assoc 5 ed))))
+           (setq pos (vl-position new (xyg:text-alts txt))))
+    (aa:link-mark-part ent (1+ pos))
+  )
+)
+
 ;; 批量处理单行文字、多行文字和属性文字
 (defun de:run (mode / *error* doc undo-open ss i ent txt new changed skipped)
   (vl-load-com)
@@ -18768,6 +19615,7 @@
         (cond
           ((or (null new) (= new txt)))
           ((de:set-text ent new)
+           (de:link-part ent txt new)
            (setq changed (1+ changed)))
           (T
            (setq skipped (1+ skipped))))
@@ -26603,9 +27451,30 @@
               gt))
     gt))
 
+(defun bdl:spec-text (prins / dec)
+  ;; 按所选原理号判断截面，规则同 JM；判断不了时写“未填写”并说明原因，之后由 JM 或人工处理
+  (setq dec (jm:decide prins))
+  (if (car dec)
+    (car dec)
+    (progn
+      (princ (strcat "\n[BDL] 截面判断不了（" (cdr dec) "），保留“未填写”。"))
+      "未填写"
+    )
+  )
+)
+
+(defun bdl:ss-texts (ss / i out)
+  ;; 选择集里各文字的纯文本
+  (setq i 0)
+  (repeat (sslength ss)
+    (setq out (cons (aa:ysdl-get-plain-text (entget (ssname ss i))) out)
+          i   (1+ i)))
+  (reverse out)
+)
+
 (defun bdl:work-vertical (ss / i en bbox items it cy edge pin s kw cen y used ys miny maxy
                              greens tips k run lastk free g stack xcab p tip linb best bestd d gtip
-                             layers lname ok ents count ref ref2 txt rot270)
+                             layers lname ok ents count ref ref2 txt rot270 spec)
   (setq i 0 items nil greens (bdl:green-vlines) rot270 (* 1.5 pi))
   (repeat (sslength ss)
     (setq en (ssname ss i) i (1+ i)
@@ -26704,7 +27573,8 @@
                                       (list (- xcab 2.5) (+ tip (* 2.5 (sqrt 3.0)))))
                                 "电缆-接线" 7)
                               ents))
-             (setq ref (bdl:vref-text stack tips xcab 0 "未编号")
+             (setq spec (bdl:spec-text (bdl:ss-texts ss))
+                   ref (bdl:vref-text stack tips xcab 0 "未编号")
                    ref2 (bdl:vref-text stack tips xcab 1 "未填写")
                    ents (cons (if ref
                                 (bdl:match-vtext (zddl2:e-text "未编号" (+ xcab 0.5) (+ tip 20.0) "电缆-文字" 0 0 3.0 rot270 7)
@@ -26713,9 +27583,9 @@
                               ents)
                    ents (cons (zddl2:e-text "至未填写" (+ xcab 0.5) (- tip 1.5) "电缆-文字" 0 0 3.0 rot270 7) ents)
                    ents (cons (if ref2
-                                (bdl:match-vtext (zddl2:e-text "未填写" (+ xcab 0.5) (- tip 32.0) "电缆-文字" 0 0 3.0 rot270 7)
+                                (bdl:match-vtext (zddl2:e-text spec (+ xcab 0.5) (- tip 32.0) "电缆-文字" 0 0 3.0 rot270 7)
                                                  (car ref2) (- xcab (cadr ref2)))
-                                (zddl2:e-text "未填写" (+ xcab 0.5) (- tip 32.0) "电缆-文字" 0 0 3.0 rot270 7))
+                                (zddl2:e-text spec (+ xcab 0.5) (- tip 32.0) "电缆-文字" 0 0 3.0 rot270 7))
                               ents))
              (setq txt (strcat "（查了附近 " (itoa (length stack)) " 根竖向绿色电缆线右侧、箭头上下的文字，需在当前视图内）"))
              (princ (strcat "\n[BDL] 编号对齐参考："
@@ -26730,18 +27600,52 @@
              (redraw)
              (if (= count (length ents))
                (princ (strcat "\n[BDL] 已补画 1 根竖向电缆（" (itoa (length ys)) " 根水平引线，距端子排 "
-                              (rtos (abs (- xcab pin)) 2 1) "）；填写去向后可运行 JM 补截面、BH1 编号。"))
+                              (rtos (abs (- xcab pin)) 2 1) "）；填写去向后可运行 BH1 编号。"))
                (princ "\n[BDL] 部分图元创建失败，请用一次 U 撤销本批。")))
            (princ "\n[BDL] 电缆图层已锁定，请解锁后重试。")))
        (princ "\n[BDL] 未指定箭头位置，已取消。"))))
   (princ))
 
-(defun bdl:work (/ ss i en nh nv bbox items it cx edge pin s kw cen x used xs minx maxx
-                   greens tips k run lastk free g stack ycab p tip linr best bestd d gtip
-                   layers lname ok ents count ref ref2 txt)
+(defun bdl:work (/ ss)
   (princ "\n[BDL] 选择后补的原理号文字（同一根电缆的一起选），空格确认：")
   (setq ss (ssget '((0 . "TEXT,MTEXT"))))
   (if ss
+    (bdl:draw ss)
+    (princ "\n[BDL] 未选择原理号。"))
+  (princ))
+
+(defun bdl:hilite (picks mode / ss i)
+  ;; picks 里的文字高亮（mode 3）或取消高亮（mode 4），让用户看到已记住的原理号
+  (foreach ss picks
+    (setq i 0)
+    (repeat (sslength ss)
+      (redraw (ssname ss i) mode)
+      (setq i (1+ i)))))
+
+(defun bdl:work-multi (/ ss n)
+  ;; BDL2：先逐根记住，不选直接空格后才生成，这时用户已把窗口摆好（BDL 只在当前视图内找已有电缆）。
+  ;; 按选择顺序逐根画，后一根能看到前一根的线，自动排到它外侧。bdl-picks 是 c:BDL2 的局部变量，Esc 时由它取消高亮
+  (setq n 0)
+  (while (progn
+           (sssetfirst nil nil)   ; 否则预选集会被 ssget 反复取到，循环停不下来
+           (princ (strcat "\n[BDL2] 选择第 " (itoa (1+ n)) " 根电缆的原理号，空格确认；不选直接空格开始生成："))
+           (setq ss (ssget '((0 . "TEXT,MTEXT")))))
+    (setq bdl-picks (append bdl-picks (list ss))
+          n (1+ n))
+    (bdl:hilite (list ss) 3)
+    (princ (strcat "\n[BDL2] 已记住第 " (itoa n) " 根电缆（" (itoa (sslength ss)) " 个文字）。")))
+  (bdl:hilite bdl-picks 4)
+  (if bdl-picks
+    (progn
+      (princ (strcat "\n[BDL2] 开始生成，共 " (itoa n) " 根电缆。"))
+      (foreach ss bdl-picks (bdl:draw ss))
+      (princ (strcat "\n[BDL2] 结束，共处理 " (itoa n) " 根电缆。")))
+    (princ "\n[BDL2] 未选择原理号。"))
+  (princ))
+
+(defun bdl:draw (ss / i en nh nv bbox items it cx edge pin s kw cen x used xs minx maxx
+                      greens tips k run lastk free g stack ycab p tip linr best bestd d gtip
+                      layers lname ok ents count ref ref2 txt spec)
     (progn
       (setq i 0 nh 0 nv 0)
       (repeat (sslength ss)
@@ -26864,7 +27768,8 @@
                                   ents))
                  ;; 编号、截面文字参考上下最近已有电缆的同一位置文字：对齐方式和对齐点 X 照搬（编号一般左对齐、截面右对齐），
                  ;; 这样以后编号、截面填进去也和上下各根对齐；附近找不到时按 ZDDL 默认位置
-                 (setq ref (bdl:ref-text stack tips ycab 0 "未编号")
+                 (setq spec (bdl:spec-text (bdl:ss-texts ss))
+                       ref (bdl:ref-text stack tips ycab 0 "未编号")
                        ref2 (bdl:ref-text stack tips ycab 1 "未填写")
                        ents (cons (if ref
                                     (bdl:match-text (zddl2:e-text "未编号" (- tip 20.0) (+ ycab 0.5) "电缆-文字" 0 0 3.0 0.0 7)
@@ -26873,9 +27778,9 @@
                                   ents)
                        ents (cons (zddl2:e-text "至未填写" (+ tip 1.5) (+ ycab 0.5) "电缆-文字" 0 0 3.0 0.0 7) ents)
                        ents (cons (if ref2
-                                    (bdl:match-text (zddl2:e-text "未填写" (+ tip 32.0) (+ ycab 0.5) "电缆-文字" 0 0 3.0 0.0 7)
+                                    (bdl:match-text (zddl2:e-text spec (+ tip 32.0) (+ ycab 0.5) "电缆-文字" 0 0 3.0 0.0 7)
                                                     (car ref2) (- ycab (cadr ref2)))
-                                    (zddl2:e-text "未填写" (+ tip 32.0) (+ ycab 0.5) "电缆-文字" 0 0 3.0 0.0 7))
+                                    (zddl2:e-text spec (+ tip 32.0) (+ ycab 0.5) "电缆-文字" 0 0 3.0 0.0 7))
                                   ents))
                  ;; 说明参考了哪段文字，找不到时说明查找范围，便于定位为什么没对齐
                  (setq txt (strcat "（查了附近 " (itoa (length stack)) " 根绿色电缆线上方、箭头左右的文字，需在当前视图内）"))
@@ -26891,11 +27796,10 @@
                  (redraw)
                  (if (= count (length ents))
                    (princ (strcat "\n[BDL] 已补画 1 根电缆（" (itoa (length xs)) " 根引线，距端子排 "
-                                  (rtos (abs (- ycab pin)) 2 1) "）；填写去向后可运行 JM 补截面、BH1 编号。"))
+                                  (rtos (abs (- ycab pin)) 2 1) "）；填写去向后可运行 BH1 编号。"))
                    (princ "\n[BDL] 部分图元创建失败，请用一次 U 撤销本批。")))
                (princ "\n[BDL] 电缆图层已锁定，请解锁后重试。")))
            (princ "\n[BDL] 未指定箭头位置，已取消。")))))))
-    (princ "\n[BDL] 未选择原理号。"))
   (princ))
 
 ;;; ---------------------------------------------------------------------------------------
@@ -27307,6 +28211,16 @@
   (setq result (vl-catch-all-apply 'bdl:work nil))
   (if (vl-catch-all-error-p result)
     (princ (strcat "\n[BDL] " (vl-catch-all-error-message result))))
+  (aa:cmd-end)
+  (princ))
+
+;;; 功能: 连续补画多根电缆：逐根选原理号按空格记住，不选直接空格后一次生成（同 BDL），生成前可先调整窗口，一次 U 全部撤销。
+(defun c:BDL2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho result bdl-picks)
+  (aa:cmd-begin "BDL2")
+  (setq result (vl-catch-all-apply 'bdl:work-multi nil))
+  (bdl:hilite bdl-picks 4)
+  (if (vl-catch-all-error-p result)
+    (princ (strcat "\n[BDL2] " (vl-catch-all-error-message result))))
   (aa:cmd-end)
   (princ))
 
