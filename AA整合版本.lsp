@@ -12,7 +12,9 @@
 ;;; 包含以下命令:
 ;;;
 ;;;   - YSDL  : 提取选中文字到CSV文件，并改变文字颜色。
+;;;   - YSDL2 : 按 YSDL 格式导出电缆文字到CSV，同一电缆编号只导出最先出现的一行。
 ;;;   - HDDL  : 直接校核选中文字中的电缆编号、规格和原理号，问题行标红并在行首标注。
+;;;   - HDDZ  : 先选原理图剔出的端子与原理号，再选端子图，按“端子名:端子号”核对两边原理号是否一致，问题写结果卡片、标红并选中。
 ;;;   - Q : 快速从当前选择中仅选中所有文字对象。
 ;;;   - FKX   : 单击框内空白处选择正文对象，自动排除图框和右下角标题栏；支持手动指定范围。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
@@ -66,6 +68,7 @@
 ;;;   - ZYI   : 预选对象中非水平对象向左移动 5X，水平直线向左拉伸 5X；自动补选短斜线处与竖直线相交的水平线。
 ;;;   - YYI   : 预选对象中非水平对象向右移动 5X，水平直线向右拉伸 5X；自动补选短斜线处与竖直线相交的水平线。
 ;;;   - LL    : 水平/竖直连续画直线并实时预览，结束恢复正交、捕捉与跟踪设置。
+;;;   - LONG  : 连续点选路径各点，过程中红色粗线和大字实时显示路径与长度，空格结束后弹窗并在命令行显示总长度，不保留对象。
 ;;;   - MM    : 水平/竖直移动并实时预览，第二点可捕捉或输入距离，偏斜自动投影。
 ;;;   - SS    : 水平/竖直拉伸并实时预览实体变形，第二点可捕捉或输入距离，偏斜自动投影。
 ;;;   - SW    : 拉伸对象并记忆方向与距离，支持动态拉伸实时预览，后续可直接回车重复。
@@ -154,9 +157,9 @@
 ;;;   - ZDMLDEBUG : 选择一个图框块，打印所有增强属性。
 ;;;   - DUMP  : 打印选中图元的 ActiveX 属性与可用方法（调试辅助）。
 ;;;   - AAE   : 选择块内属性文字，在自定义窗口中编辑并按回车直接保存。
-;;;   - C1    : 复制文字并把编号加 1（优先井号相邻数字，其次减号后数字），使用原生拖动预览和捕捉连续放置。
-;;;   - C2    : 复制文字并把编号减 1（优先井号相邻数字，其次减号后数字），使用原生拖动预览和捕捉连续放置。
-;;;   - C3    : 复制文字并把编号每次加 2（优先井号相邻数字，其次减号后数字），使用原生拖动预览和捕捉连续放置。
+;;;   - C1    : 复制文字（可多选，各自变化）并把编号加 1（优先井号相邻数字，其次减号后数字），使用原生拖动预览和捕捉连续放置。
+;;;   - C2    : 复制文字（可多选，各自变化）并把编号减 1（优先井号相邻数字，其次减号后数字），使用原生拖动预览和捕捉连续放置。
+;;;   - C3    : 复制文字（可多选，各自变化）并把编号每次加 2（优先井号相邻数字，其次减号后数字），使用原生拖动预览和捕捉连续放置。
 ;;;   - ZJ    : 选中多条水平线后向左生成短线、矩形；原理号标注不变，柜内文字默认读取剪贴板，可手动输入（青色虚线）。
 ;;;   - YJ    : 选中多条水平线后向右生成短线、矩形；原理号标注不变，柜内文字默认读取剪贴板，可手动输入（青色虚线）。
 ;;;   - KMZ   : 选中两条水平线后向左生成短线、矩形并居中标注+KM、-KM及直流馈线柜（青色虚线）。
@@ -1610,19 +1613,57 @@
   (if dir (vl-string-right-trim "\\/" dir))
 )
 
-;;; 命令: YSDL
-;;; 功能: 提取图纸电缆文字，按行导出到桌面CSV文件并改变文字颜色。
-;;;       支持5000x5000闭合多段线分类框与500字高标题空间识别，增加分类、序号、安装单位名称列；
-;;;       未检测到分类框时自动平滑回退为传统无分类电缆导出逻辑。
-;;; =======================================================================================
-(defun c:YSDL (/ aa:doc aa:undo-open *error* ss i ent edata typ text-string ins-point h
+;; YSDL2 去重：同一电缆编号（行内第 2 列）只保留最先出现的一行，少于 2 列的行取不到编号，原样保留。
+;; state 为上一次的返回值，首次传 nil，用来跨分类框累计：(保留的行 已见记录 对不上的编号 跳过行数)。
+;; 重复行的起点、终点不是第一行的镜像，或规格不同时，编号记入“对不上的编号”。
+;; 比较一律走 hddl:cabinet：忽略空格、开头的“至”和大小写，导出的文字不变。
+(defun aa:ysdl-dedup-rows (rows state / kept seen odd skipped row id from to spec hit)
+  (setq skipped 0)
+  (if state
+    (setq seen    (cadr state)
+          odd     (caddr state)
+          skipped (nth 3 state))
+  )
+  (foreach row rows
+    (setq id (hddl:cabinet (zddl2:nth-or row 1)))
+    (if (= id "")
+      (setq kept (cons row kept))
+      (progn
+        (setq from (hddl:cabinet (zddl2:nth-or row 0))
+              to   (hddl:cabinet (zddl2:nth-or row 2))
+              spec (hddl:cabinet (zddl2:nth-or row 3)))
+        (if (setq hit (assoc id seen))
+          (progn
+            (setq skipped (1+ skipped))
+            (if (and (not (and (= from (nth 2 hit))
+                               (= to (nth 1 hit))
+                               (= spec (nth 3 hit))))
+                     (not (member id odd)))
+              (setq odd (cons id odd))
+            )
+          )
+          (setq seen (cons (list id from to spec) seen)
+                kept (cons row kept))
+        )
+      )
+    )
+  )
+  (list (reverse kept) seen odd skipped)
+)
+
+;; YSDL / YSDL2 主流程：tag 为命令名；once 为 T 时同一电缆编号只导出一行（YSDL2）。
+;; 提取图纸电缆文字，按行导出到桌面CSV文件并改变文字颜色。
+;; 支持5000x5000闭合多段线分类框与500字高标题空间识别，增加分类、序号、安装单位名称列；
+;; 未检测到分类框时自动平滑回退为传统无分类电缆导出逻辑。
+(defun aa:ysdl-run (tag once / aa:doc aa:undo-open *error* ss i ent edata typ text-string ins-point h
                text-data-list ename-list box-list box sorted-boxes
                fuzz desktop-dir csv-path f file-mode action-msg targetColor
                all-rows row line-str cell cell-safe
                min-x min-y max-x max-y box-texts item x y
                title-items cable-items title-str box-rows
                cur-seq prev-start start-dev seq-str full-row raw-row
-               total-exported-rows exported-enames ename)
+               total-exported-rows exported-enames ename
+               dedup dup-msg odd-msg id)
 
   ;; 自定义错误处理函数
   (defun *error* (msg)
@@ -1695,7 +1736,7 @@
           (if (not f)
             ;; 打开失败（文件被 Excel/WPS 占用、无写权限或被安全软件拦截）：提示并停止，不改文字颜色
             (progn
-              (princ (strcat "\r\n[YSDL] 无法写入 CSV 文件: " csv-path))
+              (princ (strcat "\r\n[" tag "] 无法写入 CSV 文件: " csv-path))
               (alert (strcat "无法写入 CSV 文件:\r\n" csv-path
                              "\r\n\r\n可能原因:"
                              "\r\n1. 该文件正在 Excel/WPS 中打开（被占用），请关闭后重试；"
@@ -1744,6 +1785,10 @@
                   (setq box-rows   (aa:ysdl-parse-rows-from-text-data cable-items fuzz)
                         cur-seq    0
                         prev-start nil)
+                  (if once
+                    (setq dedup    (aa:ysdl-dedup-rows box-rows dedup)
+                          box-rows (car dedup))
+                  )
                   (foreach raw-row box-rows
                     (setq start-dev (if (>= (length raw-row) 1)
                                       (aa:ysdl-clean-text (nth 0 raw-row))
@@ -1774,6 +1819,10 @@
                 ;; 模式B: 平滑兼容回退传统无分类模式 (无5000x5000框)
                 (progn
                   (setq all-rows (aa:ysdl-parse-rows-from-text-data text-data-list fuzz))
+                  (if once
+                    (setq dedup    (aa:ysdl-dedup-rows all-rows dedup)
+                          all-rows (car dedup))
+                  )
                   (foreach raw-row all-rows
                     (setq row      (aa:ysdl-reorder-row raw-row)
                           line-str "")
@@ -1801,11 +1850,22 @@
               )
               (redraw)
 
+              (setq dup-msg (if once (strcat "，同编号跳过 " (itoa (nth 3 dedup)) " 行") "")
+                    odd-msg "")
               (if sorted-boxes
-                (princ (strcat "\r\n[YSDL] " action-msg csv-path " (已识别 " (itoa (length sorted-boxes)) " 个分类框，共导出 " (itoa total-exported-rows) " 行数据)。"))
-                (princ (strcat "\r\n[YSDL] " action-msg csv-path " (未检测到分类框，已回退为常规模式，共导出 " (itoa total-exported-rows) " 行数据)。"))
+                (princ (strcat "\r\n[" tag "] " action-msg csv-path " (已识别 " (itoa (length sorted-boxes)) " 个分类框，共导出 " (itoa total-exported-rows) " 行数据" dup-msg ")。"))
+                (princ (strcat "\r\n[" tag "] " action-msg csv-path " (未检测到分类框，已回退为常规模式，共导出 " (itoa total-exported-rows) " 行数据" dup-msg ")。"))
               )
-              (alert (strcat action-msg csv-path "\r\n\r\n已成功导出 " (itoa total-exported-rows) " 行数据，所有选中文字颜色已更改。"))
+              (if (and once (caddr dedup))
+                (progn
+                  (princ (strcat "\r\n[" tag "] 下列编号重复，但两端或规格对不上，只导出了最先出现的一行，请核对:"))
+                  (foreach id (reverse (caddr dedup))
+                    (princ (strcat " " id))
+                  )
+                  (setq odd-msg (strcat "\r\n\r\n有 " (itoa (length (caddr dedup))) " 个编号重复但两端或规格对不上，只导出了最先出现的一行，编号见命令行。"))
+                )
+              )
+              (alert (strcat action-msg csv-path "\r\n\r\n已成功导出 " (itoa total-exported-rows) " 行数据" dup-msg "，所有选中文字颜色已更改。" odd-msg))
             )
           )
         )
@@ -1817,6 +1877,14 @@
   (aa:undo-mark-off)
   (princ)
 )
+
+;;; 命令: YSDL
+;;; 功能: 提取图纸电缆文字，按行导出到桌面CSV文件并改变文字颜色。
+(defun c:YSDL () (aa:ysdl-run "YSDL" nil))
+
+;;; 命令: YSDL2
+;;; 功能: 按 YSDL 格式导出电缆文字到桌面CSV，同一电缆编号只导出最先出现的一行。
+(defun c:YSDL2 () (aa:ysdl-run "YSDL2" T))
 
 
 ;;; =======================================================================================
@@ -3409,6 +3477,92 @@
 ;;; 公共实现: HUI / WWW 的深度改色
 ;;; 功能: 按目标颜色改色；块参照直接修改块定义，块内实体与嵌套块一并改色，不分解块。
 ;;; =======================================================================================
+(defun aa:deep-color-note-fail (ename / typ hit)
+  ;; 记录改不了颜色的实体类型；aa:deep-fail 由 aa:deep-color-cmd 声明，命令结束统一报告。
+  (setq typ (cdr (assoc 0 (entget ename)))
+        hit (assoc typ aa:deep-fail))
+  (setq aa:deep-fail
+    (if hit
+      (subst (cons typ (1+ (cdr hit))) hit aa:deep-fail)
+      (cons (cons typ 1) aa:deep-fail))))
+
+(defun aa:deep-color-ent (ename color / ok)
+  ;; 深度改色的单实体入口：改 62 组码，失败或类型本身不显示实体颜色时记入报告。
+  ;; aa:deep-count 由 aa:deep-color-cmd 声明，统计成功处理的实体数。
+  (setq ok (vl-catch-all-apply 'aa:set-entity-aci-color (list ename color)))
+  (if (and ok (not (vl-catch-all-error-p ok)) aa:deep-count)
+    (setq aa:deep-count (1+ aa:deep-count)))
+  (if (or (vl-catch-all-error-p ok)
+          (not ok)
+          (member (cdr (assoc 0 (entget ename)))
+                  '("IMAGE" "OLE2FRAME" "WIPEOUT" "ACAD_PROXY_ENTITY" "ACAD_TABLE")))
+    (aa:deep-color-note-fail ename))
+  ok)
+
+(defun aa:deep-color-com-color (obj prop color / c)
+  ;; 读出 AcCmColor 属性，改为 ACI 后写回；属性不存在时静默跳过。
+  (setq c (vl-catch-all-apply 'vlax-get-property (list obj prop)))
+  (if (and c (not (vl-catch-all-error-p c)) (= (type c) 'VLA-OBJECT))
+    (progn
+      (vl-catch-all-apply 'vla-put-ColorIndex (list c color))
+      (vl-catch-all-apply 'vlax-put-property (list obj prop c))
+      (vlax-release-object c))))
+
+(defun aa:deep-color-special (ename color / ed typ obj txt new-txt)
+  ;; 只改 62 组码不够的类型：渐变填充的两种渐变色、多重引线的引线与文字颜色。
+  (setq ed (entget ename)
+        typ (cdr (assoc 0 ed)))
+  (if (or (and (= typ "HATCH") (= (cdr (assoc 450 ed)) 1))
+          (= typ "MULTILEADER"))
+    (progn
+      (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+      (if (and obj (not (vl-catch-all-error-p obj)))
+        (progn
+          (if (= typ "HATCH")
+            (progn
+              (aa:deep-color-com-color obj 'GradientColor1 color)
+              (aa:deep-color-com-color obj 'GradientColor2 color))
+            (progn
+              (aa:deep-color-com-color obj 'LeaderLineColor color)
+              (aa:deep-color-com-color obj 'TextColor color)
+              (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
+              (if (and (= (type txt) 'STR)
+                       (/= (setq new-txt (aa:strip-mtext-color-format txt)) txt))
+                (vl-catch-all-apply 'vla-put-TextString (list obj new-txt)))))
+          (vlax-release-object obj))))))
+
+(defun aa:deep-color-insert-blocks (doc ename color visited / ed obj eff)
+  ;; 块名取 DXF 组码 2：动态块参照这里是实际显示的 *U 匿名块。中望 COM 的 Name
+  ;; 对动态块可能返回源块名，按它改会改不到显示的那份。源定义再按 EffectiveName 补改，
+  ;; 防止 CAD 按源定义重建匿名块后又恢复原色。
+  (if (setq ed (entget ename))
+    (progn
+      (setq visited (aa:deep-color-block-definition doc (cdr (assoc 2 ed)) color visited)
+            obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+      (if (and obj (not (vl-catch-all-error-p obj)))
+        (progn
+          (setq eff (vl-catch-all-apply 'vlax-get-property (list obj 'EffectiveName)))
+          (vlax-release-object obj)
+          (if (and (= (type eff) 'STR) (/= eff ""))
+            (setq visited (aa:deep-color-block-definition doc eff color visited)))))))
+  visited)
+
+(defun aa:deep-color-unlock-layers (/ rec en ed locked)
+  ;; 块内实体在锁定图层上时 entmod 会失败；改色期间临时解锁，返回需恢复的图层。
+  (while (setq rec (tblnext "LAYER" (null rec)))
+    (if (= 4 (logand 4 (cdr (assoc 70 rec))))
+      (progn
+        (setq en (tblobjname "LAYER" (cdr (assoc 2 rec)))
+              ed (entget en))
+        (if (entmod (subst (cons 70 (logand (cdr (assoc 70 ed)) (~ 4))) (assoc 70 ed) ed))
+          (setq locked (cons en locked))))))
+  locked)
+
+(defun aa:deep-color-relock-layers (locked / en ed)
+  (foreach en locked
+    (if (setq ed (entget en))
+      (entmod (subst (cons 70 (logior (cdr (assoc 70 ed)) 4)) (assoc 70 ed) ed)))))
+
 (defun aa:deep-color-dimension (doc ename color visited / ed typ txt new-txt obj bname childEname childEd childTyp)
   ;; 转角/对齐等尺寸标注高速改色：
   ;; 1. 剥离文字覆盖中的内嵌颜色控制码（如 \C1;）
@@ -3430,7 +3584,7 @@
               (setq ed (entget ename))))))
 
       ;; 2. 修改标注实体本身的 ACI 颜色（组码 62）
-      (aa:set-entity-aci-color ename color)
+      (aa:deep-color-ent ename color)
 
       ;; 3. 通过 COM 属性设置标注颜色覆盖（尺寸线、界线、文字）
       (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
@@ -3459,70 +3613,65 @@
                  (progn
                    (setq new-txt (aa:strip-mtext-color-format txt))
                    (if (/= new-txt txt)
-                     (setq childEd (subst (cons 1 new-txt) (assoc 1 childEd) childEd))))))
+                     (entmod (subst (cons 1 new-txt) (assoc 1 childEd) childEd))))))
               ((= childTyp "INSERT")
                (setq visited (aa:deep-color-block-definition doc (cdr (assoc 2 childEd)) color visited))))
-            (aa:set-entity-aci-color childEname color)
+            (aa:deep-color-special childEname color)
+            (aa:deep-color-ent childEname color)
             (setq childEname (entnext childEname)))))))
   visited
 )
 
-(defun aa:deep-color-attributes (blkObj color / result atts item itemEname)
-  ;; 属性参照不属于块定义，单独处理以确保当前选中的块完整改色。
-  (setq result (vl-catch-all-apply 'vlax-invoke (list blkObj 'GetAttributes)))
-  (if (not (vl-catch-all-error-p result))
+(defun aa:deep-color-attributes (ename color / ed next)
+  ;; 属性参照不属于块定义，跟在块参照后面，直到 SEQEND；块定义里的嵌套块参照同样如此。
+  (if (and (setq ed (entget ename)) (= 1 (cdr (assoc 66 ed))))
     (progn
-      (setq atts
-        (if (listp result)
-          result
-          (vl-catch-all-apply 'vlax-safearray->list (list result))))
-      (if (not (vl-catch-all-error-p atts))
-        (foreach item atts
-          (setq itemEname (vl-catch-all-apply 'vlax-vla-object->ename (list item)))
-          (if (not (vl-catch-all-error-p itemEname))
-            (aa:set-entity-aci-color itemEname color))
-          (vlax-release-object item)))))
-  result
+      (setq next (entnext ename))
+      (while (and next
+                  (setq ed (entget next))
+                  (= (cdr (assoc 0 ed)) "ATTRIB"))
+        (aa:deep-color-ent next color)
+        (setq next (entnext next)))))
+  ename
 )
 
-(defun aa:deep-color-block-definition (doc blockName color visited / blocks blockDef result child childEname childEd childTyp childName txt new-txt)
-  ;; 通过 BlockTableRecord 修改块内部实体，递归处理嵌套块并避免重复访问。
-  ;; 必须返回更新后的 visited 列表：若 visited 落在 if 的 else 分支里，处理过块后
-  ;; 会返回 vlax-for 的值 T，调用方把 visited 赋成 T，下一个块 (member blockName T) 报 listp: T。
-  (if (and blockName (not (member blockName visited)))
+(defun aa:deep-color-block-definition (doc blockName color visited / head childEname childEd childTyp txt new-txt)
+  ;; 按 DXF 从块表记录头 entnext 遍历块内实体直到 ENDBLK，递归处理嵌套块并避免重复访问。
+  ;; 不用 COM 的 Blocks.Item：中望对 *U 匿名块按名取定义可能失败且没有任何提示。
+  ;; 必须返回更新后的 visited 列表，否则调用方把 visited 赋成其他值，下一个块 member 报错。
+  (if (and blockName (/= blockName "") (not (member (strcase blockName) visited)))
     (progn
-      (setq visited (cons blockName visited)
-            blocks (vla-get-Blocks doc)
-            result (vl-catch-all-apply 'vla-Item (list blocks blockName)))
-      (if (not (vl-catch-all-error-p result))
+      (setq visited (cons (strcase blockName) visited)
+            head (tblobjname "BLOCK" blockName))
+      (if (null head)
+        (setq aa:deep-fail (cons (cons (strcat "未找到块定义 " blockName) 1) aa:deep-fail))
         (progn
-          (setq blockDef result)
-          (vlax-for child blockDef
-            (setq childEname (vl-catch-all-apply 'vlax-vla-object->ename (list child)))
-            (if (not (vl-catch-all-error-p childEname))
-              (progn
-                (setq childEd (entget childEname))
-                (setq childTyp (cdr (assoc 0 childEd)))
-                (cond
-                  ((= childTyp "INSERT")
-                   (setq childName (vla-get-Name child))
-                   (setq visited (aa:deep-color-block-definition doc childName color visited))
-                   (aa:set-entity-aci-color childEname color))
-                  ((= childTyp "DIMENSION")
-                   (setq visited (aa:deep-color-dimension doc childEname color visited)))
-                  ((= childTyp "MTEXT")
-                   (setq txt (cdr (assoc 1 childEd)))
-                   (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
-                     (progn
-                       (setq new-txt (aa:strip-mtext-color-format txt))
-                       (if (/= new-txt txt)
-                         (entmod (subst (cons 1 new-txt) (assoc 1 childEd) childEd)))))
-                   (aa:set-entity-aci-color childEname color))
-                  (T
-                   (aa:set-entity-aci-color childEname color))))))
-          (vlax-release-object blockDef)))
-      (if (and blocks (not (vl-catch-all-error-p blocks)))
-        (vlax-release-object blocks))))
+          (setq childEname (entnext head))
+          (while (and childEname
+                      (setq childEd (entget childEname))
+                      (/= (setq childTyp (cdr (assoc 0 childEd))) "ENDBLK"))
+            (cond
+              ((= childTyp "INSERT")
+               ;; 嵌套块：匿名定义、源定义和属性参照都要改，属性不在块定义里。
+               (setq visited (aa:deep-color-insert-blocks doc childEname color visited))
+               (aa:deep-color-attributes childEname color)
+               (aa:deep-color-ent childEname color))
+              ((member childTyp '("DIMENSION" "LEADER"))
+               (setq visited (aa:deep-color-dimension doc childEname color visited)))
+              ((member childTyp '("ATTRIB" "SEQEND"))
+               nil)
+              ((= childTyp "MTEXT")
+               (setq txt (cdr (assoc 1 childEd)))
+               (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+                 (progn
+                   (setq new-txt (aa:strip-mtext-color-format txt))
+                   (if (/= new-txt txt)
+                     (entmod (subst (cons 1 new-txt) (assoc 1 childEd) childEd)))))
+               (aa:deep-color-ent childEname color))
+              (T
+               (aa:deep-color-special childEname color)
+               (aa:deep-color-ent childEname color)))
+            (setq childEname (entnext childEname)))))))
   visited
 )
 
@@ -3584,7 +3733,7 @@
   (reverse final-ents)
 )
 
-(defun aa:deep-explode-and-color (doc ename color visited / ents ent ed typ obj bname txt new-txt)
+(defun aa:deep-explode-and-color (doc ename color visited / ents ent ed typ obj txt new-txt)
   ;; 引线先彻底分解为基础图元，然后修改为指定颜色
   (setq ents (aa:explode-lead-recursive ename))
   (foreach ent ents
@@ -3593,12 +3742,9 @@
         (setq typ (cdr (assoc 0 ed)))
         (cond
           ((= typ "INSERT")
-           (setq obj (vlax-ename->vla-object ent)
-                 bname (vla-get-Name obj))
-           (setq visited (aa:deep-color-block-definition doc bname color visited))
-           (aa:deep-color-attributes obj color)
-           (vlax-release-object obj)
-           (aa:set-entity-aci-color ent color))
+           (setq visited (aa:deep-color-insert-blocks doc ent color visited))
+           (aa:deep-color-attributes ent color)
+           (aa:deep-color-ent ent color))
           ((= typ "MTEXT")
            (setq txt (cdr (assoc 1 ed)))
            (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
@@ -3606,15 +3752,17 @@
                (setq new-txt (aa:strip-mtext-color-format txt))
                (if (/= new-txt txt)
                  (entmod (subst (cons 1 new-txt) (assoc 1 ed) ed)))))
-           (aa:set-entity-aci-color ent color))
+           (aa:deep-color-ent ent color))
           (T
-           (aa:set-entity-aci-color ent color))))))
+           (aa:deep-color-ent ent color))))))
   visited
 )
 
-(defun aa:deep-color-cmd (targetColor prompt done / ss i ename ed typ obj doc blockName visited regenResult txt new-txt)
+(defun aa:deep-color-cmd (targetColor prompt done / ss i ename ed typ obj doc visited regenResult txt new-txt
+                          aa:deep-fail aa:deep-count locked lockedNames runResult skippedLocked msg item)
   ;; HUI / WWW 共用：块参照直接改块定义，块内实体（含嵌套块与属性）一并改色，不分解块。
   ;; 遇引线对象（LEADER / MULTILEADER）先分解为基础图元，再统一修改为指定颜色。
+  ;; 动态块（*U 匿名块）同时改源定义；块内锁定图层临时解锁，改完恢复；改不了的类型最后报告。
   (setq ss (ssget "_I"))
   (if (null ss)
     (progn
@@ -3624,44 +3772,64 @@
   (if ss
     (progn
       (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
-            visited nil)
-      (setq i 0)
-      (repeat (sslength ss)
-        (setq ename (ssname ss i))
-        (if (and ename (setq ed (entget ename)))
-          (progn
-            (setq typ (cdr (assoc 0 ed)))
-            (cond
-              ((= typ "INSERT")
-               (setq obj (vlax-ename->vla-object ename)
-                     blockName (vla-get-Name obj))
-               (setq visited (aa:deep-color-block-definition doc blockName targetColor visited))
-               (aa:deep-color-attributes obj targetColor)
-               (vlax-release-object obj)
-               ;; 对块参照本身也设色，兼容块内容使用 ByBlock 的情况。
-               (aa:set-entity-aci-color ename targetColor))
-              ((member typ '("LEADER" "MULTILEADER"))
-               (setq visited (aa:deep-explode-and-color doc ename targetColor visited)))
-              ((= typ "DIMENSION")
-               (setq visited (aa:deep-color-dimension doc ename targetColor visited)))
-              ((= typ "MTEXT")
-               (setq txt (cdr (assoc 1 ed)))
-               (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
-                 (progn
-                   (setq new-txt (aa:strip-mtext-color-format txt))
-                   (if (/= new-txt txt)
-                     (entmod (subst (cons 1 new-txt) (assoc 1 ed) ed)))))
-               (aa:set-entity-aci-color ename targetColor))
-              (T
-               (aa:set-entity-aci-color ename targetColor)))))
-        (setq i (1+ i))
-      )
+            visited nil
+            aa:deep-fail nil
+            aa:deep-count 0
+            skippedLocked 0
+            locked (aa:deep-color-unlock-layers)
+            lockedNames (mapcar '(lambda (en) (strcase (cdr (assoc 2 (entget en))))) locked))
+      (setq runResult
+        (vl-catch-all-apply
+          '(lambda ()
+            (setq i 0)
+            (repeat (sslength ss)
+              (setq ename (ssname ss i))
+              (if (and ename (setq ed (entget ename)))
+                (progn
+                  (setq typ (cdr (assoc 0 ed)))
+                  (cond
+                    ;; 选中对象本身在锁定图层上：保持原来的不改色行为。
+                    ((member (strcase (cdr (assoc 8 ed))) lockedNames)
+                     (setq skippedLocked (1+ skippedLocked)))
+                    ((= typ "INSERT")
+                     (setq visited (aa:deep-color-insert-blocks doc ename targetColor visited))
+                     (aa:deep-color-attributes ename targetColor)
+                     ;; 对块参照本身也设色，兼容块内容使用 ByBlock 的情况。
+                     (aa:deep-color-ent ename targetColor))
+                    ((member typ '("LEADER" "MULTILEADER"))
+                     (setq visited (aa:deep-explode-and-color doc ename targetColor visited)))
+                    ((= typ "DIMENSION")
+                     (setq visited (aa:deep-color-dimension doc ename targetColor visited)))
+                    ((= typ "MTEXT")
+                     (setq txt (cdr (assoc 1 ed)))
+                     (if (and txt (or (vl-string-search "\\C" txt) (vl-string-search "\\c" txt)))
+                       (progn
+                         (setq new-txt (aa:strip-mtext-color-format txt))
+                         (if (/= new-txt txt)
+                           (entmod (subst (cons 1 new-txt) (assoc 1 ed) ed)))))
+                     (aa:deep-color-ent ename targetColor))
+                    (T
+                     (aa:deep-color-special ename targetColor)
+                     (aa:deep-color-ent ename targetColor)))))
+              (setq i (1+ i))))))
+      ;; 无论中途是否出错，都先恢复临时解锁的图层。
+      (aa:deep-color-relock-layers locked)
       ;; 修改块定义后必须重新生成视口，普通 redraw 不会立即刷新块参照显示。
       (setq regenResult (vl-catch-all-apply 'vla-Regen (list doc 1)))
       (if (vl-catch-all-error-p regenResult)
         (redraw))
       (sssetfirst nil nil)
-      (princ done)
+      (if (vl-catch-all-error-p runResult)
+        (princ (strcat "\r\n改色中途出错：" (vl-catch-all-error-message runResult)))
+        (princ (strcat done "（含块内共处理 " (itoa aa:deep-count) " 个对象）")))
+      (if (> skippedLocked 0)
+        (princ (strcat "\r\n锁定图层上的对象未改色：" (itoa skippedLocked) " 个。")))
+      (if aa:deep-fail
+        (progn
+          (setq msg "")
+          (foreach item (reverse aa:deep-fail)
+            (setq msg (strcat msg " " (car item) "×" (itoa (cdr item)))))
+          (princ (strcat "\r\n以下块内/选中对象未能改色或该类型不显示实体颜色：" msg))))
     )
     (princ "\r\n没有选中任何对象。")
   )
@@ -5541,6 +5709,125 @@
       (while (> (logand (getvar "CMDACTIVE") 1) 0)
         (command pause))))
   (aa:ortho-restore-vars saved-vars)
+  (aa:undo-mark-off)
+  (princ))
+
+;;;----------------------------------------------------------------------------------------
+;;; LONG: 连续点选路径测量总长度（临时显示，结束后不保留对象）
+;;;----------------------------------------------------------------------------------------
+
+(defun long:layer (/ lay ent dat)
+  ;; 测量专用图层：不存在则新建红色图层；已存在但关闭、冻结或锁定时恢复可见可写
+  (setq lay "LONG-测量")
+  (if (setq ent (tblobjname "LAYER" lay))
+    (progn
+      (setq dat (entget ent))
+      (if (or (< (cdr (assoc 62 dat)) 0) (/= 0 (logand (cdr (assoc 70 dat)) 5)))
+        (entmod (subst (cons 62 (abs (cdr (assoc 62 dat)))) (assoc 62 dat)
+                       (subst (cons 70 (logand (cdr (assoc 70 dat)) (~ 5))) (assoc 70 dat) dat)))))
+    (entmake (list '(0 . "LAYER") '(100 . "AcDbSymbolTableRecord") '(100 . "AcDbLayerTableRecord")
+                   (cons 2 lay) '(70 . 0) '(62 . 1) '(6 . "Continuous"))))
+  lay)
+
+(defun long:fmt (len)
+  ;; 长度保留两位小数
+  (rtos len 2 2))
+
+(defun long:wcs2d (p / w)
+  ;; UCS 点转 WCS 并去掉 Z，按平面计算长度
+  (setq w (trans p 1 0))
+  (list (car w) (cadr w)))
+
+(defun long:total (pts / sum prev)
+  ;; 计算 UCS 点表在 WCS 平面上的折线总长
+  (setq sum 0.0)
+  (foreach p pts
+    (if prev (setq sum (+ sum (distance (long:wcs2d prev) (long:wcs2d p)))))
+    (setq prev p))
+  sum)
+
+(defun long:make-path (pts wid lay)
+  ;; 生成红色粗多段线表示已点选的路径
+  (if (> (length pts) 1)
+    (entmakex (append
+                (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 lay) '(62 . 1)
+                      '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 0) (cons 43 wid))
+                (mapcar '(lambda (p) (cons 10 (long:wcs2d p))) pts)))))
+
+(defun long:make-label (pt str hgt lay / w)
+  ;; 在路径末点上方生成黄色大字，底部居中对齐
+  (setq w (long:wcs2d pt)
+        w (list (car w) (+ (cadr w) (* hgt 0.6)) 0.0))
+  (entmakex (list '(0 . "TEXT") '(100 . "AcDbEntity") (cons 8 lay) '(62 . 2)
+                  '(100 . "AcDbText") (cons 10 w) (cons 11 w) (cons 40 hgt) (cons 1 str)
+                  (cons 7 (if (tblsearch "STYLE" "HZ") "HZ" (getvar "TEXTSTYLE")))
+                  '(72 . 1) '(100 . "AcDbText") '(73 . 1))))
+
+(defun long:del (ent)
+  ;; 删除临时对象，返回 nil 便于清空变量
+  (if (and ent (entget ent)) (entdel ent))
+  nil)
+
+(defun long:drop-layer (lay / obj)
+  ;; 本次新建的测量图层用完即删；删不掉时静默保留
+  (vl-load-com)
+  (if (not (vl-catch-all-error-p
+             (setq obj (vl-catch-all-apply 'vla-item
+                         (list (vla-get-layers (vla-get-activedocument (vlax-get-acad-object))) lay)))))
+    (vl-catch-all-apply 'vla-delete (list obj))))
+
+;;; 功能: 连续点选路径各点，测量过程中用红色粗多段线和大字实时显示路径与长度，空格结束后弹窗并在命令行显示总长度，图中不保留任何对象。
+(defun c:LONG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho
+                 lay new-lay vs wid hgt pts res total pl txt done)
+  (setq aa:tag "LONG")
+  (defun *error* (msg)
+    ;; Esc 取消本次测量：删除已画的路径和标注
+    (setq pl (long:del pl) txt (long:del txt))
+    (if new-lay (long:drop-layer lay))
+    (aa:undo-mark-off)
+    (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*,*BREAK*")))
+      (princ (strcat "\r\n[LONG] 错误：" msg)))
+    (princ))
+  (aa:undo-mark-on)
+  (setq new-lay (not (tblsearch "LAYER" "LONG-测量"))
+        lay   (long:layer)
+        vs    (getvar "VIEWSIZE")
+        wid   (/ vs 150.0)
+        hgt   (/ vs 20.0)
+        total 0.0)
+  (if (setq res (getpoint "\r\n[LONG] 指定路径起点: "))
+    (progn
+      (setq pts (list res))
+      (while (not done)
+        (initget "U")
+        (setq res (getpoint (last pts)
+                            (strcat "\r\n[LONG] 当前长度 " (long:fmt total)
+                                    "，指定下一点 [撤销(U)] <空格结束>: ")))
+        (cond
+          ((null res) (setq done T))
+          ((= res "U")
+           (if (> (length pts) 1)
+             (setq pts (reverse (cdr (reverse pts))))
+             (princ "\r\n[LONG] 已退到起点，没有可撤销的点。")))
+          (T (setq pts (append pts (list res)))))
+        (if (not done)
+          (progn
+            (setq total (long:total pts)
+                  pl    (long:del pl)
+                  txt   (long:del txt)
+                  pl    (long:make-path pts wid lay))
+            (if (> (length pts) 1)
+              (setq txt (long:make-label (last pts) (strcat "L=" (long:fmt total)) hgt lay))))))
+      (if (> (length pts) 1)
+        (progn
+          (princ (strcat "\r\n[LONG] 共 " (itoa (1- (length pts))) " 段，总长度 = " (long:fmt total)))
+          ;; 弹窗时路径仍在屏幕上，确认后再清除
+          (alert (strcat "路径总长度\n\n" (long:fmt total)
+                         "\n\n共 " (itoa (1- (length pts))) " 段")))
+        (princ "\r\n[LONG] 只指定了一个点，未生成路径。"))))
+  ;; 测量结束：临时路径和标注都不保留
+  (setq pl (long:del pl) txt (long:del txt))
+  (if new-lay (long:drop-layer lay))
   (aa:undo-mark-off)
   (princ))
 
@@ -15058,9 +15345,159 @@
            (setq prev p))
          (if (and closed first prev (not (equal first prev)))
            (aa:zz-add-seg prev first near)))
+        ((and (= typ "INSERT") aa:zz-clip)
+         ;; 仅 ZZ/JACC 设置 aa:zz-clip 时把块参照里的线换算到世界坐标参与边框判定。
+         (aa:zz-add-insert-segs ed near))
       )
       (setq i (1+ i))))
   (list vlist hlist)
+)
+
+;;; ZZ 块参照边框：块定义里的线按 2D 仿射矩阵 (a b c d e f) 换算，
+;;; x' = a*x + b*y + c，y' = d*x + e*y + f；aa:zz-clip、aa:zz-blk-cache 由 aa:zz-run 动态提供。
+(defun aa:zz-mat-apply (m p)
+  (list (+ (* (nth 0 m) (car p)) (* (nth 1 m) (cadr p)) (nth 2 m))
+        (+ (* (nth 3 m) (car p)) (* (nth 4 m) (cadr p)) (nth 5 m)))
+)
+
+(defun aa:zz-insert-matrix (ed / name head base ins sx sy r cs sn a b d e n)
+  ;; 块内坐标 -> 插入所在坐标：减基点、缩放（负比例即镜像）、旋转、平移；
+  ;; 法向 (0 0 -1) 的 OCS 相当于 X 取反，其他斜法向不处理返回 nil。
+  (setq name (cdr (assoc 2 ed))
+        head (if name (tblobjname "BLOCK" name))
+        n    (cdr (assoc 210 ed)))
+  (if (and head
+           (or (null n)
+               (and (equal (car n) 0.0 1e-9) (equal (cadr n) 0.0 1e-9))))
+    (progn
+      (setq base (cdr (assoc 10 (entget head)))
+            ins  (cdr (assoc 10 ed))
+            sx   (cond ((cdr (assoc 41 ed))) (1.0))
+            sy   (cond ((cdr (assoc 42 ed))) (1.0))
+            r    (cond ((cdr (assoc 50 ed))) (0.0))
+            cs   (cos r)
+            sn   (sin r)
+            a    (* cs sx)
+            b    (- (* sn sy))
+            d    (* sn sx)
+            e    (* cs sy))
+      (if (null base) (setq base '(0.0 0.0 0.0)))
+      (if (and n (< (caddr n) 0.0))
+        (list (- a) (- b) (- (+ (* a (car base)) (* b (cadr base))) (car ins))
+              d e (- (cadr ins) (+ (* d (car base)) (* e (cadr base)))))
+        (list a b (- (car ins) (+ (* a (car base)) (* b (cadr base))))
+              d e (- (cadr ins) (+ (* d (car base)) (* e (cadr base)))))))
+    nil)
+)
+
+(defun aa:zz-ent-segs (en ed / typ pts p prev first closed en2 ed2 out)
+  ;; 块定义内单个图元的线段 ((p1 p2) ...)，规则同 aa:zz-build-line-cache。
+  (setq typ (cdr (assoc 0 ed))
+        out '())
+  (cond
+    ((= typ "LINE")
+     (if (and (assoc 10 ed) (assoc 11 ed))
+       (setq out (list (list (cdr (assoc 10 ed)) (cdr (assoc 11 ed)))))))
+    ((member typ '("LWPOLYLINE" "POLYLINE"))
+     (if (= typ "LWPOLYLINE")
+       (setq pts (aa:zz-collect-lwpoly-pts ed))
+       (progn
+         (setq pts '()
+               en2 (entnext en))
+         (while (and en2
+                     (setq ed2 (entget en2))
+                     (= (cdr (assoc 0 ed2)) "VERTEX"))
+           (setq pts (cons (cdr (assoc 10 ed2)) pts)
+                 en2 (entnext en2)))
+         (setq pts (reverse pts))))
+     (setq closed (aa:zz-poly-closed-p ed)
+           prev   nil
+           first  nil)
+     (foreach p pts
+       (if prev
+         (setq out (cons (list prev p) out))
+         (setq first p))
+       (setq prev p))
+     (if (and closed first prev (not (equal first prev)))
+       (setq out (cons (list prev first) out)))))
+  out
+)
+
+(defun aa:zz-block-segs (name depth / key hit head en ed typ segs m2 s)
+  ;; 块定义（含嵌套块）展开后的线段，坐标为该块自身坐标；同名块只展开一次。
+  (setq key (if name (strcase name) ""))
+  (cond
+    ((setq hit (assoc key aa:zz-blk-cache))
+     (cdr hit))
+    ((or (= key "") (> depth 8))
+     nil)
+    (T
+     (setq segs '()
+           head (tblobjname "BLOCK" name))
+     ;; 先占位，防止块定义自引用时无限递归。
+     (setq aa:zz-blk-cache (cons (cons key nil) aa:zz-blk-cache))
+     (if head
+       (progn
+         (setq en (entnext head))
+         (while (and en
+                     (setq ed (entget en))
+                     (/= (setq typ (cdr (assoc 0 ed))) "ENDBLK"))
+           (if (= typ "INSERT")
+             (if (setq m2 (aa:zz-insert-matrix ed))
+               (foreach s (aa:zz-block-segs (cdr (assoc 2 ed)) (1+ depth))
+                 (setq segs (cons (list (aa:zz-mat-apply m2 (car s))
+                                        (aa:zz-mat-apply m2 (cadr s)))
+                                  segs))))
+             (foreach s (aa:zz-ent-segs en ed)
+               (setq segs (cons s segs))))
+           (setq en (entnext en)))))
+     (setq aa:zz-blk-cache (cons (cons key segs) aa:zz-blk-cache))
+     segs))
+)
+
+(defun aa:zz-seg-in-clip-p (q1 q2)
+  ;; 线段外包框与 ZZ 搜索窗口相交才保留，避免大图框块把全图线条带进来。
+  (or (null aa:zz-clip)
+      (and (<= (min (car q1) (car q2)) (nth 2 aa:zz-clip))
+           (>= (max (car q1) (car q2)) (nth 0 aa:zz-clip))
+           (<= (min (cadr q1) (cadr q2)) (nth 3 aa:zz-clip))
+           (>= (max (cadr q1) (cadr q2)) (nth 1 aa:zz-clip))))
+)
+
+(defun aa:zz-add-insert-segs (ed near / m s q1 q2)
+  ;; 由 aa:zz-build-line-cache 调用，vlist/hlist 沿用调用方的局部变量。
+  (if (setq m (aa:zz-insert-matrix ed))
+    (foreach s (aa:zz-block-segs (cdr (assoc 2 ed)) 0)
+      (setq q1 (aa:zz-mat-apply m (car s))
+            q2 (aa:zz-mat-apply m (cadr s)))
+      (if (aa:zz-seg-in-clip-p q1 q2)
+        (aa:zz-add-seg q1 q2 near))))
+)
+
+(defun aa:zz-harvest-inserts (doc text-ss ss line-ss / bbox pt1 pt2 ins-ss i en)
+  ;; 把文字附近及用户选中的块参照并入 line-ss，并设置 aa:zz-clip 搜索窗口。
+  (if (null line-ss) (setq line-ss (ssadd)))
+  (if (setq bbox (aa:zz-calc-texts-bbox doc text-ss))
+    (progn
+      (setq pt1        (list (- (nth 0 bbox) 350.0) (- (nth 1 bbox) 350.0))
+            pt2        (list (+ (nth 2 bbox) 350.0) (+ (nth 3 bbox) 350.0))
+            aa:zz-clip (list (car pt1) (cadr pt1) (car pt2) (cadr pt2))
+            ins-ss     (ssget "_C" (trans pt1 0 1) (trans pt2 0 1) '((0 . "INSERT"))))
+      (if ins-ss
+        (progn
+          (setq i 0)
+          (repeat (sslength ins-ss)
+            (ssadd (ssname ins-ss i) line-ss)
+            (setq i (1+ i)))))
+      (if ss
+        (progn
+          (setq i 0)
+          (repeat (sslength ss)
+            (setq en (ssname ss i))
+            (if (= (cdr (assoc 0 (entget en))) "INSERT")
+              (ssadd en line-ss))
+            (setq i (1+ i)))))))
+  line-ss
 )
 
 (defun aa:zz-calc-texts-bbox (doc text-ss / i en bbox min-x min-y max-x max-y bx1 by1 bx2 by2)
@@ -15324,13 +15761,15 @@
   (list changed skipped)
 )
 
-(defun aa:zz-run (/ *error* doc undo-open ss text-ss changed skipped line-ss result)
+(defun aa:zz-run (/ *error* doc undo-open ss text-ss changed skipped line-ss result aa:zz-clip aa:zz-blk-cache)
   (vl-load-com)
   (setq doc           (vla-get-activedocument (vlax-get-acad-object))
         undo-open     nil
         changed       0
         skipped       0
-        line-ss       nil)
+        line-ss       nil
+        aa:zz-clip    nil
+        aa:zz-blk-cache nil)
 
   (defun *error* (msg)
     (if undo-open
@@ -15356,7 +15795,9 @@
           (sssetfirst nil text-ss)
           (vla-startundomark doc)
           (setq undo-open T
-                line-ss (aa:zz-harvest-lines doc text-ss ss))
+                line-ss (aa:zz-harvest-lines doc text-ss ss)
+                ;; 块参照里人眼可见的框线也作为边框（仅 ZZ/JACC）。
+                line-ss (aa:zz-harvest-inserts doc text-ss ss line-ss))
           (setq result (aa:zz-center-texts doc text-ss line-ss)
                 changed (car result)
                 skipped (cadr result))
@@ -19073,6 +19514,8 @@
 ;;; 选择规则: 与 NU 共用 aa:num-target-span；减号只作分隔符，不当负号。
 ;;; 适用: 单行文字 TEXT、多行文字 MTEXT；不依赖项目主文件
 ;;; 说明: 使用原生 MOVE 提供拖动预览和捕捉，支持连续多次复制。
+;;; 多选: 可一次选多个文字整体复制，每个文字各自按 delta 变化（23P/24P/25P 用 C1 得 24P/25P/26P）；
+;;;       不含数字的文字原样随组复制；任一文字减到小于 0 时整组停止。
 
 (setq c1c2:*active-preview* nil)
 
@@ -19133,18 +19576,43 @@
   )
 )
 
-(defun c1c2:select-text (/ ss)
-  (setq ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
-  (if (and ss (> (sslength ss) 0))
-    (ssname ss 0)
-    (progn
-      (princ "\r\n选择一个带数字的文字，回车确认: ")
-      (setq ss (ssget '((0 . "TEXT,MTEXT"))))
-      (if (and ss (> (sslength ss) 0))
-        (ssname ss 0)
+;;; 功能: C1/C2/C3 整组文字各自改编号：含数字的按 delta 变化，不含数字的原样保留；
+;;;       任一结果小于 0 返回 nil（整组停止）。
+(defun c1c2:change-all (txts delta / out ok new)
+  (setq ok T)
+  (foreach txt txts
+    (if ok
+      (if (c1c2:first-number-span txt)
+        (if (setq new (c1c2:change-number txt delta))
+          (setq out (cons new out))
+          (setq ok nil)
+        )
+        (setq out (cons txt out))
       )
     )
   )
+  (if ok (reverse out))
+)
+
+;;; 功能: C1/C2/C3 取预选或新选的全部文字，返回图元名列表（按选择集顺序）。
+(defun c1c2:select-texts (/ ss i out)
+  (setq ss (ssget "_I" '((0 . "TEXT,MTEXT"))))
+  (if (not (and ss (> (sslength ss) 0)))
+    (progn
+      (princ "\r\n选择带数字的文字（可多选），回车确认: ")
+      (setq ss (ssget '((0 . "TEXT,MTEXT"))))
+    )
+  )
+  (if ss
+    (progn
+      (setq i (sslength ss))
+      (while (> i 0)
+        (setq i (1- i)
+              out (cons (ssname ss i) out))
+      )
+    )
+  )
+  out
 )
 
 (defun c1c2:pt3 (pt)
@@ -19168,35 +19636,50 @@
 (defun c1c2:delete-preview ()
   (if c1c2:*active-preview*
     (progn
-      (vl-catch-all-apply 'vla-Delete (list c1c2:*active-preview*))
+      (foreach copy-obj c1c2:*active-preview*
+        (vl-catch-all-apply 'vla-Delete (list copy-obj)))
       (setq c1c2:*active-preview* nil)
       (redraw)
     )
   )
 )
 
-(defun c1c2:place-one (src txt base / copy-obj last-pt)
-  (setq copy-obj (vla-Copy src))
-  (vla-put-TextString copy-obj txt)
-  ;; 原生命令开始前更新显示，确保拖动的是递增/递减后的文字。
-  (vla-Update copy-obj)
-  (setq c1c2:*active-preview* copy-obj)
+;;; 功能: C1/C2/C3 复制一组文字并分别替换内容，整组用一次原生 MOVE 拖动放置；
+;;;       放置成功返回 T，用户取消返回 nil 并删除本组副本。
+(defun c1c2:place-one (srcs txts base / copies copy-obj ss last-pt)
+  (setq ss (ssadd))
+  (mapcar
+    '(lambda (src txt)
+       (setq copy-obj (vla-Copy src))
+       (vla-put-TextString copy-obj txt)
+       ;; 原生命令开始前更新显示，确保拖动的是递增/递减后的文字。
+       (vla-Update copy-obj)
+       (setq copies (cons copy-obj copies)
+             c1c2:*active-preview* copies)
+       (ssadd (vlax-vla-object->ename copy-obj) ss)
+     )
+    srcs txts
+  )
   ;; base 已经捕捉过，用 _non 防止再次捕捉；目标点交给原生输入。
-  (command "_.MOVE" (vlax-vla-object->ename copy-obj) "" "_non" base)
+  (command "_.MOVE" ss "" "_non" base)
   (setq last-pt (getvar "LASTPOINT"))
   ;; 只隐藏副本的静态显示，不改 Visible/DXF 60，以保留原生拖动图像。
-  (redraw (vlax-vla-object->ename copy-obj) 2)
+  (foreach copy-obj copies
+    (redraw (vlax-vla-object->ename copy-obj) 2))
   (while (> (logand (getvar "CMDACTIVE") 1) 0)
     (command pause))
-  (redraw (vlax-vla-object->ename copy-obj) 1)
+  (foreach copy-obj copies
+    (redraw (vlax-vla-object->ename copy-obj) 1))
   (setq c1c2:*active-preview* nil)
   (if (equal (getvar "LASTPOINT") last-pt 1e-6)
     (progn
-      (vl-catch-all-apply 'vla-Delete (list copy-obj))
+      (foreach copy-obj copies
+        (vl-catch-all-apply 'vla-Delete (list copy-obj)))
       nil
     )
     (progn
-      (vlax-release-object copy-obj)
+      (foreach copy-obj copies
+        (vlax-release-object copy-obj))
       T
     )
   )
@@ -19208,7 +19691,12 @@
   )
 )
 
-(defun c1c2:run (delta / *error* doc en obj txt base started old-dragmode count)
+(defun c1c2:release-all (objs)
+  (foreach obj objs
+    (vl-catch-all-apply 'vlax-release-object (list obj)))
+)
+
+(defun c1c2:run (delta / *error* doc ens objs txts base started old-dragmode count)
   (vl-load-com)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
         started nil
@@ -19220,54 +19708,57 @@
       (vl-catch-all-apply 'setvar (list "DRAGMODE" old-dragmode)))
     (redraw)
     (if started (c1c2:safe-end-undo doc))
-    (if obj (vl-catch-all-apply 'vlax-release-object (list obj)))
+    (if objs (c1c2:release-all objs))
     (if (and msg
              (not (member msg '("Function cancelled" "quit / exit abort" "console break"))))
       (princ (strcat "\r\n错误: " msg))
     )
     (princ)
   )
-  (setq en (c1c2:select-text))
+  (setq ens (c1c2:select-texts))
   (cond
-    ((null en)
+    ((null ens)
      (princ "\r\n未选择文字。"))
     (T
-     (setq obj (vlax-ename->vla-object en)
-           txt (vla-get-TextString obj))
+     (setq objs (mapcar 'vlax-ename->vla-object ens)
+           txts (mapcar 'vla-get-TextString objs))
      (cond
-       ((not (c1c2:first-number-span txt))
-        (vlax-release-object obj)
+       ((not (vl-some 'c1c2:first-number-span txts))
+        (c1c2:release-all objs)
+        (setq objs nil)
         (princ "\r\n选中文字中没有找到数字。"))
-       ((not (c1c2:change-number txt delta))
-        (vlax-release-object obj)
+       ((not (c1c2:change-all txts delta))
+        (c1c2:release-all objs)
+        (setq objs nil)
         (princ "\r\n目标数字减小后小于 0，无法复制。"))
        ((not (setq base (getpoint "\r\n指定基点: ")))
-        (vlax-release-object obj)
+        (c1c2:release-all objs)
+        (setq objs nil)
         (princ "\r\n已取消。"))
        (T
         (vla-StartUndoMark doc)
         (setq started T
               old-dragmode (getvar "DRAGMODE")
-              txt (c1c2:change-number txt delta))
+              txts (c1c2:change-all txts delta))
         (setvar "DRAGMODE" 2)
         (sssetfirst nil nil)
-        (while (and txt (c1c2:place-one obj txt base))
+        (while (and txts (c1c2:place-one objs txts base))
           (setq count (1+ count)
-                txt (c1c2:change-number txt delta))
+                txts (c1c2:change-all txts delta))
         )
         (redraw)
         (setvar "DRAGMODE" old-dragmode)
         (setq old-dragmode nil)
-        (vlax-release-object obj)
-        (setq obj nil)
+        (c1c2:release-all objs)
+        (setq objs nil)
         (c1c2:safe-end-undo doc)
         (setq started nil)
         (if (> count 0)
-          (princ (strcat "\r\n[C" (cond ((= delta 1) "1") ((= delta -1) "2") ((= delta 2) "3") (T "")) "] 已完成复制，共放置 " (itoa count) " 个对象。"))
+          (princ (strcat "\r\n[C" (cond ((= delta 1) "1") ((= delta -1) "2") ((= delta 2) "3") (T "")) "] 已完成复制，共放置 " (itoa count) " 组（每组 " (itoa (length ens)) " 个文字）。"))
           (princ "\r\n已取消。")
         )
         ;; txt 为 nil 说明下一份编号会小于 0，是自动停止而不是用户取消
-        (if (null txt)
+        (if (null txts)
           (princ "\r\n编号已减到 0，停止复制。"))
        )
      )
@@ -21485,6 +21976,516 @@
   (princ)
 )
 ;;; END JM
+;;; =======================================================================================
+;;; BEGIN HDDZ: 核对原理图与端子图的端子号—原理号对应
+;;; =======================================================================================
+;;; Encoding: UTF-8 without BOM, CRLF.
+;;; 第一次选择原理图里剔出的文字：白色“端子名:端子号”（如 YD:4）和青色原理号（如 2AW-901），同一行左右对应
+;;;   （原理号归左右间隙更近的端子，一样近归左边；整行只有原理号时归到上方最近的端子，适合上下排列）。含汉字的终点柜名不参与。
+;;; 第二次选择端子图文字（可直接框选整块端子排）：白色纯数字或数字+a 为端子号，白色其他文字为端子名，
+;;;   青色不含汉字为原理号。按端子号的排列自动判断方向：
+;;;   横排端子排（ZDDLH）：原理号与端子号上下对应（X 对齐），端子名在同一高度的左侧；
+;;;   竖排端子排（ZDDLS）：原理号与端子号左右对应（Y 对齐），端子名在同一列的上方。
+;;; 按“端子名:端子号”比对两边的原理号集合（忽略空格、大小写、顺序和重复）。只读不改原文字：
+;;;   问题写进结果卡片并选中；原理图一侧在行尾写红字，端子图一侧用红圈圈出（HDDZ_MARK 图层），
+;;;   重跑时先清掉本次两块选择范围内的旧标记。
+;;; 文字项：(图元 中心X 中心Y 字高 内容 类别 包围盒宽 包围盒高)，类别 "T" 端子号 / "P" 原理号 / "N" 端子名。
+;;; 记录：(键 端子名 端子号 端子图元表 原理号表 原理号图元表 右端X 中心Y 字高 中心X 圈半径)。
+
+(defun hddz:x (it) (cadr it))
+(defun hddz:y (it) (caddr it))
+(defun hddz:h (it) (nth 3 it))
+(defun hddz:s (it) (nth 4 it))
+(defun hddz:k (it) (nth 5 it))
+(defun hddz:bw (it) (nth 6 it))
+(defun hddz:bh (it) (nth 7 it))
+(defun hddz:str (s) (if s s ""))
+
+(defun hddz:norm (s / r)
+  ;; 比较用：去空白、全角冒号和减号转半角、转大写
+  (setq s (hddz:str s))
+  (foreach r (list (list "：" ":") (list "－" "-") (list " " "") (list "　" "")
+                   (list (chr 9) "") (list (chr 13) "") (list (chr 10) ""))
+    (setq s (aa:str-replace-all (car r) (cadr r) s)))
+  (strcase s))
+
+(defun hddz:split-term (s / p)
+  ;; “YD:4” → (“YD” “4”)；按最后一个冒号切开，没有冒号时端子名为空
+  (setq s (hddz:norm s)
+        p (vl-string-position 58 s nil T))
+  (if p
+    (list (substr s 1 p) (substr s (+ p 2)))
+    (list "" s)))
+
+(defun hddz:adjoin (x lst) (if (member x lst) lst (cons x lst)))
+
+(defun hddz:union (a b / x)
+  (foreach x b (setq a (hddz:adjoin x a)))
+  a)
+
+(defun hddz:same-set (a b)
+  (and (vl-every '(lambda (x) (member x b)) a)
+       (vl-every '(lambda (x) (member x a)) b)))
+
+(defun hddz:join (lst sep / out x)
+  (setq out "")
+  (foreach x lst
+    (setq out (if (= out "") x (strcat out sep x))))
+  out)
+
+(defun hddz:fmt (plist)
+  (if plist
+    (hddz:join (aa:merge-sort plist '(lambda (a b) (< a b))) " ")
+    "（无）"))
+
+(defun hddz:name-like-p (s h)
+  ;; 端子图里可作端子名的白色文字：排除含汉字的说明（如“#1主变高压侧”）、电缆的“至…”“未编号”“未填写”、截面和柜名大字
+  (and (/= s "") (< h 20.0) (not (aa:has-chinese s))
+       (not (wcmatch s "至*,未编号*,未填写*,*×*"))))
+
+(defun hddz:collect (ss side / i en ed s col h bb kind out skip)
+  ;; side "SCH" 原理图：白色为端子、青色为原理号，其他颜色带冒号的也算端子，含汉字的跳过；
+  ;; side "TB" 端子图：白色数字为端子号、白色其他为端子名，青色不含汉字为原理号
+  (setq i 0 skip 0)
+  (repeat (sslength ss)
+    (setq en (ssname ss i) ed (entget en) i (1+ i) kind nil)
+    (if (/= (strcase (cdr (assoc 8 ed))) "HDDZ_MARK")
+      (progn
+        (setq s (vl-string-trim (strcat " \t\r\n" "　") (hddz:str (aa:ysdl-get-plain-text ed)))
+              col (dx:color-kind en)
+              h (cdr (assoc 40 ed)))
+        (if (not (and h (> h 0))) (setq h 3.0))
+        (cond
+          ((= s "") nil)
+          ((= side "SCH")
+           (cond ((aa:has-chinese s) nil)
+                 ((= col 'WHITE) (setq kind "T"))
+                 ((= col 'CYAN) (setq kind "P"))
+                 ((or (vl-string-search ":" s) (vl-string-search "：" s)) (setq kind "T"))))
+          ((= col 'WHITE)
+           (cond ((aa:dz-number-p s) (setq kind "T"))
+                 ((hddz:name-like-p s h) (setq kind "N"))))
+          ((and (= col 'CYAN) (not (aa:has-chinese s))) (setq kind "P")))
+        (if (and kind (setq bb (aa:safe-get-bbox aa:doc en)))
+          (setq out (cons (list en (aa:bbox-center-x bb)
+                                (/ (+ (aa:bbox-top-y bb) (aa:bbox-bottom-y bb)) 2.0)
+                                h s kind
+                                (- (aa:bbox-right-x bb) (aa:bbox-left-x bb))
+                                (- (aa:bbox-top-y bb) (aa:bbox-bottom-y bb)))
+                          out))
+          (setq skip (1+ skip))))))
+  (list (reverse out) skip))
+
+(defun hddz:group (items ax / sorted out grp c0 tol it c)
+  ;; ax "Y"：按 Y 从上往下分行（中心高差不超过 1.5 和 0.6 倍字高中较大者），行内从左往右；
+  ;; ax "X"：按 X 从左往右分列，列内从上往下
+  (setq sorted (if (= ax "Y")
+                 (aa:merge-sort items '(lambda (a b) (> (caddr a) (caddr b))))
+                 (aa:merge-sort items '(lambda (a b) (< (cadr a) (cadr b))))))
+  (foreach it sorted
+    (setq c (if (= ax "Y") (hddz:y it) (hddz:x it)))
+    (if (and grp (<= (abs (- c c0)) tol))
+      (setq grp (cons it grp))
+      (progn
+        (if grp (setq out (cons grp out)))
+        (setq grp (list it) c0 c tol (max 1.5 (* 0.6 (hddz:h it)))))))
+  (if grp (setq out (cons grp out)))
+  (if (= ax "Y")
+    (mapcar '(lambda (g) (aa:merge-sort g '(lambda (a b) (< (cadr a) (cadr b))))) (reverse out))
+    (mapcar '(lambda (g) (aa:merge-sort g '(lambda (a b) (> (caddr a) (caddr b))))) (reverse out))))
+
+(defun hddz:pair-sch (items / ts links loose pend row rts it p prv nxt gp gn best bd d)
+  ;; 原理图：同一行里原理号归左右两侧间隙更近的端子（一样近归左边，即“端子在左、原理号在右”）；
+  ;; 整行只有原理号的（上下排列），归到上方最近的端子，没有再取下方最近的。返回 (端子项 连线 未对应原理号)
+  (foreach row (hddz:group items "Y")
+    (setq rts nil)
+    (foreach it row (if (= (hddz:k it) "T") (setq rts (cons it rts))))
+    (setq rts (reverse rts) ts (append ts rts))
+    (foreach p row
+      (if (/= (hddz:k p) "T")
+        (if rts
+          (progn
+            (setq prv nil nxt nil)
+            (foreach it rts
+              (if (< (hddz:x it) (hddz:x p))
+                (setq prv it)
+                (if (null nxt) (setq nxt it))))
+            (setq gp (if prv (- (- (hddz:x p) (* 0.5 (hddz:bw p))) (+ (hddz:x prv) (* 0.5 (hddz:bw prv)))))
+                  gn (if nxt (- (- (hddz:x nxt) (* 0.5 (hddz:bw nxt))) (+ (hddz:x p) (* 0.5 (hddz:bw p))))))
+            (setq links (cons (list (if (and prv (or (null nxt) (<= gp gn))) prv nxt) p) links)))
+          (setq loose (cons p loose))))))
+  (setq pend (reverse loose) loose nil)
+  (foreach p pend
+    (setq best nil bd nil)
+    (foreach it ts
+      (setq d (distance (list (hddz:x it) (hddz:y it)) (list (hddz:x p) (hddz:y p))))
+      (if (<= d (* 15.0 (max (hddz:h it) (hddz:h p))))
+        (progn
+          (if (< (hddz:y it) (- (hddz:y p) 0.1)) (setq d (+ d 1000000.0)))
+          (if (or (null bd) (< d bd)) (setq bd d best it)))))
+    (if best
+      (setq links (cons (list best p) links))
+      (setq loose (cons p loose))))
+  (list ts (reverse links) (reverse loose)))
+
+(defun hddz:put-min (al k d / old)
+  (if (setq old (assoc k al))
+    (if (< d (cdr old)) (subst (cons k d) old al) al)
+    (cons (cons k d) al)))
+
+(defun hddz:neighbor-pitch (groups ax / al g prev it d)
+  ;; 同一行（列）里相邻端子号间距在 0.1 到 12 与 4 倍字高中较大者之间的记为有邻居，返回 ((图元 . 最小间距) ...)
+  (foreach g groups
+    (setq prev nil)
+    (foreach it g
+      (if prev
+        (progn
+          (setq d (if (= ax "Y") (- (hddz:x it) (hddz:x prev)) (- (hddz:y prev) (hddz:y it))))
+          (if (and (> d 0.1) (<= d (max 12.0 (* 4.0 (hddz:h it)))))
+            (setq al (hddz:put-min (hddz:put-min al (car prev) d) (car it) d)))))
+      (setq prev it)))
+  al)
+
+(defun hddz:orient (en hal val / hp vp)
+  ;; (方向 间距)：“H” 横排（上下对应）、“V” 竖排（左右对应）、“A” 看不出（两种都试）
+  (setq hp (cdr (assoc en hal)) vp (cdr (assoc en val)))
+  (cond ((and hp (not vp)) (list "H" hp))
+        ((and vp (not hp)) (list "V" vp))
+        ((and hp vp) (list "A" (min hp vp)))
+        (T (list "A" 5.0))))
+
+(defun hddz:far (tt)
+  ;; 原理号离端子号的最远距离：60 与 20 倍字高中较大者（图纸放大时跟着放宽）
+  (max 60.0 (* 20.0 (hddz:h tt))))
+
+(defun hddz:score (p tt dir pitch / dx dy tol far s1 s2)
+  ;; 原理号 p 与端子号 tt 的距离分；对不上返回 nil。对齐方向的偏差不超过 0.45 倍端子间距，另一方向不超过 hddz:far
+  (setq dx (abs (- (hddz:x p) (hddz:x tt)))
+        dy (abs (- (hddz:y p) (hddz:y tt)))
+        tol (max 1.0 (* 0.45 pitch))
+        far (hddz:far tt))
+  (if (and (/= dir "V") (<= dx tol) (<= dy far)) (setq s1 (+ dy (* 10.0 dx))))
+  (if (and (/= dir "H") (<= dy tol) (<= dx far)) (setq s2 (+ dx (* 10.0 dy))))
+  (cond ((and s1 s2) (min s1 s2)) (s1 s1) (s2 s2)))
+
+(defun hddz:pick-best (p g oal cur / tt o s)
+  ;; 在一组端子号 g 里找原理号 p 的最佳端子；cur 为目前最好的 (端子项 分数) 或 nil，返回更好的那个
+  (foreach tt g
+    (setq o (cdr (assoc (car tt) oal))
+          s (hddz:score p tt (car o) (cadr o)))
+    (if (and s (or (null cur) (< s (cadr cur)))) (setq cur (list tt s))))
+  cur)
+
+(defun hddz:pair-tb (items / ts ps ns it hal val oal o hts vts hrows vcols nal g gy gx rowns tt best p links loose)
+  ;; 端子图：先按端子号排列定方向，再给端子号找端子名，最后把原理号归到对齐的端子号。
+  ;; 返回 (((端子项 端子名 端子号) ...) 连线 未对应原理号)
+  (foreach it items
+    (cond ((= (hddz:k it) "T") (setq ts (cons it ts)))
+          ((= (hddz:k it) "P") (setq ps (cons it ps)))
+          (T (setq ns (cons it ns)))))
+  (setq ts (reverse ts) ps (reverse ps) ns (reverse ns))
+  ;; 1. 方向：同一行有相邻端子号为横排（间距上限随字高放大），同一列有相邻端子号为竖排
+  (setq hal (hddz:neighbor-pitch (hddz:group ts "Y") "Y")
+        val (hddz:neighbor-pitch (hddz:group ts "X") "X"))
+  (foreach it ts
+    (setq o (hddz:orient (car it) hal val)
+          oal (cons (cons (car it) o) oal))
+    (if (/= (car o) "V") (setq hts (cons it hts)))
+    (if (/= (car o) "H") (setq vts (cons it vts))))
+  (setq hrows (hddz:group (reverse hts) "Y")
+        vcols (hddz:group (reverse vts) "X"))
+  ;; 2. 端子名：横排取同一高度左侧最近的名称，竖排取同一列上方最近的名称
+  (foreach g hrows
+    (setq gy (hddz:y (car g)) rowns nil)
+    (foreach it ns (if (<= (abs (- (hddz:y it) gy)) (max 6.0 (* 2.0 (hddz:h (car g))))) (setq rowns (cons it rowns))))
+    (foreach tt g
+      (setq best nil)
+      (foreach it rowns
+        (if (and (< (hddz:x it) (hddz:x tt)) (or (null best) (> (hddz:x it) (hddz:x best))))
+          (setq best it)))
+      (if (and best (not (assoc (car tt) nal)))
+        (setq nal (cons (cons (car tt) (hddz:norm (hddz:s best))) nal)))))
+  (foreach g vcols
+    (setq gx (hddz:x (car g)) rowns nil)
+    (foreach it ns (if (<= (abs (- (hddz:x it) gx)) (max 6.0 (* 2.0 (hddz:h (car g))))) (setq rowns (cons it rowns))))
+    (foreach tt g
+      (setq best nil)
+      (foreach it rowns
+        (if (and (> (hddz:y it) (hddz:y tt)) (or (null best) (< (hddz:y it) (hddz:y best))))
+          (setq best it)))
+      (if (and best (not (assoc (car tt) nal)))
+        (setq nal (cons (cons (car tt) (hddz:norm (hddz:s best))) nal)))))
+  ;; 3. 原理号归属：只查附近的行（列），取分数最小的端子号
+  (foreach p ps
+    (setq best nil)
+    (foreach g hrows
+      (if (and (<= (- (hddz:x (car g)) 3.0) (hddz:x p) (+ (hddz:x (last g)) 3.0))
+               (<= (abs (- (hddz:y p) (hddz:y (car g)))) (+ 5.0 (hddz:far (car g)))))
+        (setq best (hddz:pick-best p g oal best))))
+    (foreach g vcols
+      (if (and (<= (abs (- (hddz:x p) (hddz:x (car g)))) (+ 5.0 (hddz:far (car g))))
+               (<= (- (hddz:y (last g)) 3.0) (hddz:y p) (+ (hddz:y (car g)) 3.0)))
+        (setq best (hddz:pick-best p g oal best))))
+    (if best
+      (setq links (cons (list (car best) p) links))
+      (setq loose (cons p loose))))
+  (list (mapcar '(lambda (it) (list it (hddz:str (cdr (assoc (car it) nal))) (hddz:norm (hddz:s it)))) ts)
+        (reverse links)
+        (reverse loose)))
+
+(defun hddz:build (tinfos links / pal l a recs ti it key rec plist pens rx p)
+  ;; 把端子—原理号连线汇总成记录；同一“端子名:端子号”出现多次的合并（没有端子名的不合并，可能是不同端子排）
+  (foreach l links
+    (if (setq a (assoc (car (car l)) pal))
+      (setq pal (subst (append a (list (cadr l))) a pal))
+      (setq pal (cons (list (car (car l)) (cadr l)) pal))))
+  (foreach ti tinfos
+    (setq it (car ti)
+          key (strcat (cadr ti) ":" (caddr ti))
+          plist nil pens nil
+          rx (+ (hddz:x it) (* 0.5 (hddz:bw it))))
+    (foreach p (cdr (assoc (car it) pal))
+      (setq plist (hddz:adjoin (hddz:norm (hddz:s p)) plist)
+            pens (cons (car p) pens)
+            rx (max rx (+ (hddz:x p) (* 0.5 (hddz:bw p))))))
+    (if (and (/= (cadr ti) "") (setq rec (assoc key recs)))
+      (setq recs (subst (list key (nth 1 rec) (nth 2 rec) (append (nth 3 rec) (list (car it)))
+                              (hddz:union (nth 4 rec) plist) (append (nth 5 rec) pens)
+                              (nth 6 rec) (nth 7 rec) (nth 8 rec) (nth 9 rec) (nth 10 rec))
+                        rec recs))
+      (setq recs (cons (list key (cadr ti) (caddr ti) (list (car it)) plist pens
+                             rx (hddz:y it) (hddz:h it) (hddz:x it)
+                             (+ 0.5 (* 0.6 (max (hddz:bw it) (hddz:bh it)))))
+                       recs))))
+  (reverse recs))
+
+(defun hddz:compare (srecs trecs / pairs used left-s left-t rest sr tr cands)
+  ;; 先按“端子名:端子号”精确对应；有一边没有端子名的，按端子号找另一边唯一的同号端子。
+  ;; 返回 (((原理图记录 端子图记录) ...) 只在原理图的记录 只在端子图的记录)
+  (foreach sr srecs
+    (if (and (/= (nth 1 sr) "") (setq tr (assoc (car sr) trecs)) (not (member (car tr) used)))
+      (setq pairs (cons (list sr tr) pairs) used (cons (car tr) used))
+      (setq left-s (cons sr left-s))))
+  (foreach tr trecs
+    (if (not (member (car tr) used)) (setq left-t (cons tr left-t))))
+  (setq left-t (reverse left-t))
+  (foreach sr (reverse left-s)
+    (setq cands nil)
+    (foreach tr left-t
+      (if (and (= (nth 2 sr) (nth 2 tr)) (or (= (nth 1 sr) "") (= (nth 1 tr) "")))
+        (setq cands (cons tr cands))))
+    (if (= (length cands) 1)
+      (setq pairs (cons (list sr (car cands)) pairs)
+            left-t (vl-remove (car cands) left-t))
+      (setq rest (cons sr rest))))
+  (list (reverse pairs) (reverse rest) left-t))
+
+(defun hddz:analyze (sitems titems / sp tp srecs trecs)
+  ;; 纯计算：返回 (原理图记录 端子图记录 比对结果 原理图未对应原理号 端子图未对应原理号)
+  (setq sp (hddz:pair-sch sitems)
+        tp (hddz:pair-tb titems)
+        srecs (hddz:build (mapcar '(lambda (it) (cons it (hddz:split-term (hddz:s it)))) (car sp))
+                          (cadr sp))
+        trecs (hddz:build (car tp) (cadr tp)))
+  (list srecs trecs (hddz:compare srecs trecs) (caddr sp) (caddr tp)))
+
+(defun hddz:mk-text (r txt)
+  ;; 原理图记录行尾的红字位置
+  (list "T" (+ (nth 6 r) (nth 8 r)) (nth 7 r) (nth 8 r) txt))
+
+(defun hddz:mk-circle (r)
+  (list "C" (nth 9 r) (nth 7 r) (nth 10 r)))
+
+(defun hddz:findings (an / out cmp pr sr tr sp tp key it r n-ok n-diff n-miss-t n-miss-s n-loose n-dup)
+  ;; 生成问题清单：每项 (级别 类别 定位图元 说明 标记表 选中图元表)；返回 (问题清单 计数)
+  (setq cmp (nth 2 an) n-ok 0 n-diff 0 n-miss-t 0 n-miss-s 0 n-loose 0 n-dup 0)
+  (foreach pr (car cmp)
+    (setq sr (car pr) tr (cadr pr) sp (nth 4 sr) tp (nth 4 tr)
+          key (if (/= (nth 1 sr) "") (car sr) (car tr)))
+    (cond
+      ((hddz:same-set sp tp) (setq n-ok (1+ n-ok)))
+      ((null tp)
+       (setq n-diff (1+ n-diff)
+             out (cons (list "err" "端子图未接线" (car (nth 3 tr))
+                             (strcat key "：原理图 " (hddz:fmt sp) "；端子图这个端子没有原理号")
+                             (list (hddz:mk-text sr "端子图未接线") (hddz:mk-circle tr))
+                             (append (nth 3 sr) (nth 3 tr)))
+                       out)))
+      ((null sp)
+       (setq n-diff (1+ n-diff)
+             out (cons (list "err" "原理图没标原理号" (car (nth 3 sr))
+                             (strcat key "：原理图没有原理号；端子图 " (hddz:fmt tp))
+                             (list (hddz:mk-text sr (strcat "端子图：" (hddz:fmt tp))) (hddz:mk-circle tr))
+                             (append (nth 3 sr) (nth 3 tr)))
+                       out)))
+      (T
+       (setq n-diff (1+ n-diff)
+             out (cons (list "err" "原理号不一致" (car (nth 3 tr))
+                             (strcat key "：原理图 " (hddz:fmt sp) "；端子图 " (hddz:fmt tp))
+                             (list (hddz:mk-text sr (strcat "端子图：" (hddz:fmt tp))) (hddz:mk-circle tr))
+                             (append (nth 3 sr) (nth 3 tr) (nth 5 tr)))
+                       out)))))
+  (foreach sr (cadr cmp)
+    (setq n-miss-t (1+ n-miss-t)
+          out (cons (list "err" "端子图缺端子" (car (nth 3 sr))
+                          (strcat (car sr) "：原理图 " (hddz:fmt (nth 4 sr)) "；端子图里没找到这个端子"
+                                  (if (= (nth 1 sr) "") "（原理图没写端子名，同号端子不唯一时也会落到这里）" ""))
+                          (list (hddz:mk-text sr "端子图没有这个端子"))
+                          (nth 3 sr))
+                    out)))
+  (foreach tr (caddr cmp)
+    (if (nth 4 tr)
+      (setq n-miss-s (1+ n-miss-s)
+            out (cons (list "warn" "原理图没有" (car (nth 3 tr))
+                            (strcat (car tr) "：端子图 " (hddz:fmt (nth 4 tr)) "；第一次选择里没有这个端子"
+                                    (if (= (nth 1 tr) "") "（端子图这个端子号没找到端子名）" ""))
+                            (list (hddz:mk-circle tr))
+                            (nth 3 tr))
+                      out))))
+  (foreach it (nth 3 an)
+    (setq n-loose (1+ n-loose)
+          out (cons (list "warn" "原理号未对应端子" (car it)
+                          (strcat "原理图原理号 " (hddz:s it) " 同一行和上方都没有端子号")
+                          (list (list "T" (+ (hddz:x it) (* 0.5 (hddz:bw it)) (hddz:h it)) (hddz:y it) (hddz:h it) "没有对应端子"))
+                          (list (car it)))
+                    out)))
+  (foreach it (nth 4 an)
+    (setq n-loose (1+ n-loose)
+          out (cons (list "warn" "原理号未对应端子" (car it)
+                          (strcat "端子图原理号 " (hddz:s it) " 附近没有上下或左右对齐的端子号")
+                          (list (list "C" (hddz:x it) (hddz:y it) (+ 0.5 (* 0.6 (max (hddz:bw it) (hddz:bh it))))))
+                          (list (car it)))
+                    out)))
+  (foreach r (car an)
+    (if (> (length (nth 3 r)) 1)
+      (setq n-dup (1+ n-dup)
+            out (cons (list "warn" "端子重复" (car (nth 3 r))
+                            (strcat "原理图里 " (car r) " 出现 " (itoa (length (nth 3 r))) " 次，原理号合在一起比对")
+                            nil nil)
+                      out))))
+  (foreach r (cadr an)
+    (if (> (length (nth 3 r)) 1)
+      (setq n-dup (1+ n-dup)
+            out (cons (list "warn" "端子重复" (car (nth 3 r))
+                            (strcat "端子图里 " (car r) " 出现 " (itoa (length (nth 3 r)))
+                                    " 次（可能框进了两块同名端子排），原理号合在一起比对")
+                            nil nil)
+                      out))))
+  (list (reverse out)
+        (list (cons "一致" n-ok) (cons "不一致" n-diff) (cons "端子图缺端子" n-miss-t)
+              (cons "原理图没有" n-miss-s) (cons "原理号未对应端子" n-loose) (cons "端子重复" n-dup))))
+
+(defun hddz:box (items m / it x0 y0 x1 y1 a b)
+  ;; 文字项的外包范围，向外放宽 m：(左 下 右 上)
+  (foreach it items
+    (setq a (* 0.5 (hddz:bw it)) b (* 0.5 (hddz:bh it)))
+    (if x0
+      (setq x0 (min x0 (- (hddz:x it) a)) x1 (max x1 (+ (hddz:x it) a))
+            y0 (min y0 (- (hddz:y it) b)) y1 (max y1 (+ (hddz:y it) b)))
+      (setq x0 (- (hddz:x it) a) x1 (+ (hddz:x it) a)
+            y0 (- (hddz:y it) b) y1 (+ (hddz:y it) b))))
+  (if x0 (list (- x0 m) (- y0 m) (+ x1 m) (+ y1 m))))
+
+(defun hddz:clear-marks (boxes / ss i en p n)
+  ;; 删除这些范围里上次 HDDZ 留下的红字和红圈，返回删除个数
+  (setq n 0 boxes (vl-remove nil boxes))
+  (if (and boxes (setq ss (ssget "_X" '((8 . "HDDZ_MARK")))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq en (ssname ss i) i (1+ i) p (cdr (assoc 10 (entget en))))
+        (if (and p (vl-some '(lambda (b) (and (<= (car b) (car p) (caddr b)) (<= (cadr b) (cadr p) (cadddr b))))
+                            boxes)
+                 (not (vl-catch-all-error-p (vl-catch-all-apply 'entdel (list en)))))
+          (setq n (1+ n))))))
+  n)
+
+(defun hddz:ensure-layer ()
+  (if (not (tblsearch "LAYER" "HDDZ_MARK"))
+    (entmake '((0 . "LAYER") (100 . "AcDbSymbolTableRecord")
+               (100 . "AcDbLayerTableRecord") (2 . "HDDZ_MARK")
+               (70 . 0) (62 . 1)))))
+
+(defun hddz:draw-mark (m)
+  ;; ("T" x y 字高 文字)：左端在 x、竖向居中于 y 的红字；("C" x y 半径)：红圈
+  (hddz:ensure-layer)
+  (if (= (car m) "C")
+    (entmakex (list '(0 . "CIRCLE") '(8 . "HDDZ_MARK") (list 10 (nth 1 m) (nth 2 m) 0.0)
+                    (cons 40 (nth 3 m)) '(62 . 1)))
+    (entmakex (list '(0 . "TEXT") '(8 . "HDDZ_MARK")
+                    (list 10 (nth 1 m) (- (nth 2 m) (* 0.5 (nth 3 m))) 0.0)
+                    (cons 40 (nth 3 m)) (cons 1 (nth 4 m)) '(50 . 0.0) '(41 . 0.7) '(62 . 1)
+                    (cons 7 (if (tblsearch "STYLE" "HZ") "HZ" (getvar "TEXTSTYLE")))))))
+
+(defun hddz:count-kind (items k / n it)
+  (setq n 0)
+  (foreach it items (if (= (hddz:k it) k) (setq n (1+ n))))
+  n)
+
+(defun hddz:run (ss1 ss2 / c1 c2 sitems titems an fs f m sel short full nn tn r)
+  (setq c1 (hddz:collect ss1 "SCH") c2 (hddz:collect ss2 "TB")
+        sitems (car c1) titems (car c2))
+  (cond
+    ((= (hddz:count-kind sitems "T") 0)
+     (princ "\n[HDDZ] 第一次选择里没有端子（白色文字，如 YD:4），已取消。")
+     nil)
+    ((= (hddz:count-kind titems "T") 0)
+     (princ "\n[HDDZ] 第二次选择里没有端子号（白色纯数字或数字+a），已取消。")
+     nil)
+    (T
+     (setq an (hddz:analyze sitems titems)
+           fs (hddz:findings an)
+           sel (ssadd))
+     (hddz:clear-marks (list (hddz:box sitems 15.0) (hddz:box titems 5.0)))
+     (aa:rep-begin "HDDZ")
+     (aa:rep-info (strcat "原理图：端子 " (itoa (hddz:count-kind sitems "T"))
+                          " 个、原理号 " (itoa (hddz:count-kind sitems "P"))
+                          " 个；端子图：端子号 " (itoa (hddz:count-kind titems "T"))
+                          " 个、原理号 " (itoa (hddz:count-kind titems "P"))
+                          " 个、端子名 " (itoa (hddz:count-kind titems "N")) " 个"))
+     (if (> (+ (cadr c1) (cadr c2)) 0)
+       (aa:rep-info (strcat "不参与核对的文字 " (itoa (+ (cadr c1) (cadr c2)))
+                            " 个（含汉字的柜名、其他颜色等）")))
+     (setq nn 0 tn 0)
+     (foreach r (cadr an)
+       (setq tn (1+ tn))
+       (if (= (nth 1 r) "") (setq nn (1+ nn))))
+     (if (> nn 0)
+       (aa:rep-info (strcat "端子图有 " (itoa nn) " 个端子号没找到端子名（共 " (itoa tn)
+                            " 个），这些按端子号对应；同号不唯一时请把端子名一起框进去")))
+     (foreach f (car fs)
+       (aa:rep-item (car f) (cadr f) (caddr f) (cadddr f))
+       (foreach m (nth 4 f) (hddz:draw-mark m))
+       (foreach m (nth 5 f) (if (entget m) (ssadd m sel))))
+     (setq short (strcat "核对完成：" (aa:rep-counts (cadr fs)))
+           full (strcat short "。原理图一侧写了红字，端子图一侧画了红圈（HDDZ_MARK 图层）"))
+     (aa:rep-end short full)
+     (if (> (sslength sel) 0) sel))))
+
+(defun hddz:work (/ ss1 ss2)
+  (princ "\n[HDDZ] 第一次选择：原理图里剔出的端子（白色，如 YD:4）和原理号（青色）")
+  (if (setq ss1 (ssget '((0 . "TEXT,MTEXT"))))
+    (progn
+      (princ "\n[HDDZ] 第二次选择：端子图（端子名、端子号和原理号，可直接框选整块端子排）")
+      (if (setq ss2 (ssget '((0 . "TEXT,MTEXT"))))
+        (hddz:run ss1 ss2)
+        (progn (princ "\n[HDDZ] 没有选择端子图，已取消。") nil)))
+    (progn (princ "\n[HDDZ] 没有选择原理图文字，已取消。") nil)))
+
+;;; 功能: 先选原理图剔出的端子与原理号，再选端子图，按“端子名:端子号”核对两边原理号是否一致，问题写结果卡片、标红并选中。
+(defun c:HDDZ (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho result)
+  (aa:cmd-begin "HDDZ")
+  (setq result (vl-catch-all-apply 'hddz:work nil))
+  (if (vl-catch-all-error-p result)
+    (progn
+      (princ (strcat "\n[HDDZ] " (vl-catch-all-error-message result)))
+      (setq result nil)))
+  (aa:cmd-end)
+  (if (= (type result) 'PICKSET)
+    (sssetfirst nil result)
+    (sssetfirst nil nil))
+  (princ))
+;;; END HDDZ
 ;;; =======================================================================================
 ;;; Encoding: UTF-8 without BOM, CRLF.
 ;;; BH1：编号。先点起点柜名大字，输入前缀和起始号，再依次点绿色电缆线（记住顺序），

@@ -2488,3 +2488,169 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 验证状态：未连接、加载或操作 CAD。AutoCAD 上未验证：SXD 跨图 VBS、SX2 筛选的 CAD 内流程、QW2P 剪贴板、`COPYBASE`。DH 主流程来自用户实测的单文件版，整合后未加载；`\U+` 修正未实机验证。
 - 同步状态：AutoCAD 已跟到上述中望版本；两版已分别提交并推送到各自 `origin/main`。
 - 分享包：`D:\Users\ys199\Desktop\AutoCAD2018插件-20261031-160838.zip`（10-22 的旧包备份在 `E:\366256\vibecoding\AutoCAD分享打包\旧包备份\`），含 `更新说明-20261031.txt`；打包时安装程序试跑通过，`命令别名设置.exe` 自检通过（183 条）。
+
+## 2026-10-31 16:28:45 AutoCAD SXD 定位脚本去掉 COM，VBS 限制发送次数（AutoCAD 单边）
+
+- 命令/模块：`SXD`（`aa:link-write-jump`、`aa:link-send-later`）。
+- 问题（用户实机）：跨图跳到 `62X-B26009S-D0202-公用设备二次线.dwg` 后，定位脚本在目标图报 `no function definition: VLAX-GET-ACAD-OBJECT`，脚本里的 `(vl-load-com)` 已先执行。完成标记写在脚本末尾，出错就写不上，VBS 约每秒重发一次 `(load ...)`，最多 150 轮，命令行刷屏停不下来。这是 2026-10-31 15:58:50 移植时引入的。函数缺失的原因未查明，与 2026-10-15 的 `VLAX-ENAME->VLA-OBJECT` 未定义现象相近。
+- 修改：定位脚本不再使用任何 `vla-`/`vlax-`/`vl-` 函数：单行文字用 `textbox` 和旋转角算外框中心，多行文字用插入点；缩放高度为 max(60, 30×字高)。第一行先写 `USERS5`，后面出错也不重发。VBS 发送后等 1.5 秒，最多发 3 次，仍无标记时弹“没能跳到原件”。
+- 当时处理：结束了失控的 `aa_sxd_jump.vbs`（PID 38400），未操作 CAD 进程。
+- 检查：`tests/test_sync_1031_gbk.py` 新增两例，实际执行生成的定位脚本（确认不含 COM、第一行写标记、旋转文字中心、MTEXT 插入点）；`check_link_static.py` 断言无 COM 和发送上限；`check_all_static.py`、`scripts/check_project.py` 通过。修复前测试还抓到一处多余括号，已改。
+- 来源：AutoCAD `AA整合版本.lsp` SHA-256 `5f85ba4bcd62b937c04dc0b2f8603daaab35455d0218824bb216bd706399e4df`；修改前备份在 `backups/dated/2026-10-31/`（`bak-SXD去COM-`）。
+- 中望状态：代码未改。中望的 VBS 也没有发送次数上限，定位脚本出错时同样会重发，但目前没有报错记录。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在 AutoCAD 验收。AutoCAD 分享包未重新打包，`AutoCAD2018插件-20261031-160838.zip` 里仍是修复前的版本。
+
+## 2026-11-02 09:20:14 中望新增 YSDL2：同一电缆编号只导出一行
+
+- 中望完成时间：2026-11-02 09:20:14 +08:00。命令/模块：`YSDL`、`YSDL2`（新增）。
+- 需求：`GTY` 总表上一根电缆在两端各有一行（编号相同、起点终点互换），导出 CSV 时只要一行；原本只有一行的照常导出；格式和 `YSDL` 相同。
+- 修改：`c:YSDL` 主体改为共用的 `aa:ysdl-run (tag once)`，`c:YSDL`、`c:YSDL2` 都是一行入口；`YSDL` 行为不变。新增 `aa:ysdl-dedup-rows`：按行内第 2 列判断，保留最先出现的一行，不要求相邻，分类框模式跨框累计，序号按去重后的行编排。取不到编号的行原样保留。重复行不是第一行的镜像或规格不同时，仍只导出第一行，但列出编号并在弹窗提示。选中文字仍全部变黄。
+- 工具与文档：新增 `tests/test_ysdl_dedup.py`（执行 LISP 源码，含用户截图数据）；更新 `tools/check_ysdl_static.py`、`tests/test_audit.py`、`docs/AUDIT_REVIEW.md`、`docs/YSDL.md`；工作流程文档 `二次接线-端子排与电缆清册.md` 第 6 步增加 YSDL2。
+- 检查：`tests.test_ysdl_dedup` 7 项通过；`check_all_static.py` ALL PASS；`gen_命令索引.py` 202 个命令；`audit_lsp.py --write` 0 structural findings；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS。
+- 源码哈希：中望修改前 `672e54183a75163cadd40babca4b8924d71eda288219e094b9b606d806ede1b4`，修改后 `637964ea79a270dcf0b16f3c6a6ef12d82e5ddf3fbcea008a28e57f99d7567d8`；备份 `backups/dated/2026-11-02/AA整合版本.lsp.bak-YSDL2-20261102-091517`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改。
+
+## 2026-11-02 09:27:02 中望修复 YSDL2 报“参数类型错误: consp nil”
+
+- 中望完成时间：2026-11-02 09:27:02 +08:00。命令/模块：`YSDL2`（`aa:ysdl-dedup-rows`）。`YSDL` 不走这段代码，不受影响。
+- 问题（用户实机）：选中 7185 个对象运行 `YSDL2`，报 `参数类型错误: consp nil`。这是 09:20:14 那次新增时引入的。
+- 原因：去重函数第一句 `(nth 3 state)` 在首次调用时 `state` 为 nil，取列时也没判断行的列数。项目其他位置取列都先判断长度（如 `aa:ysdl-format-categorized-row`、`zddl2:nth-or`）。离线解释器原来的 `nth` 对空表和越界直接返回 nil，所以测试没抓到。
+- 修改：`state` 为空时不取值，取列改用 `zddl2:nth-or`。`tests/test_ysdl_dedup.py` 的 `nth` 改为空表或越界即报错，修复前 5 项报同样的错，修复后通过。
+- 待确认：报错来自 `nth` 取空表或越界，是由“严格 nth 能复现同一报错”和项目写法推断的，未在中望实机确认。
+- 检查：`tests.test_ysdl_dedup` 7 项通过；`check_all_static.py`、`scripts/check_project.py` ALL PASS；`audit_lsp.py --write` 0 structural findings。
+- 源码哈希：修改后 `834928f32f532d35fbebef398c339520811516e032bc99da24541c5a61c84168`；修改前备份 `backups/dated/2026-11-02/AA整合版本.lsp.bak-YSDL2-nth-20261102-092315`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改；移植时一并带上此修复。
+
+## 2026-11-02 09:35:44 中望 YSDL2 比较改为忽略空格和“至”
+
+- 中望完成时间：2026-11-02 09:35:44 +08:00。命令/模块：`YSDL2`（`aa:ysdl-dedup-rows`）。
+- 问题（用户实机）：`YSDL2` 已能导出（734 行，跳过 703 行），但 `1B-102A` 等被误报对不上：起点写 `110kV GIS1#主变汇控柜`，对端写 `至110kV GIS 1#主变汇控柜`，只差一个空格。
+- 修改：编号、起点、终点、规格的比较改用已有的 `hddl:cabinet`（忽略空格、开头的“至”和大小写），和 `HDDL`、BH 系列同一规则。只影响判断，导出文字不变；编号写法只差空格或大小写时现在也算同一编号。用户确认这是通用规范，已写入 `ZW-auto_lisp` 的 `AGENTS.md`、`CLAUDE.md`、`ANTIGRAVITY.md`。
+- 工具与文档：`tests/test_ysdl_dedup.py` 新增用户实测数据用例，共 8 项；更新 `docs/YSDL.md`、工作流程文档 YSDL2 一条。
+- 检查：`tests.test_ysdl_dedup` 8 项通过；`check_all_static.py`、`scripts/check_project.py` ALL PASS；`audit_lsp.py --write` 0 structural findings。
+- 源码哈希：修改后 `ccb9349022aec9406c4c6fc6db2b2b257e124d66f45a45c9a30a1194f951767e`；修改前备份 `backups/dated/2026-11-02/AA整合版本.lsp.bak-YSDL2-norm-20261102-093118`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改；项目规范文件也未改。
+
+## 2026-11-03 10:36:41 WWW / HUI 深度改色补强（动态块等改不全）
+
+- 起因：用户反馈 `*U72`、`*U65`、`*U69` 三个匿名块参照（图层 0、缩放 ±0.01，推测为动态块）用 WWW 不能全部变白，HUI 同样不能全部变灰。
+- 改动（中望，`aa:deep-color-*` 系列，影响 WWW、HUI）：
+  - 块参照同时改 `Name`（*U 匿名定义）和 `EffectiveName`（动态块源定义），嵌套块同样处理（新增 `aa:deep-color-insert-blocks`）。
+  - 块定义里的嵌套块参照的属性也改色（原来只处理选中块自身的属性）。
+  - 渐变填充改两种渐变色，多重引线改引线颜色、文字颜色并去掉内嵌颜色码（新增 `aa:deep-color-special`、`aa:deep-color-com-color`）；块内 LEADER 按标注方式处理。
+  - 改色期间临时解锁锁定图层，结束后恢复（无论中途是否出错）；选中对象本身在锁定图层上时仍不改色，与原来一致。
+  - 修复 `aa:deep-color-dimension` 中标注匿名块里 MTEXT 去掉颜色码后没写回的问题。
+  - 改不了颜色或该类型不显示实体颜色的（IMAGE、OLE、WIPEOUT、代理实体、表格等），命令结束按类型报告数量。
+- 检查：`check_all_static.py` ALL PASS；已重新生成命令索引、代码地图和 `audit_lsp.py --write`。
+- 源码哈希：修改后 `f282461f394fb0ae1f62c9c8c512b3bef8a230ded266daf7bb317075e9e4c8d1`；修改前备份 `backups/dated/2026-11-03/AA整合版本.lsp.bak-WWW深度改色-20261103-103234`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改。
+
+## 2026-11-03 10:42:30 WWW / HUI 深度改色二次修正（用户实测上一版仍不变色）
+
+- 用户重载上一版后实测 WWW，命令提示“所有选中对象已改为白色”，没有出现“未能改色”报告，但对象仍不变色。推断：每次 entmod 都成功了，但改到的不是图上显示的 `*U` 匿名块定义；中望 COM 的 `Name` 对动态块参照可能返回源块名，或 `Blocks.Item` 按 `*U` 名字取定义失败后被静默跳过（未在 CAD 里核实具体是哪一种）。
+- 改动：`aa:deep-color-insert-blocks` 改为按 DXF 组码 2 取块名，再补 `EffectiveName`；`aa:deep-color-block-definition` 改为 `tblobjname "BLOCK"` + `entnext` 遍历到 ENDBLK，不再用 COM 取块；找不到块定义时报告块名；`aa:deep-color-attributes` 改为按 entnext 遍历块参照后面的 ATTRIB（参数由 VLA 对象改为图元名）；结束提示增加“含块内共处理 N 个对象”。
+- 检查：`check_all_static.py` ALL PASS；已重新生成命令索引、代码地图和 `audit_lsp.py --write`。
+- 源码哈希：修改后 `691aaa99d8a9c42b172098c88e2b86e768066b7e4bb3f167ad7faa817c5ff78e`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改。
+
+## 2026-11-03 10:50:14 WWW / HUI 深度改色二次修正：用户实机验收通过
+
+- 用户重载 10:42:30 版本后实测 WWW，`*U72`、`*U65`、`*U69` 全部变色。代码未再修改。
+- 平台差异已记入 `docs/DUAL_PLATFORM.md`。
+- AutoCAD 状态：待同步，代码未改。
+
+## 2026-11-03 13:26:32 C1 / C2 / C3 支持一次复制多个文字
+
+- 起因：用户要求选中多个文字（如 23P、24P、25P）一起复制，C1 后得到 24P、25P、26P。
+- 改动（中望，`c1c2:` 系列）：`c1c2:select-text` 改为 `c1c2:select-texts`，取预选或新选的全部文字；新增 `c1c2:change-all`，每个文字各自按 delta 变化，不含数字的原样随组复制，任一减到小于 0 整组停止；`c1c2:place-one` 复制整组副本，用一个选择集交给一次原生 MOVE 拖动放置，取消时整组删除；`c1c2:run` 改为处理对象列表，结束提示改为“共放置 N 组（每组 M 个文字）”。单选文字时行为与原来一致。
+- 检查：`check_all_static.py` ALL PASS；`check_c1c2_static.py`、`check_nu_c1c2_target_static.py` 补充多选结构与 `c1c2:change-all` 用例；已重新生成命令索引、代码地图和 `audit_lsp.py --write`。
+- 源码哈希：修改后 `b53982b243eb9f322e87cafca4b97e5762a9a2fcafb7ffd3583a2eb9bcbc5af1`；修改前备份 `backups/dated/2026-11-03/AA整合版本.lsp.bak-C1多选-20261103-132025`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改。
+## 2026-11-03 13:49:15 ZZ / JACC 识别块参照内的框线
+
+- 起因：文字外框是块参照（如 `6486+`，X 比例 -0.01、旋转 360°），ZZ 只收集 LINE/多段线，识别不到框，文字被跳过。
+- 改动（中望，`aa:zz-` 系列）：`aa:zz-run` 新增 `aa:zz-harvest-inserts`，在原 ±350 搜索窗口内用 `ssget "_C"` 收集块参照（含用户选中的块）；`aa:zz-build-line-cache` 新增 INSERT 分支，只在 `aa:zz-run` 设置了 `aa:zz-clip` 时生效。新增 `aa:zz-insert-matrix`（基点、缩放含负比例镜像、旋转、法向 0 0 -1）、`aa:zz-mat-apply`、`aa:zz-ent-segs`、`aa:zz-block-segs`（按 DXF `tblobjname`/`entnext` 遍历，含嵌套块，同名块缓存、深度上限 8）、`aa:zz-seg-in-clip-p`（只保留与搜索窗口相交的块内线段，避免大图框块拖慢）、`aa:zz-add-insert-segs`。DX、DX2、ZZ2、ZDWI、ZDDL 系列不设置 `aa:zz-clip`，行为不变。
+- 检查：`check_all_static.py --quick` PARTIAL PASS（含 ZZ、ZZ2、ZDDL 等专项）；会话内用项目离线解释器（补链式动态作用域）验证镜像 + 旋转 360° 块框、嵌套旋转块、窗口裁剪、未设窗口时忽略块参照四种情况；已重新生成命令索引、代码地图和 `audit_lsp.py --write`。
+- 源码哈希：修改后 `32b13f1f21cfa8ec202fac301d026a39af61f0bc95353f3a6be468dcccd76a6c`；修改前备份 `backups/dated/2026-11-03/AA整合版本.lsp.bak-zz-block-20261103-134548`。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改。
+
+## 2026-11-03 14:13:27 AutoCAD 2018 补齐 11-02 09:20 至 11-03 13:49 全部待同步项
+
+- 中望来源版本：`ZW-auto_lisp/AA整合版本.lsp` SHA-256 `32b13f1f21cfa8ec202fac301d026a39af61f0bc95353f3a6be468dcccd76a6c`（含 2026-11-03 13:49:15 的 ZZ/JACC）；同步前后各核对一次，未变。
+- 补齐范围：本台账 2026-11-02 09:20:14 之后全部待同步项——YSDL/YSDL2（新增、`consp nil` 修复、比较改走 `hddl:cabinet`）、WWW/HUI 深度改色两次修正、C1/C2/C3 多选复制、ZZ/JACC 识别块参照内框线。10:50:14 一条是验收记录，无代码。
+- 做法：以中望 `e41b303`（CRLF 后即上次同步来源 `672e5418…`）为基线三方合并，按函数核对：中望新增/改动 32 个函数、删除 1 个（`c1c2:select-text`），合并结果除下面的适配外与中望逐函数一致；中望未改的函数全部保持 AutoCAD 原写法。
+- 平台适配：`c1c2:place-one` 保留 AutoCAD 2018 不用 redraw 隐藏副本的写法（隐藏会让原生 MOVE 没有拖动影像），其余按中望改为整组选择集一次 MOVE。其他新函数未发现需适配处：新代码中的 `=`/`/=` 只比较字符串和数字，不比较图元名；YSDL2 的字符处理全部走 AutoCAD 已有的 `hddl:cabinet`（按字节去“至”和全角空格）；ZZ 块内框线、深度改色按 DXF `tblobjname`/`entnext` 遍历，与平台无关。新代码仍用 `vlax-ename->vla-object`（主文件原有 60 处），2026-10-15 记录的该函数偶发未定义问题未另作处理。
+- 工具与文档（三方合并）：`tools/check_c1c2_static.py`（保留 AutoCAD 无 redraw 的断言，加入整组 ssadd 断言）、`tools/check_nu_c1c2_target_static.py`、`tools/check_ysdl_static.py`、`tests/test_audit.py`、`docs/AUDIT_REVIEW.md`、`docs/YSDL.md`；新增 `tests/test_ysdl_dedup.py`，改为 GBK 字节模型（复用 `test_sync_1031_gbk.make_lisp`）运行。根目录 `AGENTS.md`、`CLAUDE.md`、`ANTIGRAVITY.md` 补入“柜名比较一律过 `hddl:cabinet`”通用规范。
+- 检查（AutoCAD 版）：`check_all_static.py`（全量）ALL PASS，40 个专项；`tests.test_ysdl_dedup` 8 项、`tests.test_audit` 通过；`gen_命令索引.py` 199 个命令；`audit_lsp.py --write` 0 structural findings；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS。
+- 源码哈希：AutoCAD 修改前 `5f85ba4bcd62b937c04dc0b2f8603daaab35455d0218824bb216bd706399e4df`，修改后 `9a43546166f8c5fe9b1fcd2ebf9e0d253e146a104574dead84271a0afcff94ba`；备份 `backups/dated/2026-11-03/AA整合版本.lsp.bak-sync1102-1103-20261103-140204`。编码 GBK、CRLF、无 BOM，严格编码通过。
+- 验证状态：未连接、加载或操作 CAD。AutoCAD 上均未实机验证；WWW 动态块的中望根因（COM `Name`/`Blocks.Item`）在 AutoCAD 是否存在未知，AutoCAD 版本已同样改走 DXF 遍历。
+- 同步状态：AutoCAD 已跟到上述中望版本。分享包未重新打包。
+
+## 2026-11-04 09:49:50 中望新增 HDDZ：核对原理图与端子图的端子号—原理号对应
+
+- 起因：用户要求把原理图里剔出的端子号（如 `YD:4`）和原理号（如 `2AW-901`）与端子图上的端子号、原理号逐个核对。
+- 改动（中望，新增 `hddz:` 系列与 `c:HDDZ`，放在 JM 段之后）：第一次选原理图文字（白色“端子名:端子号”、青色原理号，同一行左右对应，原理号归间隙更近的端子；整行只有原理号时归上方最近的端子），第二次选端子图（白色数字为端子号、白色其他为端子名、青色为原理号）。按端子号排列自动判断横排（ZDDLH，上下对应、端子名在左）或竖排（ZDDLS，左右对应、端子名在上）。按“端子名:端子号”比对原理号集合，一边没端子名时按端子号找唯一同号端子。结果写结果卡片并选中；原理图一侧行尾写红字、端子图一侧画红圈，图层 `HDDZ_MARK`，重跑先清两块选择范围内的旧标记。只读，不改原文字和颜色。
+- 检查：新增 `tools/check_hddz_static.py`（结构 + 小型求值器执行 `hddz:analyze`/`hddz:findings`：横排、竖排转 90° 结果一致、同排两块同号端子排、无端子名、原理图上下排列/原理号在左/一行多组、离群原理号），已加入 `check_all_static.py`；全量 `check_all_static.py` ALL PASS（41 个专项）；已重新生成命令索引（203 个命令）、代码地图和 `audit_lsp.py --write`。
+- 源码哈希：修改后 `50562ff405903cfaf29728210c6801568476f74c49906ce8655b843ee9d589c7`；修改前备份 `backups/dated/2026-11-04/AA整合版本.lsp.bak-HDDZ-20261104-094310`（`32b13f1f21cfa8ec202fac301d026a39af61f0bc95353f3a6be468dcccd76a6c`，含本次之前已有的未提交改动）。
+- 验证状态：未连接、加载或操作 CAD，待用户重载后在中望验收。
+- AutoCAD 状态：待同步，代码未改。
+
+## 2026-11-04 09:52:02 中望 HDDZ 按用户图 2 调整：汉字说明不当端子名，距离随字高放大
+
+- 起因：用户补发端子图样例（`#1主变高压侧`、`IB1D`、端子号 1~8 竖写，原理号 `1YB-A4131` 等竖写在上方）。
+- 改动（中望，`hddz:` 系列）：`hddz:name-like-p` 排除含汉字的文字；新增 `hddz:far`，原理号到端子号的距离上限改为 max(60, 20 倍字高)，相邻端子号间距上限改为 max(12, 4 倍字高)，端子名高度容差改为 max(6, 2 倍字高)。
+- 检查：`check_hddz_static.py` 新增仿图 2 场景（IB1D/IB2D 两块同号端子排，原比例和放大 10 倍）通过；`check_all_static.py --only HDDZ` PARTIAL PASS（核心检查全部通过）；已重新生成命令索引、代码地图和 `audit_lsp.py --write`。`docs/HDDZ.md`、流程文档 3.3a 已更新。
+- 源码哈希：修改后 `da803c252847c253deec1384184b7a52bb28a8cef3efafd6b31f3f3e7137c183`。
+- 验证状态：未连接、加载或操作 CAD。
+- AutoCAD 状态：待同步（与上一条 HDDZ 一起补）。
+
+## 2026-11-04 LONG 路径长度测量（新增）
+
+- 中望完成时间：2026-11-04 13:25:34 +08:00。
+- 命令/模块：新增 `LONG` 及 `long:` 辅助函数。连续点选路径各点（支持 `U` 撤销上一点），过程中用红色粗多段线和黄色大字 `L=…` 实时显示路径与累计长度；空格/回车结束后弹窗并在命令行显示总长度和段数，随后删除临时多段线和文字，图中不保留对象；本次新建的 `LONG-测量` 图层尝试一并删除。长度按 WCS 平面（去 Z）计算。Esc 取消同样清除临时对象。
+- 来源：当前中望 `AA整合版本.lsp` SHA-256 `9b6ee6c65e06ba6ee49ab3bfb97a47152e521df9a9df5a96803f0a98fbdadffd`。
+- 检查：`tools/check_all_static.py --quick` PARTIAL PASS（核心检查全部通过）；已重新生成命令索引、`docs/CODE_MAP.md` 与审计产物。未做 CAD 实机验证。
+- AutoCAD 状态：待同步，未修改 AutoCAD 插件代码。移植时注意 GBK 编码、图层名中文。
+
+## 2026-11-05 08:49:51 AutoCAD V6 删除图纸窗口管理器与文字替换面板
+
+- 范围：仅 AutoCAD 2018 `V6/`，用户明确要求；中望插件代码未改动，状态“不适用”（中望保留这两项功能）。
+- 删除：C# `DWGWIN`、`AICADREPLACEPANEL`、`HUAN` 命令及替换/查找浮动面板、批量规则对话框、功能区“图纸窗口”“文字替换”按钮和 AICAD 面板（启动时还会移除残留的 AICAD 面板）；`WindowAgent.cs`、`WindowManager/`（含 `VALIDATION.md`）、`tests/WindowProtocolTests.cs`、`DwgWindowManager.exe`。LISP 删除 `AICADRIBBONREPLACE`、`AICADRIBBONFIND`、`AICADRIBBONFOCUSMATCH`、`AICADREPLACEPANELSHOW` 及对应的替换文件读取、查找定位函数和环境变量。构建脚本不再编译管理器。保留：`AICAD`/`ASCAD` 自然语言指令（含 `RETXT` 文字替换）、`AICADRIBBON`、`AICADCLEANUI`、`UNLOADAICAD`、按文档自动加载 LISP。
+- 构建：2026-11-05 08:40:43 开始，`V6/AICADRibbonHostV6.dll` 生成于 08:40:44，11264 字节，SHA-256 `c9ebea00bbafeb1b4ec1e7a4d6f870eb599a10d4fff8f09df76924453adf4991`。构建时旧 DLL 被运行中的 AutoCAD 占用，已改名为 `AICADRibbonHostV6.dll.old`；AutoCAD 保存工作并重启后才会加载新 DLL。
+- 源码哈希：`aicad_extension.lsp` `3d9f8dc2b0b58c663439464bdf60a4fa9c78a12a70e7111d185aec4758e3d596`，`aicad_aa_loader.lsp` `f3c266a2d69cfa7692817b63d6c7a5e4cf57a2f1cf4391b8a9cc69ba0d8f9ae4`（GBK、无 BOM、CRLF）。修改前整目录备份 `AutoCAD2018_lisp/backups/v6-remove-window-replace-20261105-083932/`。
+- 检查：`tools/check_aicad_static.py` 改为检查删除项不再出现并通过；`check_all_static.py --quick` PARTIAL PASS；`scripts/check_project.py` 153 项测试通过（`tests/test_audit.py` 中已删函数的期望改为 `aicadloader:command-load`）；已重新生成命令索引与审计产物。
+- 验证状态：未连接、加载或操作 AutoCAD。
+- 以后同步 V6：中望的窗口管理器、替换/查找面板改动不要移植到 AutoCAD。
+
+## 2026-11-05 09:04:33 AutoCAD 整体删除 AICAD（含自然语言指令）
+
+- 范围：仅 AutoCAD 2018，用户明确要求；中望状态“不适用”（中望 AICAD 保留）。接续同日 08:49:51 条目。
+- 删除：`AICAD`、`ASCAD`、`AICADRIBBON`、`AICADCLEANUI`、`UNLOAD_AICAD`/`UNLOAD_AA`/`UNLOAD_XXX`、`LOADAICADAA`/`LOADAICADACAD`/`LOADAICADZW`，以及 C# 的 `AICADPANEL`、`UNLOADAICAD`；文件 `V6/aicad_extension.lsp`、`aicad_bridge.ps1`、`aicad_launch.vbs`、`build_autocad_ribbon.ps1`、`AICADRibbon/`、`AICADRibbonHostV6.dll`（含 `.old`）。开发工具同时删除 `common/`、`scripts/sync_common.py`、`tools/check_aicad_static.py` 和对应测试。
+- 保留：`V6/aicad_aa_loader.lsp` 改为只执行 `(princ)` 的空壳（GBK、无 BOM、CRLF，SHA-256 `e980f2ecd17760258becdad4ece701e4275097d30ec2353c723c01647c007fd1`），兼容本机启动组 `2Startup` 与 `acaddoc.lsp` 的现有引用。
+- 部署脚本：`tools/setup_cad_path.ps1` 改为启动组只留 `AA整合版本.lsp`、删除 `2Startup`、从 `acaddoc.lsp` 移除 AICAD 段（先备份）、清除 `AICADAA_BASEDIR`。本次未运行该脚本，注册表和 `acaddoc.lsp` 未改。
+- 备份：`AutoCAD2018_lisp/backups/remove-aicad-20261105-085841/`。
+- 检查：`scripts/check_project.py` 全部通过（151 项单元测试、严格审计、命令索引、39 项专项全量检查）；命令索引变为 184 个命令。
+- 验证状态：未连接、加载或操作 AutoCAD。正在运行的 AutoCAD 内存中仍有旧 AICAD，重启后生效。
+- 2026-11-05 09:10:10 补记：用户关闭 AutoCAD 后运行了 `tools/setup_cad_path.ps1`。核对结果：启动组 `NumStartup=1`，只剩 `AA整合版本.lsp`；支持路径和受信任路径中已没有 V6；`acaddoc.lsp` 中的 AICAD 段已删除（备份为同目录 `acaddoc.lsp.bak-20261105-091010`，YS-Tools 段保留）；`AICADAA_BASEDIR` 已清除；`AA整合版本.lsp` 哈希不变。运行前修复了脚本的一个隐患：脚本原先用 UTF-8 读取 GBK 编码的 `AA整合版本.lsp`，一旦写回会损坏中文，现已改为按 GBK 读取。运行前的注册表导出与 `acaddoc.lsp` 备份保存在 `AutoCAD2018_lisp/backups/cad-config-before-cleanup-20261105-090910/`。仍未启动 AutoCAD 验证。
+
+## 2026-11-05 AutoCAD 删除 V6 目录
+
+- 用户确认后删除 `AutoCAD2018_lisp/V6/`（只剩空壳 `aicad_aa_loader.lsp` 与两份说明）。此前本机启动组、`acaddoc.lsp` 与 `AICADAA_BASEDIR` 已清理，没有引用残留。中望状态：不适用。
+- 文件备份在 `AutoCAD2018_lisp/backups/remove-aicad-20261105-085841/`，Git 历史里也有。已重新生成命令索引与审计产物，并运行全仓检查。未启动 AutoCAD 验证。
+
+## 2026-11-05 10:20:13 AutoCAD 启动提示精简
+
+- 范围：仅 AutoCAD 2018。用户反映打开 AutoCAD 时命令行提示过多（两遍命令清单、各小插件“已加载”）。
+- 原因：启动时同时加载三套插件：用户 Support 的 `acaddoc.lsp` 加载旧 `AA_main.lsp`；YS-Tools 再加载安装目录 `D:\autodesk\cad2018\AutoCAD 2018\Support\AA整合版本.lsp`（旧版）及 `小命令\` 下 PAI、ZDML、HAO；启动组最后加载本项目 `AA整合版本.lsp`。
+- 改动：`C:\Users\ys199\AppData\Roaming\Autodesk\AutoCAD 2018\R22.0\chs\Support\acaddoc.lsp` 注释掉 `AA_main.lsp` 加载（其命令旧整合版全部包含）；旧整合版、PAI、ZDML、HAO、YS-Tools 的加载提示行注释掉；本项目 `AA整合版本.lsp` 注释 DL1/REP/QH/XX 四行加载提示，只保留“AA整合版本已加载。”。命令定义均未改动。被注释行带 `;; [启动静默]` 标记，备份在 `AutoCAD2018_lisp/backups/startup-quiet-20261105-101806/`。
+- 来源：本项目 `AA整合版本.lsp` SHA-256 `8859e75556f90d98856a7e75b9314070975903b784ab7c467da66c4e17ca6ed4`（含任务前已有的未提交改动）。
+- 检查：`tools/check_all_static.py --quick` PARTIAL PASS；未做 AutoCAD 实机验证。
+- 中望状态：不适用（中望版加载链不同，本次未改中望插件）。
+- 补充（2026-11-05）：HAO 加载后另有 4 行命令说明（HAO/FILLFRAMES/DIAGFRAME/ADDKEYWORD）仍会打印，已同样注释；另新增 tools/trusted_dwg_batch.py 与 批量转可信DWG.cmd（用 accoreconsole 批量 -EXPORTTOAUTOCAD，用户已实测转换成功），说明见 docs/批量转可信DWG.md。

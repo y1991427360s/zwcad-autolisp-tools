@@ -18,7 +18,7 @@ def check_c1c2_functions(forms):
     copy = ['vla-copy', 'src']
     replace = ['vla-put-textstring', 'copy-obj', 'txt']
     update = ['vla-update', 'copy-obj']
-    move = ['command', '"_.MOVE"', ['vlax-vla-object->ename', 'copy-obj'], '""', '"_non"', 'base']
+    move = ['command', '"_.MOVE"', 'ss', '""', '"_non"', 'base']
     hide = ['redraw', ['vlax-vla-object->ename', 'copy-obj'], '2']
     pause = ['command', 'pause']
     show = ['redraw', ['vlax-vla-object->ename', 'copy-obj'], '1']
@@ -33,6 +33,7 @@ def check_c1c2_functions(forms):
     sample_last = ['setq', 'last-pt', ['getvar', '"LASTPOINT"']]
     assert sample_last in p_calls
     assert p_calls.index(move) < p_calls.index(sample_last) < p_calls.index(hide) < p_calls.index(pause) < p_calls.index(show)
+    assert ['ssadd', ['vlax-vla-object->ename', 'copy-obj'], 'ss'] in p_calls, 'c1c2:place-one must move all copies together'
     assert ['vl-catch-all-apply', ['quote', 'vla-delete'], ['list', 'copy-obj']] in p_calls
     assert ['vlax-release-object', 'copy-obj'] in p_calls
 
@@ -41,6 +42,8 @@ def check_c1c2_functions(forms):
     assert ['vla-startundomark', 'doc'] in r_calls
     assert ['c1c2:safe-end-undo', 'doc'] in r_calls
     assert ['setvar', '"DRAGMODE"', '2'] in r_calls
+    assert ['setq', 'ens', ['c1c2:select-texts']] in r_calls, 'c1c2:run must accept multiple texts'
+    assert 'c1c2:select-text' not in defun_map, 'single-text selector should be removed'
     assert any(n[0] == 'while' and isinstance(n[1], list) and 'c1c2:place-one' in [x[0] for x in walk(n[1]) if isinstance(x, list)] for n in r_calls), 'c1c2:run must loop c1c2:place-one'
 
     error_defun = next(n for n in r_calls if n[:2] == ['defun', '*error*'])

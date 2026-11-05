@@ -289,8 +289,10 @@ def check_structure(source, funcs):
         for legacy in ('last-hyphen', 'after'):
             if legacy in params:
                 problems.append(f'c1c2:first-number-span 残留旧局部变量 {legacy}')
-    if 'c1c2:run' in funcs and 'c1c2:change-number' not in repr(funcs['c1c2:run'][3:][:]):
-        problems.append('c1c2:run 未调用 c1c2:change-number')
+    if 'c1c2:run' in funcs and 'c1c2:change-all' not in repr(funcs['c1c2:run'][3:][:]):
+        problems.append('c1c2:run 未调用 c1c2:change-all')
+    if not calls('c1c2:change-all', 'c1c2:change-number'):
+        problems.append('c1c2:change-all 未调用 c1c2:change-number')
     if 'c1c2:run' in funcs and '编号已减到 0' not in repr(funcs['c1c2:run']):
         problems.append('c1c2:run 缺少减到 0 自动停止提示')
     if not calls('c1c2:run', 'c1c2:first-number-span'):
@@ -419,6 +421,15 @@ def check(path=None):
         compare(f'C2 {text!r} 小于 0 返回 nil', lisp.call('c1c2:change-number', [text, -1], {}), None)
     for text, delta, want in format_cases:
         compare(f'NU 格式 {text!r} {delta:+}', lisp.call('aa:nu-rewrite-text', [text, delta], {}), want)
+    # C1/C2/C3 多选：每个文字各自变化，无数字的原样保留，任一小于 0 整组停止。
+    for texts, delta, want in [
+        (['23P', '24P', '25P'], 1, ['24P', '25P', '26P']),
+        (['23P', '24P', '25P'], 2, ['25P', '26P', '27P']),
+        (['SVG-01', '备注', '#9'], 1, ['SVG-02', '备注', '#10']),
+        (['1P', '0P'], -1, None),
+    ]:
+        got = lisp.call('c1c2:change-all', [texts, delta], {})
+        compare(f'c1c2:change-all {texts!r} {delta:+}', list(got) if got else None, want)
     compare('aa:num-pad-int 72,3', lisp.call('aa:num-pad-int', [72, 3], {}), '072')
     compare('aa:num-pad-int 100,2', lisp.call('aa:num-pad-int', [100, 2], {}), '100')
 

@@ -148,6 +148,7 @@ MODULE_CHECKS = [
     'check_link_static.py',
     'check_xy_static.py',
     'check_hddl_static.py',
+    'check_hddz_static.py',
     'check_bh_static.py',
     'check_cable_perf_static.py',
     'check_gty_copy_static.py',
@@ -311,7 +312,7 @@ def main(argv=None):
         run_command_checks(names, a.serial)
     elapsed = time.time() - t0
     if len(names) < len(MODULE_CHECKS):
-        print(f'PARTIAL PASS（{elapsed:.1f}s）：交付前必须再跑一次不带参数的全量检查')
+        print(f'PARTIAL PASS（{elapsed:.1f}s）：日常交付可用；Git 提交/推送前或改了检查工具本身时再跑一次不带参数的全量检查')
     else:
         print(f'ALL PASS（{elapsed:.1f}s）')
     return 0

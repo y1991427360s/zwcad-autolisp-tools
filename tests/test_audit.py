@@ -91,7 +91,7 @@ class AuditTests(unittest.TestCase):
 
     def test_affected_functions_keep_top_level_entries_and_locals(self):
         expected = {
-            'AA整合版本.lsp': {'c:ysdl': {'row'}, 'qw:join': {'it', 'r'},
+            'AA整合版本.lsp': {'aa:ysdl-run': {'row'}, 'qw:join': {'it', 'r'},
                              'hddl:tail-count': {'rec'}, 'c:tong': {'txt'}},
             'V6/aicad_aa_loader.lsp': {'aicadloader:show-replace-panel': {'replace-panel-result'}},
             'V6/aicad_extension.lsp': {'aicad:join': {'item'}, 'aicad:replace-pairs-preview': {'pair'},

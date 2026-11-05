@@ -21,6 +21,9 @@ functions = {f[1]: f for f in forms if isinstance(f, list) and f[:1] == ['defun'
 # 2. 检查命令与函数存在性
 ysdl_funcs = [
     'c:ysdl',
+    'c:ysdl2',
+    'aa:ysdl-run',
+    'aa:ysdl-dedup-rows',
     'aa:ysdl-clean-text',
     'aa:ysdl-reorder-row',
     'aa:ysdl-get-lwpoly-rect',

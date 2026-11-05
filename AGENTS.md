@@ -62,7 +62,8 @@
 - `FDX` 分配后直接复用 `dx:apply-group`，不得调用交互式 `c:DX` 造成二次选择或嵌套撤销组；保留本批恢复逻辑。离线检查运行 `python tools/check_fdx_static.py`。
 - `CC` 读取已有剪贴板，预选单个文字后按基点连续复制并替换副本完整内容；不得改回提取源文字到剪贴板或调用 `c:QE`。离线检查运行 `python tools/check_cc_static.py`，使用说明见 `docs/CC.md`。
 - `HBDL` 用于电缆清册并入行合并，就地修改主电缆芯数（如3改4）并在原理号末尾向后堆积追加，消除并入行；无需新建表格。离线检查运行 `python tools/check_hb_static.py`，使用说明见 `docs/HBDL.md`。
-- 改动 AA整合版本.lsp 后，交付前必须运行一次不带参数的全量检查 python tools/check_all_static.py（编码、整文件解析、命令清单、undo 配对、代码地图是否过期，并行跑全部专项检查，约 70 秒）。开发过程中用 `--quick`（只跑与相对 HEAD 改动函数相关的专项）或 `--only NU,ZDDL`（按命令/函数/脚本名指定）快速迭代，二者输出 PARTIAL PASS，不能代替交付前的全量检查。
+- 改动 AA整合版本.lsp 后，日常交付运行 `python tools/check_all_static.py --quick` 即可（用户确认，2026-11-03）：核心检查照常全跑（编码、整文件解析、命令清单、命令索引、undo 配对、禁用写法、代码地图是否过期），专项只跑与相对 HEAD 改动函数及其上层调用者相关的那些；输出 PARTIAL PASS 视为本次交付通过。也可用 `--only NU,ZDDL` 指定专项。以下情况仍须跑一次不带参数的全量检查（并行跑全部专项，约 1~2 分钟）：Git 提交或推送前；修改检查基础设施本身（`tools/check_all_static.py`、`tools/lsp_common.py`、`tools/code_map.py`、`tests/` 下的离线解释器）；`--quick` 提示无 Git 只跑核心检查时；一次改动涉及大量命令或用户要求全量时。
+- 比较柜名、起点终点一律先过 `hddl:cabinet`（忽略空格、开头的“至”和大小写），不要直接比原文字；这是用户确认的通用规范（2026-11-02），只用于比较，不改图中或导出的文字。
 - `ZHONG`、`ZUO`、`YOU`、`SHANG`、`XIA` 共用 `aa:align-text-cmd`；`SYAN`、`XYAN` 共用 `aa:extend-line-cmd`。
 - 文字对齐优先使用 COM 的 `Alignment` / `AttachmentPoint`，用 `vl-catch-all-error-p` 判断结果，并补偿外包框位置。
 

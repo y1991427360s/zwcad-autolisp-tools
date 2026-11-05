@@ -9,7 +9,7 @@
 | ZW-auto_lisp | `D:\Syncthing\Oracle-Sync\LISP\ZW-auto_lisp` | ZWCAD 2026 |
 | AutoCAD2018_lisp | `D:\Syncthing\Oracle-Sync\LISP\AutoCAD2018_lisp` | AutoCAD 2018 |
 
-两边均以 `AA整合版本.lsp` 为主整合文件，并包含 `V6/aicad_aa_loader.lsp`。两边的 `common/` 分别是本项目的构建源，并非自动跨项目共享的目录。换电脑后以当前项目实际位置和同级目录定位，禁止使用旧路径覆盖其他同名项目。
+两边均以 `AA整合版本.lsp` 为主整合文件。中望另含 `V6/aicad_aa_loader.lsp` 及 AICAD；AutoCAD 版 AICAD、`V6/` 目录和 `common/` 已于 2026-11-05 删除。中望的 `common/` 是本项目的构建源，并非自动跨项目共享的目录。换电脑后以当前项目实际位置和同级目录定位，禁止使用旧路径覆盖其他同名项目。
 
 Codex 使用项目 `AGENTS.md`，Claude Code 使用 `CLAUDE.md`。两边同时提供内容一致的 `ANTIGRAVITY.md` 供其他智能体读取；具体客户端是否自动加载该文件需以其实际行为为准。不能自动读取规范的智能体，任务开头须明确要求它读取这些文件和本说明。
 
@@ -240,8 +240,46 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 
 - SX2 筛选脚本：中望用 ADODB 按 UTF-8 读写值文件；AutoCAD 值文件是系统 ANSI，改用 `Scripting.FileSystemObject` 的 ANSI 模式读写。
 - SXD 跳转 VBS：中望逐字拼 `ChrW(码位)`，文件保持纯 ASCII；AutoCAD 的 `vl-string->list` 返回 GBK 字节，拼 ChrW 会乱码，改为把中文直接写进 ANSI 字面量，wscript 按系统 ANSI 读。ProgID 用 `AutoCAD.Application.22`，失败再试 `AutoCAD.Application`。
-- SXD 定位脚本：中望用 `((lambda ...) ...)` 直接调用；AutoCAD 改成 defun，理由同 HAO2 的未加引号 lambda 一节，并用 HandleToObject 取对象（同 2026-10-15 各节）。
+- SXD 定位脚本：中望用 `((lambda ...) ...)` 直接调用并按 COM 外框定位；AutoCAD 改成 defun，理由同 HAO2 的未加引号 lambda 一节，且不用 COM（见下节）。
 - QW2P：中望 PowerShell 写 UTF-8 后三参数 `open` 读；AutoCAD 写系统 ANSI 后两参数 `open` 读，剪贴板里 ANSI 表示不了的字符会变成问号。
 - 单字节扫描：GBK 尾字节范围 0x40 起，会落在字母、反斜杠、大括号上，而数字、`-`、`#`、括号、逗号、空格不会。AutoCAD 版凡判断字母或反斜杠的扫描要按字符走（`de:code-prefix-len`、`dh:chars`、`aa:link-slash`）。`vl-string-trim` 按字节处理字符表，全角字符不能放进去（`bh:join-target`）。
 - 跨文档行为：2026-10-30 中望实测的切换挂起在 AutoCAD 2018 未验证；两版都由脱离 CAD 的 VBS 打开、切换并定位，等待命令空闲时靠重试跨过 AutoCAD 的 `RPC_E_CALL_REJECTED`。
 - 证据与状态：源码静态比对、GBK 字节模型测试（`tests/test_sync_1031_gbk.py`）、SX2 筛选 VBS 用 GBK 文件实跑、SXD VBS 用 cscript 编译（已去掉连接 CAD 的行）。未在 AutoCAD 2018 实机验证。
+
+## 2026-10-31 AutoCAD 2018 跨图定位脚本不能依赖 COM（SXD，已实机确认现象）
+
+- 适用范围：由 VBS 在目标图 `SendCommand` 加载的 LISP 脚本。
+- 现象：用户在 AutoCAD 2018 跨图 SXD，目标图报 `no function definition: VLAX-GET-ACAD-OBJECT`，同一脚本前面的 `(vl-load-com)` 没有报错。原因未查明，不能写成 AutoCAD 2018 不支持该函数；中望跨图实测未出现。
+- 处理：AutoCAD 定位脚本只用核心函数（`textbox`、`trans`、`command`），第一行写完成标记，VBS 最多发 3 次。
+- 验证状态：报错为用户实机现象；修复只做离线测试，待用户重载后验收。
+
+## 2026-11-02 中望 nth 取空表或越界可能报 consp nil（待实机确认）
+
+- 适用范围：ZWCAD 2026 AutoLISP 的 `nth`。AutoCAD 2018 未测。
+- 证据：`YSDL2` 在中望实机报 `参数类型错误: consp nil`；离线把 `nth` 改成空表或越界即报错后，复现同一报错，加长度保护后通过。未单独在中望确认是 `nth` 本身报的错。
+- 处理：列表长度不确定时先判断长度再取 `nth`，或用 `zddl2:nth-or`。
+- 验证状态：推断，未实机确认。
+
+## 2026-11-03 中望动态块（*U 匿名块）改块定义要按 DXF 取名和遍历
+
+- 适用范围：ZWCAD 2026 中动态块参照（DXF 组码 2 为 `*U72` 这类匿名块名）。AutoCAD 2018 未测。
+- 证据：WWW 原来用 COM 的 `vla-get-Name` 取块名、`Blocks.Item` 取块定义再 `vlax-for` 遍历，每次 entmod 都成功，但图上的对象不变色；改为按 DXF 组码 2 取块名、`tblobjname "BLOCK"` + `entnext` 遍历到 ENDBLK 后，用户实机确认全部变色。具体是 `Name` 返回了源块名，还是 `Blocks.Item` 取 `*U` 名字失败，没有单独确认。
+- 处理：改块定义内容时，块名取参照的 DXF 组码 2，用 `tblobjname` + `entnext` 遍历；动态块源定义另按 `EffectiveName` 补改。
+- 验证状态：修复后用户中望实机验收通过（2026-11-03）；根因细节为推断。
+
+## 2026-11-05 AutoCAD 版删除图纸窗口管理器与文字替换面板
+
+- 适用范围：仅 AutoCAD 2018 的 `V6/`。中望 V6 未改动，其窗口管理器与替换面板照旧保留。
+- 依据：用户明确要求 AutoCAD 版 AICAD 不再需要“图纸窗口”“文字替换”。
+- 处理：删除 `DWGWIN`、`AICADREPLACEPANEL`、`HUAN`、`AICADREPLACEPANELSHOW`、`AICADRIBBONREPLACE`、`AICADRIBBONFIND`、`AICADRIBBONFOCUSMATCH`，以及 `WindowAgent.cs`、`WindowManager/`、`tests/WindowProtocolTests.cs`、`DwgWindowManager.exe`；功能区不再添加 AICAD 面板。自然语言 `RETXT` 保留。
+- 同步注意：以后从中望往 AutoCAD 补齐 V6 时，跳过窗口管理器、替换/查找面板相关改动，不要移植回去。
+- 验证状态：已重新编译 DLL 并做静态检查；未连接、加载或操作 AutoCAD。
+
+## 2026-11-05 AutoCAD 版整体删除 AICAD
+
+- 适用范围：仅 AutoCAD 2018。中望 V6 与 `common/` 未改动，AICAD 照旧保留。
+- 依据：用户明确要求 AutoCAD 版连 `AICAD`/`ASCAD` 自然语言指令也删掉（同日稍早已删图纸窗口与文字替换面板）。
+- 处理：删除 `V6/aicad_extension.lsp`、`aicad_bridge.ps1`、`aicad_launch.vbs`、功能区 DLL、C# 源码与构建脚本；`V6/aicad_aa_loader.lsp` 改为只执行 `(princ)` 的空壳，兼容本机启动组 `2Startup` 和 `acaddoc.lsp` 的现有引用。删除 `common/`、`scripts/sync_common.py`、`tools/check_aicad_static.py` 及相应测试。`tools/setup_cad_path.ps1` 改为清理旧启动项、`acaddoc.lsp` 加载段和 `AICADAA_BASEDIR`。
+- 同步注意：以后从中望往 AutoCAD 补齐时，V6/AICAD 与 `common/` 相关改动一律跳过。
+- 验证状态：全仓静态检查通过；未连接、加载或操作 AutoCAD，未改注册表和 `acaddoc.lsp`。
+- 2026-11-05 补记：本机启动组、`acaddoc.lsp` 与环境变量清理完毕后，按用户要求删除整个 AutoCAD `V6/` 目录（含空壳加载器）。

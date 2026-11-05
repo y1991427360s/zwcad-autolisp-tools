@@ -8,7 +8,7 @@
 
 | 文件 | 函数 | 新增局部变量 |
 | --- | --- | --- |
-| AA整合版本.lsp | c:YSDL | row |
+| AA整合版本.lsp | aa:ysdl-run（原 c:YSDL） | row |
 | AA整合版本.lsp | txt2:lwpoly-segments | item |
 | AA整合版本.lsp | txt2:modify-text | seg |
 | AA整合版本.lsp | qw:join | it、r |
