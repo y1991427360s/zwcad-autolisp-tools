@@ -19,6 +19,7 @@
 ;;;   - FKX   : 单击框内空白处选择正文对象，自动排除图框和右下角标题栏；支持手动指定范围。
 ;;;   - T     : 把文字及ATTDEF属性定义刷为HZ样式，高度3，宽度0.7；按可见范围保持对齐文字位置。
 ;;;   - T2    : 把文字及ATTDEF属性定义刷为宋体样式，高度3，宽度0.8；按可见范围保持对齐文字位置。
+;;;   - SONG  : 把图中只绑 simsun.ttc 字体文件、没写字体名的文字样式改为按字体名“宋体”设置，AutoCAD 打开不再显示 simsun.ttc、字形一致。
 ;;;   - DH    : 把选中的多行文字转成规整的单行文字，保持原位置和对齐，文字不再碎成多段。
 ;;;   - ZHU   : 选中端子排名和端子号文字，选短接或拆除连片，生成HZ/3/0.7的“注：”单行文字。
 ;;;   - HWT   : 框选一列柜名文字，按从上到下顺序每行最多5个蛇形排列，生成L1/N1端子、SML电缆编号和两端JL进线的环网图，并输出可供BH3登记的电缆清单。
@@ -906,12 +907,17 @@
           (wcmatch upper "*.SHX")))
     nil))
 
-(defun ztf:font-label (name / upper alias)
+(defun ztf:font-label (name / alias)
   (if (/= (type name) 'STR)
     (setq name "")
     nil)
-  (setq upper (strcase name))
-  (setq alias
+  (setq alias (ztf:font-family name))
+  (if alias (strcat alias " | " name) name))
+
+;; 常用中文 TrueType 字体文件对应的字体名；不认识的返回 nil。
+(defun ztf:font-family (name / upper)
+  (setq upper (strcase (if (= (type name) 'STR) name "")))
+  (if (not (wcmatch upper "*.SHX"))
     (cond
       ((wcmatch upper "SIMSUN*") "宋体")
       ((wcmatch upper "SIMHEI*") "黑体")
@@ -921,8 +927,7 @@
       ((wcmatch upper "DENGXIAN*") "等线")
       ((wcmatch upper "MICROSOFTYAHEI*") "微软雅黑")
       ((wcmatch upper "NSIMSUN*") "新宋体")
-      (T nil)))
-  (if alias (strcat alias " | " name) name))
+      (T nil))))
 
 (defun ztf:add-font-file (file records / path)
   (if (and (= (type file) 'STR)
@@ -989,7 +994,7 @@
   (set_tile "style_info"
             (strcat "Style: " styleName "    Objects: " (itoa count))))
 
-(defun ztf:apply-font (/ styleObj fontPath fontName resolved result doc)
+(defun ztf:apply-font (/ styleObj fontPath fontName resolved result doc family)
   (if (and *ztf-style-name* *ztf-selected-font*)
     (progn
       (setq fontPath (cdr *ztf-selected-font*))
@@ -1012,9 +1017,16 @@
           (setq styleObj (ztf:style-object *ztf-style-name*))
           (if styleObj
             (progn
+              ;; 认识的中文 TrueType 按字体名设置（AutoCAD 才能认出同一字体），失败再退回绑字体文件。
+              (setq family (ztf:font-family fontName))
               (setq result
-                (vl-catch-all-apply 'vla-put-FontFile
-                                    (list styleObj fontPath)))
+                (if (and family
+                         (not (vl-catch-all-error-p
+                                (vl-catch-all-apply 'vla-SetFont
+                                                    (list styleObj family :vlax-false :vlax-false 134 2)))))
+                  T
+                  (vl-catch-all-apply 'vla-put-FontFile
+                                      (list styleObj fontPath))))
               (if (vl-catch-all-error-p result)
                 (alert (strcat "字体写入失败：\r\n" (vl-catch-all-error-message result)))
                 (progn
@@ -2519,23 +2531,61 @@
 ;;; 命令: T2
 ;;; 功能: 把文字及ATTDEF属性定义刷为宋体样式，高度3，宽度0.8；按可见范围保持对齐文字位置。
 ;;; =======================================================================================
-(defun txt2:ensure-style (/ doc styles style)
-  ;; 优先使用“宋体”文字样式；不存在时自动创建并绑定 simsun.ttc
-  (if (tblsearch "STYLE" "宋体")
-    "宋体"
+;; 宋体统一按字体名设置（2026-11-05）：只绑 simsun.ttc 文件、不写字体名的样式，
+;; AutoCAD 打开时字体名显示成 simsun.ttc，字形和中望有细微差异，AutoCAD 2018 还会让中文转 90 度。
+;; 按字体名“宋体”、字符集 134 设置；设置失败时退回绑 simsun.ttc，成功返回 T。
+(defun aa:style-use-songti (style / res)
+  (setq res (vl-catch-all-apply 'vla-SetFont
+                                (list style "宋体" :vlax-false :vlax-false 134 2)))
+  (if (vl-catch-all-error-p res)
+    (not (vl-catch-all-error-p
+           (vl-catch-all-apply 'vla-put-FontFile (list style "simsun.ttc"))))
+    T))
+
+;; 文字样式只绑了 simsun 字体文件、没有字体名时返回 T（需要改成按字体名设置）。
+;; 字体名看 STYLE 表项的 ACAD 扩展数据（组码 1000），这是 DWG 里实际存的、AutoCAD 读的那一份；
+;; 不用 COM GetFont，避免 CAD 按文件名推出字体名而漏判。
+(defun aa:style-bad-simsun-p (style / name ent ed file xd tf)
+  (setq name (vl-catch-all-apply 'vla-get-Name (list style)))
+  (if (and (= (type name) 'STR)
+           (setq ent (tblobjname "STYLE" name))
+           (setq ed (entget ent '("ACAD"))))
     (progn
-      (vl-load-com)
-      (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
-      (setq styles (vla-get-TextStyles doc))
-      (setq style (vl-catch-all-apply 'vla-Item (list styles "宋体")))
-      (if (vl-catch-all-error-p style)
-        (setq style (vl-catch-all-apply 'vla-Add (list styles "宋体"))))
-      (if (not (vl-catch-all-error-p style))
+      (setq file (cdr (assoc 3 ed))
+            xd (cdr (assoc "ACAD" (cdr (assoc -3 ed))))
+            tf (cdr (assoc 1000 xd)))
+      (and (= (type file) 'STR)
+           (= (strcase (vl-filename-base file)) "SIMSUN")
+           (or (/= (type tf) 'STR) (= (vl-string-trim " " tf) ""))))
+    nil))
+
+;; 取文字样式对象，可选不存在时新建；返回 (对象 . 是否新建)，失败返回 nil。
+(defun aa:style-get-or-add (name add / doc styles style)
+  (vl-load-com)
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
+        styles (vla-get-TextStyles doc)
+        style (vl-catch-all-apply 'vla-Item (list styles name)))
+  (cond
+    ((not (vl-catch-all-error-p style)) (cons style nil))
+    ((not add) nil)
+    ((not (vl-catch-all-error-p (setq style (vl-catch-all-apply 'vla-Add (list styles name)))))
+     (cons style T))
+    (T nil)))
+
+(defun txt2:ensure-style (/ pair style)
+  ;; 优先使用“宋体”文字样式；不存在时按字体名宋体新建；已有样式只绑 simsun.ttc 时顺手改成按字体名
+  (setq pair (aa:style-get-or-add "宋体" T))
+  (if pair
+    (progn
+      (setq style (car pair))
+      (if (cdr pair)
         (progn
-          (vl-catch-all-apply 'vla-put-FontFile (list style "simsun.ttc"))
-          (vl-catch-all-apply 'vla-put-Width (list style 0.8))
-          "宋体")
-        nil))))
+          (aa:style-use-songti style)
+          (vl-catch-all-apply 'vla-put-Width (list style 0.8)))
+        (if (aa:style-bad-simsun-p style)
+          (aa:style-use-songti style)))
+      "宋体")
+    (if (tblsearch "STYLE" "宋体") "宋体" nil)))
 
 (defun txt2:modify-text (ename / edata original aligned vcode oldbox newbox delta ok)
   (if (and ename (member (cdr (assoc 0 (setq edata (entget ename)))) '("TEXT" "ATTDEF")))
@@ -2671,6 +2721,38 @@
 (defun c:T2 (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho)
   (aa:cmd-begin "T2")
   (txt2:run)
+  (aa:cmd-end)
+)
+
+;;; =======================================================================================
+;;; 命令: SONG
+;;; 功能: 把图中只绑 simsun.ttc 字体文件、没写字体名的文字样式改为按字体名“宋体”设置，AutoCAD 打开不再显示 simsun.ttc、字形一致。
+;;; =======================================================================================
+(defun song:join (lst / out)
+  (foreach s lst
+    (setq out (if out (strcat out "、" s) s)))
+  (if out out ""))
+
+(defun c:SONG (/ *error* aa:tag aa:doc aa:undo-open aa:old-cmdecho styles style name fixed failed)
+  (aa:cmd-begin "SONG")
+  (setq styles (vla-get-TextStyles aa:doc))
+  (vlax-for style styles
+    (if (aa:style-bad-simsun-p style)
+      (progn
+        (setq name (vla-get-Name style))
+        (if (and (aa:style-use-songti style) (not (aa:style-bad-simsun-p style)))
+          (setq fixed (cons name fixed))
+          (setq failed (cons name failed))))))
+  (if (or fixed failed) (vla-Regen aa:doc 1))
+  (cond
+    ((and (null fixed) (null failed))
+     (princ "\r\n[SONG] 没有只绑 simsun.ttc 的文字样式，无需修改。"))
+    (T
+     (if fixed
+       (princ (strcat "\r\n[SONG] 已改为按字体名宋体：" (itoa (length fixed)) " 个样式："
+                      (song:join (reverse fixed)))))
+     (if failed
+       (princ (strcat "\r\n[SONG] 未能修改：" (song:join (reverse failed)))))))
   (aa:cmd-end)
 )
 
@@ -18805,17 +18887,15 @@
   )
 )
 
-(defun tktj:ensure-text-style (/ doc styles style)
-  ;; 优先使用“宋体”文字样式；不存在时创建，并尽量绑定宋体字体文件。
-  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
-  (setq styles (vla-get-TextStyles doc))
-  (setq style (vl-catch-all-apply 'vla-Item (list styles *TKTJ-TEXT-STYLE*)))
-  (if (vl-catch-all-error-p style)
-    (setq style (vl-catch-all-apply 'vla-Add (list styles *TKTJ-TEXT-STYLE*)))
-  )
-  (if (not (vl-catch-all-error-p style))
+(defun tktj:ensure-text-style (/ pair style)
+  ;; 优先使用“宋体”文字样式；不存在时按字体名宋体新建。
+  ;; 已有样式不再改绑字体文件（以前每次都改绑 simsun.ttc），只在它只绑 simsun.ttc 时改成按字体名。
+  (setq pair (aa:style-get-or-add *TKTJ-TEXT-STYLE* T))
+  (if pair
     (progn
-      (vl-catch-all-apply 'vla-put-FontFile (list style *TKTJ-TEXT-FONTFILE*))
+      (setq style (car pair))
+      (if (or (cdr pair) (aa:style-bad-simsun-p style))
+        (aa:style-use-songti style))
       (vl-catch-all-apply 'vla-put-Width (list style *TKTJ-TEXT-WIDTH-FACTOR*))
       *TKTJ-TEXT-STYLE*
     )

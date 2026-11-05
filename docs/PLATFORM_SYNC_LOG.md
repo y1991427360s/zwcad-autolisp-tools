@@ -2654,3 +2654,11 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 检查：`tools/check_all_static.py --quick` PARTIAL PASS；未做 AutoCAD 实机验证。
 - 中望状态：不适用（中望版加载链不同，本次未改中望插件）。
 - 补充（2026-11-05）：HAO 加载后另有 4 行命令说明（HAO/FILLFRAMES/DIAGFRAME/ADDKEYWORD）仍会打印，已同样注释；另新增 tools/trusted_dwg_batch.py 与 批量转可信DWG.cmd（用 accoreconsole 批量 -EXPORTTOAUTOCAD，用户已实测转换成功），说明见 docs/批量转可信DWG.md。
+
+## 2026-11-05 11:09:24 宋体样式改为按字体名设置，新增 SONG（双平台）
+
+- 背景：用户发现 AutoCAD 打开中望保存的图时，“宋体”样式的字体名显示为 `simsun.ttc`，字形有细微差异。查明是插件只用 `vla-put-FontFile` 绑 `simsun.ttc`、不写字体名：`tktj:ensure-text-style`（HAO2、ZDML、ZDML2）每次运行都把已有“宋体”样式改绑 simsun.ttc；`txt2:ensure-style`（T2、DH）新建时只绑文件；ZTF 选 TrueType 时只写文件路径。
+- 改动：新增 `aa:style-use-songti`（`vla-SetFont` 字体名“宋体”、字符集 134，失败退回绑 simsun.ttc）、`aa:style-bad-simsun-p`（看 STYLE 表项 ACAD 扩展数据组码 1000 是否有字体名）、`aa:style-get-or-add`。T2/DH 与 HAO2/ZDML 的样式函数新建时按字体名设置；已有样式不再改绑文件，只在“只绑 simsun.ttc 无字体名”时改成按字体名。ZTF 对宋体、黑体、楷体、仿宋、微软雅黑、等线、新宋体按字体名设置，失败退回绑文件；新增 `ztf:font-family`。新增命令 `SONG`：把图中所有只绑 simsun.ttc 的样式改为按字体名宋体，命令行列出改了哪些。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `b25890b0a8169c442972bc93347201f4ef9bca2a6508bb7af943d0929ba10455`；AutoCAD 按中望改动前后差异逐块对位移植（8 块原文与中望改动前完全一致），SHA-256 `e44b56b2365c17f3fe6be27b628f15c29af9f10364382659a941f26dafd8ee0c`。备份：中望 `backups/dated/2026-11-05/AA整合版本.lsp.bak-songti-20261105-110640`，AutoCAD `backups/songti-20261105-110904.lsp`。
+- 检查：两版 `tools/check_all_static.py --quick` PARTIAL PASS，命令索引、CODE_MAP、审计产物已重新生成；AutoCAD 版 GBK/CRLF、无替换字符。两版均未做 CAD 实机验证。
+- AutoCAD 状态：已同步（静态检查）。AutoCAD 版 DH 仍用自己的 `DH_SimSun` 专用样式，未改。

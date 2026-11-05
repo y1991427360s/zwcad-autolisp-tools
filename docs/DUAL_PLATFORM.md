@@ -283,3 +283,10 @@ Unicode 兼容依据：[Autodesk AutoLISP 兼容说明](https://help.autodesk.co
 - 同步注意：以后从中望往 AutoCAD 补齐时，V6/AICAD 与 `common/` 相关改动一律跳过。
 - 验证状态：全仓静态检查通过；未连接、加载或操作 AutoCAD，未改注册表和 `acaddoc.lsp`。
 - 2026-11-05 补记：本机启动组、`acaddoc.lsp` 与环境变量清理完毕后，按用户要求删除整个 AutoCAD `V6/` 目录（含空壳加载器）。
+
+## 2026-11-05 “宋体”样式只绑 simsun.ttc 时 AutoCAD 显示文件名、字形不同
+
+- 适用范围：用 `vla-put-FontFile` 绑 `simsun.ttc`、STYLE 表项没有 ACAD 扩展数据字体名（组码 1000）的文字样式；涉及 T2、DH（中望）、HAO2、ZDML、ZDML2、ZTF。
+- 差异：中望显示正常；AutoCAD 2018 文字样式对话框字体名显示为 `simsun.ttc`，字形与中望有细微差异（用户截图与描述）。结合 2026-10-31 中文转 90° 的记录，推测 AutoCAD 未按“宋体”字体名解析 simsun.ttc 这个字体集合，属推测。
+- 处理：两版统一改用 `vla-SetFont` 按字体名“宋体”（字符集 134）设置，失败退回绑文件；已有坏样式在 T2/HAO2 等使用时顺手修正，或运行新命令 `SONG` 批量修正。
+- 验证状态：仅离线静态检查。待验证：中望 `vla-SetFont` 是否成功并写入 ACAD 扩展数据（`SONG` 会把未写入的列为“未能修改”）；修正后 AutoCAD 打开是否显示“宋体”且字形一致。
