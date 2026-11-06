@@ -59,7 +59,7 @@ def check():
     def mark(delta):
         state['undo'] += delta
         state['marks'].append(delta)
-    env = {'__functions': funcs, '__builtins': {}}
+    env = {'__functions': funcs, '__builtins': {}, 'aa:zz-scale': None}
     def call(name, *args):
         local = env | {f'a{i}': a for i,a in enumerate(args)}
         return evaluate([name]+[f'a{i}' for i in range(len(args))],local)

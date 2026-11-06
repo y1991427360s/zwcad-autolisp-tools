@@ -128,7 +128,7 @@
 ;;;   - BDL2  : 连续补画多根电缆：逐根选原理号按空格记住，不选直接空格后一次生成（同 BDL），生成前可先调整窗口，一次 U 全部撤销。
 ;;;   - XZYL  : 修正原理号：先点原理号正确的电缆录入，再运行点对面一端的同一根电缆，替换不一致的原理号并补填未编号；合画图录入按 1#/2# 拆开；可先选电缆线再运行。
 ;;;   - ZDDL2 : 自动根据现有端子排与接线方格绘制电缆引线、干线与标注。
-;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列。
+;;;   - ZZ    : 先将文字改为中下对正，再居中到最近矩形；多行文字按 5 个单位的中心间距排列，容差和间距随字高自动放大（字高 3 为 1 倍）。
 ;;;   - ZZ2   : 按 ZZ 居中，恰好双文字单元格所在行调为10，下方内容顺延。
 ;;;   - MJ    : 框选单列表格后，按最长文字自动收窄宽度并将各行文字居中。
 ;;;   - FIVE2   : 同一列相接的直线表格统一行高5，保留顶边、列宽、字高和圆形符号大小。
@@ -15328,8 +15328,26 @@
 ;;; Command: ZZ / JACC
 ;;; Purpose: Center selected TEXT/MTEXT inside nearest surrounding horizontal/vertical LINEs.
 ;;; =======================================================================================
+;;; ZZ 按字高缩放容差：原常数（搜索窗口 350、最大边距 300、直线 0.5、同框 0.1、多行间距 5）
+;;; 都按字高 3 调好。aa:zz-scale 由 aa:zz-run 按所选文字最大字高 / 3 动态提供（不小于 1）；
+;;; 其他共用这些函数的命令不设置它，按 1 处理，行为不变。
+(defun aa:zz-k ()
+  (if (and (numberp aa:zz-scale) (> aa:zz-scale 0.0)) aa:zz-scale 1.0)
+)
+
+(defun aa:zz-text-scale (text-ss / i h hmax)
+  ;; 所选 TEXT/MTEXT 的最大字高（组码 40）÷ 3，下限 1.0，保证原尺寸图纸行为不变。
+  (setq i 0 hmax 0.0)
+  (if text-ss
+    (repeat (sslength text-ss)
+      (setq h (cdr (assoc 40 (entget (ssname text-ss i)))))
+      (if (and (numberp h) (> h hmax)) (setq hmax h))
+      (setq i (1+ i))))
+  (max 1.0 (/ hmax 3.0))
+)
+
 (defun aa:zz-near-line-tol (tol)
-  (max 0.5 (* tol 10.0))
+  (max (* 0.5 (aa:zz-k)) (* tol 10.0))
 )
 
 (defun aa:zz-between-p (v a b tol / lo hi)
@@ -15556,13 +15574,14 @@
         (aa:zz-add-seg q1 q2 near))))
 )
 
-(defun aa:zz-harvest-inserts (doc text-ss ss line-ss / bbox pt1 pt2 ins-ss i en)
+(defun aa:zz-harvest-inserts (doc text-ss ss line-ss / bbox pt1 pt2 ins-ss i en m)
   ;; 把文字附近及用户选中的块参照并入 line-ss，并设置 aa:zz-clip 搜索窗口。
   (if (null line-ss) (setq line-ss (ssadd)))
   (if (setq bbox (aa:zz-calc-texts-bbox doc text-ss))
     (progn
-      (setq pt1        (list (- (nth 0 bbox) 350.0) (- (nth 1 bbox) 350.0))
-            pt2        (list (+ (nth 2 bbox) 350.0) (+ (nth 3 bbox) 350.0))
+      (setq m          (* 350.0 (aa:zz-k))
+            pt1        (list (- (nth 0 bbox) m) (- (nth 1 bbox) m))
+            pt2        (list (+ (nth 2 bbox) m) (+ (nth 3 bbox) m))
             aa:zz-clip (list (car pt1) (cadr pt1) (car pt2) (cadr pt2))
             ins-ss     (ssget "_C" (trans pt1 0 1) (trans pt2 0 1) '((0 . "INSERT"))))
       (if ins-ss
@@ -15607,7 +15626,7 @@
     nil)
 )
 
-(defun aa:zz-harvest-lines (doc text-ss ss / bbox-union min-x min-y max-x max-y pt1 pt2 line-ss line-filter i en typ)
+(defun aa:zz-harvest-lines (doc text-ss ss / bbox-union min-x min-y max-x max-y pt1 pt2 line-ss line-filter i en typ m)
   (setq line-filter '((-4 . "<OR") (0 . "LINE") (0 . "LWPOLYLINE") (0 . "POLYLINE") (-4 . "OR>"))
         line-ss     nil)
   (if (setq bbox-union (aa:zz-calc-texts-bbox doc text-ss))
@@ -15616,8 +15635,9 @@
             min-y (nth 1 bbox-union)
             max-x (nth 2 bbox-union)
             max-y (nth 3 bbox-union)
-            pt1   (list (- min-x 350.0) (- min-y 350.0))
-            pt2   (list (+ max-x 350.0) (+ max-y 350.0))
+            m     (* 350.0 (aa:zz-k))
+            pt1   (list (- min-x m) (- min-y m))
+            pt2   (list (+ max-x m) (+ max-y m))
             line-ss (ssget "_C" (trans pt1 0 1) (trans pt2 0 1) line-filter))))
   (if (and ss (> (sslength ss) 0))
     (progn
@@ -15643,7 +15663,7 @@
 (defun aa:zz-find-bound-lines (line-cache cx cy tol / vlist hlist rec x y left-x right-x top-y bottom-y dl dr dt db dist max-dist)
   (setq vlist    (car line-cache)
         hlist    (cadr line-cache)
-        max-dist 300.0
+        max-dist (* 300.0 (aa:zz-k))
         left-x   nil
         right-x  nil
         top-y    nil
@@ -15733,17 +15753,18 @@
        (equal (nth 6 a) (nth 6 b) rect-tol))
 )
 
-(defun aa:zz-info-before-p (a b / tya tyb)
+(defun aa:zz-info-before-p (a b / tya tyb e)
   (setq tya (nth 5 a)
-        tyb (nth 5 b))
+        tyb (nth 5 b)
+        e   (* 0.1 (aa:zz-k)))
   (cond
-    ((> (abs (- tya tyb)) 0.1)
+    ((> (abs (- tya tyb)) e)
      (> tya tyb))
-    ((> (abs (- (nth 3 a) (nth 3 b))) 0.1)
+    ((> (abs (- (nth 3 a) (nth 3 b))) e)
      (< (nth 3 a) (nth 3 b)))
-    ((> (abs (- (nth 6 a) (nth 6 b))) 0.1)
+    ((> (abs (- (nth 6 a) (nth 6 b))) e)
      (> (nth 6 a) (nth 6 b)))
-    ((> (abs (- (nth 4 a) (nth 4 b))) 0.1)
+    ((> (abs (- (nth 4 a) (nth 4 b))) e)
      (< (nth 4 a) (nth 4 b)))
     (T
      (> (nth 2 a) (nth 2 b))))
@@ -15811,7 +15832,7 @@
            ty       (nth 5 info)
            by       (nth 6 info)
            tx       (/ (+ lx rx) 2.0)
-           spacing  5.0
+           spacing  (* 5.0 (aa:zz-k))
            center-y (/ (+ ty by) 2.0)
            start-y  (+ center-y (* 0.5 (1- n) spacing))
            cnt      0
@@ -15826,7 +15847,7 @@
 
 (defun aa:zz-center-texts (doc text-ss line-ss / i en changed skipped tol rect-tol infos groups info alignment-ok spatial-index g)
   ;; Reuse ZZ centering without interactive selection or an extra undo mark.
-  (setq i 0 changed 0 skipped 0 tol 1e-8 rect-tol 0.1 infos nil
+  (setq i 0 changed 0 skipped 0 tol 1e-8 rect-tol (* 0.1 (aa:zz-k)) infos nil
         spatial-index (aa:zz-build-spatial-index line-ss tol))
   (repeat (sslength text-ss)
     (setq en (ssname text-ss i)
@@ -15843,7 +15864,7 @@
   (list changed skipped)
 )
 
-(defun aa:zz-run (/ *error* doc undo-open ss text-ss changed skipped line-ss result aa:zz-clip aa:zz-blk-cache)
+(defun aa:zz-run (/ *error* doc undo-open ss text-ss changed skipped line-ss result aa:zz-clip aa:zz-blk-cache aa:zz-scale)
   (vl-load-com)
   (setq doc           (vla-get-activedocument (vlax-get-acad-object))
         undo-open     nil
@@ -15851,7 +15872,8 @@
         skipped       0
         line-ss       nil
         aa:zz-clip    nil
-        aa:zz-blk-cache nil)
+        aa:zz-blk-cache nil
+        aa:zz-scale   nil)
 
   (defun *error* (msg)
     (if undo-open
@@ -15877,6 +15899,8 @@
           (sssetfirst nil text-ss)
           (vla-startundomark doc)
           (setq undo-open T
+                ;; 按字高自动放大容差：字高 3 为 1 倍，字高 300 为 100 倍。
+                aa:zz-scale (aa:zz-text-scale text-ss)
                 line-ss (aa:zz-harvest-lines doc text-ss ss)
                 ;; 块参照里人眼可见的框线也作为边框（仅 ZZ/JACC）。
                 line-ss (aa:zz-harvest-inserts doc text-ss ss line-ss))

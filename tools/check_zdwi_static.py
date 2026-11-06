@@ -119,6 +119,7 @@ def evaluate(expr, env):
         '+': lambda *xs: sum(xs), '-': operator.sub, '*': operator.mul, '/': operator.truediv,
         'last': lambda xs: xs[-1], 'itoa': str, 'strcat': lambda *xs: ''.join(xs),
         'abs': abs, 'min': min, 'max': max,
+        'numberp': lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
         'equal': lisp_equal,
     }
     builtins.update(env.get('__builtins', {}))
@@ -304,6 +305,7 @@ def check():
         '__functions': {'aa:zz-center-texts': helper},
         'doc': 'doc', 'texts': ['a', 'outside', 'b'], 'lines': ['new-grid'],
         '__builtins': {
+            'aa:zz-k': lambda: 1.0,
             'aa:zz-build-spatial-index': lambda lines, tol:
                 calls.append(('index', lines)) or 'index',
             'aa:normalize-text-vertical-align': lambda doc, en, mode:

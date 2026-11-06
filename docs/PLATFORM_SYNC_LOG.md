@@ -2662,3 +2662,24 @@ l-position；docs/BH.md 与工作流程文档同步。
 - 来源：中望 `AA整合版本.lsp` SHA-256 `b25890b0a8169c442972bc93347201f4ef9bca2a6508bb7af943d0929ba10455`；AutoCAD 按中望改动前后差异逐块对位移植（8 块原文与中望改动前完全一致），SHA-256 `e44b56b2365c17f3fe6be27b628f15c29af9f10364382659a941f26dafd8ee0c`。备份：中望 `backups/dated/2026-11-05/AA整合版本.lsp.bak-songti-20261105-110640`，AutoCAD `backups/songti-20261105-110904.lsp`。
 - 检查：两版 `tools/check_all_static.py --quick` PARTIAL PASS，命令索引、CODE_MAP、审计产物已重新生成；AutoCAD 版 GBK/CRLF、无替换字符。两版均未做 CAD 实机验证。
 - AutoCAD 状态：已同步（静态检查）。AutoCAD 版 DH 仍用自己的 `DH_SimSun` 专用样式，未改。
+
+## 2026-11-05 15:30:37 ZZ 按字高自动设置容差
+
+- 背景：ZZ 的搜索窗口 350、最大边距 300、横竖线判定 0.5、同框容差 0.1、多行中心间距 5 都是按字高 3 调的绝对值；整图放大 100 倍（字高约 300）后，矩形边线远超 300，找不到边框，无法居中。
+- 改动：新增 `aa:zz-k`、`aa:zz-text-scale`。`aa:zz-run`（ZZ/JACC）按所选 TEXT/MTEXT 最大字高 ÷ 3 得出倍数（下限 1，原尺寸图纸行为不变），通过局部变量 `aa:zz-scale` 动态提供给 `aa:zz-near-line-tol`、`aa:zz-harvest-lines`、`aa:zz-harvest-inserts`、`aa:zz-find-bound-lines`、`aa:zz-info-before-p`、`aa:zz-apply-group`、`aa:zz-center-texts`。DX、DX2、ZZ2、ZDWI、ZDDL 等共用这些函数但不设置该变量，按 1 倍处理，行为不变。离线检查器 `tools/check_zdwi_static.py` 补 `numberp` 和 `aa:zz-k` 桩，`tools/check_zz2_static.py` 补 `aa:zz-scale` 默认 nil。
+- 来源：中望 `AA整合版本.lsp` SHA-256 `4d3383b7cb01cc3269a67f950439816a5226bac72c32c6be084ea4a52bcab794`；备份 `backups/dated/2026-11-05/AA整合版本.lsp.bak-ZZ字高容差-20261105-152429`。
+- 检查：`tools/check_all_static.py` 全量 ALL PASS（41 项专项）；另用离线解释器执行实际 `aa:zz-find-bound-lines`：放大 100 倍的矩形旧逻辑返回 nil，新逻辑正确返回边框。未做 CAD 实机验证。
+- AutoCAD 状态：待同步。
+
+## 2026-11-06 13:27:24 AutoCAD 2018 补齐 11-04 09:49 至 11-05 15:30 全部待同步项
+
+- 中望来源版本：`ZW-auto_lisp/AA整合版本.lsp` SHA-256 `4d3383b7cb01cc3269a67f950439816a5226bac72c32c6be084ea4a52bcab794`（含 2026-11-05 15:30:37 的 ZZ 字高容差，ZZ 部分尚未提交到中望 Git）；同步前后各核对一次，未变。
+- 补齐范围：HDDZ 新增（11-04 09:49:50）及按图 2 调整（11-04 09:52:02）、LONG 路径长度测量（11-04 13:25:34，含别名 `LO`）、ZZ/JACC 按字高自动设置容差（11-05 15:30:37）。宋体样式/SONG（11-05 11:09:24）此前已同步；11-05 的 V6、AICAD、启动提示条目为 AutoCAD 单边，不涉及。
+- 做法：以中望 `backups/dated/2026-11-04/AA整合版本.lsp.bak-HDDZ-20261104-094310`（即上次同步来源 `32b13f1f…`）为基线三方合并，无冲突。按函数核对：中望新增/改动 74 个函数（含此前已手工移植的宋体相关函数，合并结果与中望一致），无删除；合并结果与中望逐函数一致，中望未改的函数全部保持 AutoCAD 原写法。
+- 平台适配：`hddz:collect` 原用 `(vl-string-trim (strcat " \t\r\n" "　") …)`，AutoCAD 按 GBK 字节去除会误删尾字节为 A1 的汉字，改为调用新增的 AutoCAD 专用 `hddz:trim`（先去半角空白，再整字去首尾全角空格）。其余新代码：`hddz:split-term`/冒号查找用 ASCII 58（GBK 尾字节从 0x40 起，不会误中）；含汉字判断走 AutoCAD 已有的 GBK 版 `aa:has-chinese`；`hddz:norm` 的全角冒号、减号、空格替换沿用 `aa:str-replace-all` 字节查找，参与比较的端子号和原理号本身不含汉字，跨字符误配风险低但未消除；LONG 图层名 `LONG-测量` 按 GBK 写入；ZZ 只涉及数值。
+- 工具与配置：新增 `tools/check_hddz_static.py`、`docs/HDDZ.md`（照搬中望），`check_all_static.py` 加入 HDDZ；`check_zdwi_static.py` 补 `numberp` 与 `aa:zz-k` 桩，`check_zz2_static.py` 补 `aa:zz-scale` 默认 nil；`config/aliases.csv` 加 `LO,LONG`。
+- 检查（AutoCAD 版）：`check_all_static.py` 全量 ALL PASS（40 个专项，含 HDDZ）；`scripts/check_project.py` ALL PROJECT STATIC CHECKS PASS；`gen_命令索引.py` 187 个命令；`audit_lsp.py --write` 0 structural findings。
+- 源码哈希：AutoCAD 修改前 `e44b56b2365c17f3fe6be27b628f15c29af9f10364382659a941f26dafd8ee0c`，修改后 `f4a1e819d763a713eb16f4f63371417dbcd2964ef6f2ec97cb485226965f370f`；备份 `backups/dated/2026-11-06/AA整合版本.lsp.bak-sync1104-1105-20261106-132012`。编码 GBK、CRLF、无 BOM，严格编码往返一致。
+- 验证状态：未连接、加载或操作 CAD，AutoCAD 上均未实机验证。
+- 同步状态：AutoCAD 已跟到上述中望版本，上面 HDDZ、LONG、ZZ 字高容差各条视为已同步（静态检查）。
+- 2026-11-06 14:36:29 重新打包分享包：`D:\Users\ys199\Desktop\AutoCAD2018插件-20261106-143613.zip`（12,817,300 字节，包内文件夹同名），包内 `AA整合版本.lsp` SHA-256 与本条修改后哈希 `f4a1e819…` 一致；含 `更新说明-20261106.txt`；`命令别名设置.exe` 自检通过（187 条）；未做安装试跑（安装程序未改）。打包脚本 `CATEGORIES` 新增 YSDL2、SONG、HDDZ、LONG。旧包 `AutoCAD2018插件-20261031-160838.zip` 已移入回收站。
